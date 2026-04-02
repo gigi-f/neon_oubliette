@@ -1,0 +1,26 @@
+{
+  "city_seed": 12345,
+  "size_x": 256,
+  "size_y": 256,
+  "num_districts": 8,
+  "terrain_types": {
+    "ground_noise_frequency": 0.01,
+    "ground_noise_octaves": 4,
+    "water_level_threshold": 0.3,
+    "elevation_scale": 10.0
+  },
+  "resource_node_distribution": [
+    {
+      "resource_type": "IronOre",
+      "min_per_district": 1,
+      "max_per_district": 3,
+      "spawn_chance": 0.15
+    },
+    {
+      "resource_type": "WaterSource",
+      "min_per_district": 1,
+      "max_per_district": 1,
+      "spawn_chance": 0.05
+    }
+  ]
+}

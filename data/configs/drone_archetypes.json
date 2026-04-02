@@ -1,0 +1,82 @@
+
+[
+  {
+    "archetype_id": "SurveillanceDrone_Basic",
+    "description": "Standard low-altitude urban surveillance unit.",
+    "components": {
+      "RenderComponent": {
+        "ascii_char": "D",
+        "color": "#00FF00"
+      },
+      "MovementComponent": {
+        "speed": 3,
+        "pathfinding_type": "aerial"
+      },
+      "SensorComponent": {
+        "range": 10,
+        "sensor_type": "optical",
+        "detection_chance": 0.7
+      },
+      "PowerSourceComponent": {
+        "capacity": 100,
+        "consumption_rate": 2,
+        "charge_rate": 5
+      },
+      "AIComponent": {
+        "behavior_tree_path": "behaviors/surveillance_patrol.bt"
+      }
+    }
+  },
+  {
+    "archetype_id": "DeliveryDrone_Cargo",
+    "description": "Mid-altitude cargo delivery drone, optimized for heavy loads.",
+    "components": {
+      "RenderComponent": {
+        "ascii_char": "T",
+        "color": "#FFFF00"
+      },
+      "MovementComponent": {
+        "speed": 2,
+        "pathfinding_type": "aerial_heavy"
+      },
+      "CargoHoldComponent": {
+        "capacity": 50,
+        "current_load": 0
+      },
+      "PowerSourceComponent": {
+        "capacity": 200,
+        "consumption_rate": 5,
+        "charge_rate": 10
+      },
+      "AIComponent": {
+        "behavior_tree_path": "behaviors/delivery_route.bt"
+      }
+    }
+  },
+  {
+    "archetype_id": "MaintenanceDrone_Repair",
+    "description": "Specialized drone for infrastructure repair and maintenance.",
+    "components": {
+      "RenderComponent": {
+        "ascii_char": "M",
+        "color": "#00FFFF"
+      },
+      "MovementComponent": {
+        "speed": 2,
+        "pathfinding_type": "aerial"
+      },
+      "RepairKitComponent": {
+        "repair_power": 15,
+        "material_storage": 10
+      },
+      "PowerSourceComponent": {
+        "capacity": 150,
+        "consumption_rate": 3,
+        "charge_rate": 7
+      },
+      "AIComponent": {
+        "behavior_tree_path": "behaviors/maintenance_protocol.bt"
+      }
+    }
+  }
+]

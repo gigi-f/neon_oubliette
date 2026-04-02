@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Drone Archetypes Schema",
+  "description": "Schema for defining various drone archetypes and their default components.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "archetype_id",
+      "description",
+      "components"
+    ],
+    "properties": {
+      "archetype_id": {
+        "type": "string",
+        "description": "Unique identifier for the drone archetype."
+      },
+      "description": {
+        "type": "string",
+        "description": "A brief description of the drone archetype."
+      },
+      "components": {
+        "type": "object",
+        "description": "Map of component names to their configuration objects.",
+        "patternProperties": {
+          "^[A-Za-z]+Component$": {
+            "type": "object",
+            "description": "Configuration for a specific component. Specific properties depend on the component type."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false
+  }
+}

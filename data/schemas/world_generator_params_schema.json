@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "World Generator Parameters Schema",
+  "type": "object",
+  "required": ["city_seed", "size_x", "size_y", "num_districts", "terrain_types", "resource_node_distribution"],
+  "properties": {
+    "city_seed": { "type": "integer" },
+    "size_x": { "type": "integer" },
+    "size_y": { "type": "integer" },
+    "num_districts": { "type": "integer" },
+    "terrain_types": {
+      "type": "object",
+      "required": ["ground_noise_frequency", "ground_noise_octaves", "water_level_threshold", "elevation_scale"],
+      "properties": {
+        "ground_noise_frequency": { "type": "number" },
+        "ground_noise_octaves": { "type": "integer" },
+        "water_level_threshold": { "type": "number" },
+        "elevation_scale": { "type": "number" }
+      }
+    },
+    "resource_node_distribution": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["resource_type", "min_per_district", "max_per_district", "spawn_chance"],
+        "properties": {
+          "resource_type": { "type": "string" },
+          "min_per_district": { "type": "integer" },
+          "max_per_district": { "type": "integer" },
+          "spawn_chance": { "type": "number" }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

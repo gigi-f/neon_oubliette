@@ -1,0 +1,21 @@
+# Build and Cache
+build/
+bin/
+.cache/
+compile_commands.json
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary Files
+tmp/
+*.log
+
+# Dependencies (if any local libs are downloaded outside external/)
+# node_modules/ # If you ever add JS
+# venv/ # If you ever add Python
+
+# OS files
+.DS_Store
+Thumbs.db
