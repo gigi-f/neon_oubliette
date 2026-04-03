@@ -75,6 +75,8 @@ void InputSystem::update(double delta_time) {
             // UI Toggles
             else if (key_id == '?') {
                 m_dispatcher.trigger(ToggleControlsHelpEvent{player_entity});
+            } else if (key_id == 'b' || key_id == 'B') {
+                m_dispatcher.trigger(InventoryToggleEvent{player_entity});
             }
 
             // Inspection

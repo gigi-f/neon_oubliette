@@ -57,6 +57,7 @@ void RenderingSystem::initialize() {
         if (inventory_plane_) {
             ncplane_set_base(inventory_plane_, " ", 0, channels);
             ncplane_set_scrolling(inventory_plane_, true);
+            ncplane_move_below(inventory_plane_, world_plane_);
         }
 
         notcurses_cursor_disable(nc_context_);
@@ -74,7 +75,7 @@ void RenderingSystem::update(double delta_time) {
 
     ncplane_erase(world_plane_);
     ncplane_erase(hud_plane_);
-    ncplane_erase(inventory_plane_);
+    if (inventory_visible_) ncplane_erase(inventory_plane_);
 
     int current_layer = 0;
     int cam_x = 0;
@@ -113,7 +114,11 @@ void RenderingSystem::update(double delta_time) {
         if (show_help) {
             ncplane_set_fg_rgb(hud_plane_, 0xFFFF00);
             ncplane_putstr_yx(hud_plane_, 0, 35, "CONTROLS [? hide]");
-            ncplane_putstr_yx(hud_plane_, 1, 35, "WASD:Move E:Interact </>:Floor");
+            ncplane_putstr_yx(hud_plane_, 1, 35, "WASD:Move  SPC:Wait  Q:Quit");
+            ncplane_putstr_yx(hud_plane_, 2, 35, "E:Interact  B:Inventory");
+            ncplane_putstr_yx(hud_plane_, 3, 35, "</>:Floor");
+            ncplane_putstr_yx(hud_plane_, 4, 35, "i:Scan  I:BioAudit  c:Cogn");
+            ncplane_putstr_yx(hud_plane_, 5, 35, "f:Finance  t:Structure");
         }
     }
 
@@ -159,7 +164,10 @@ void RenderingSystem::update(double delta_time) {
 void RenderingSystem::handle_input(const struct ncinput& input) { (void)input; }
 
 void RenderingSystem::handleInventoryToggleEvent(const InventoryToggleEvent& event) {
-    (void)event; inventory_visible_ = !inventory_visible_;
+    (void)event;
+    inventory_visible_ = !inventory_visible_;
+    if (inventory_visible_) ncplane_move_top(inventory_plane_);
+    else ncplane_move_below(inventory_plane_, world_plane_);
 }
 
 void RenderingSystem::handleHUDNotificationEvent(const HUDNotificationEvent& event) {
