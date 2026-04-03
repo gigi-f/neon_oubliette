@@ -1,64 +1,70 @@
 #include "rendering_system.h"
-
 #include <iostream>
 #include <string>
-
-#include "../../ecs/component_declarations.h"
-#include "../../ecs/events.h"
+#include <fstream>
+#include "../components/components.h"
+#include "../event_declarations.h"
 
 namespace NeonOubliette::Systems {
 
 RenderingSystem::RenderingSystem(entt::registry& registry, struct notcurses* nc_context,
                                  entt::dispatcher& event_dispatcher)
-    : registry_(registry), nc_context_(nc_context), event_dispatcher_(event_dispatcher), world_plane_(nullptr),
-      hud_plane_(nullptr), inventory_plane_(nullptr), inventory_visible_(false) {
-    std::cout << "RenderingSystem constructed." << std::endl;
+    : registry_(registry), nc_context_(nc_context), event_dispatcher_(event_dispatcher), 
+      world_plane_(nullptr), hud_plane_(nullptr), inventory_plane_(nullptr), inventory_visible_(false) {
 }
 
 RenderingSystem::~RenderingSystem() {
-    if (world_plane_) {
-        ncplane_destroy(world_plane_);
-    }
-    if (hud_plane_) {
-        ncplane_destroy(hud_plane_);
-    }
-    if (inventory_plane_) {
-        ncplane_destroy(inventory_plane_);
-    }
+    if (hud_plane_) ncplane_destroy(hud_plane_);
+    if (inventory_plane_) ncplane_destroy(inventory_plane_);
+    if (world_plane_) ncplane_destroy(world_plane_);
 }
 
 void RenderingSystem::initialize() {
     if (nc_context_) {
-        world_plane_ = notcurses_stdplane(nc_context_);
+        struct ncplane* stdp = notcurses_stdplane(nc_context_);
+        unsigned term_y, term_x;
+        ncplane_dim_yx(stdp, &term_y, &term_x);
 
-        // HUD: 4 rows at the top, full width
-        struct ncplane_options nopts = {.y = 1,
-                                        .x = 2,
-                                        .rows = 5,
-                                        .cols = 40,
-                                        .userptr = nullptr,
-                                        .name = "HUD",
-                                        .resizecb = nullptr,
-                                        .flags = 0,
-                                        .margin_b = 0,
-                                        .margin_r = 0};
-        hud_plane_ = ncplane_create(world_plane_, &nopts);
+        term_y = (term_y > 0) ? term_y : 24;
+        term_x = (term_x > 0) ? term_x : 80;
 
-        // Inventory: Right column
+        struct ncplane_options nopts = {};
+        nopts.y = 0;
+        nopts.x = 0;
+        nopts.rows = term_y;
+        nopts.cols = term_x;
+        nopts.name = "World";
+        world_plane_ = ncplane_create(stdp, &nopts);
+
+        nopts.y = 0;
+        nopts.x = 0;
+        nopts.rows = 6;
+        nopts.cols = term_x;
+        nopts.name = "HUD";
+        hud_plane_ = ncplane_create(stdp, &nopts);
+        
+        uint64_t channels = 0;
+        ncchannels_set_fg_default(&channels);
+        ncchannels_set_bg_default(&channels);
+        if (hud_plane_) ncplane_set_base(hud_plane_, " ", 0, channels);
+
         nopts.name = "Inventory";
-        nopts.y = 1;
-        nopts.x = -30; // 30 columns from the right
-        nopts.rows = 20;
-        nopts.cols = 28;
-        inventory_plane_ = ncplane_create(world_plane_, &nopts);
-
+        nopts.y = 6;
+        nopts.x = (term_x > 30) ? term_x - 30 : 0;
+        nopts.rows = 10;
+        nopts.cols = 30;
+        inventory_plane_ = ncplane_create(stdp, &nopts);
         if (inventory_plane_) {
+            ncplane_set_base(inventory_plane_, " ", 0, channels);
             ncplane_set_scrolling(inventory_plane_, true);
         }
+
+        notcurses_cursor_disable(nc_context_);
     }
 
-    event_dispatcher_.sink<ECS::InventoryToggleEvent>().connect<&RenderingSystem::handleInventoryToggleEvent>(this);
-    // std::cout << "RenderingSystem initialized." << std::endl;
+    event_dispatcher_.sink<InventoryToggleEvent>().connect<&RenderingSystem::handleInventoryToggleEvent>(this);
+    event_dispatcher_.sink<HUDNotificationEvent>().connect<&RenderingSystem::handleHUDNotificationEvent>(this);
+    event_dispatcher_.sink<ToggleControlsHelpEvent>().connect<&RenderingSystem::handleToggleControlsHelpEvent>(this);
 }
 
 void RenderingSystem::update(double delta_time) {
@@ -70,59 +76,111 @@ void RenderingSystem::update(double delta_time) {
     ncplane_erase(hud_plane_);
     ncplane_erase(inventory_plane_);
 
-    ncplane_set_fg_rgb(world_plane_, 0xAAAAAA);
-    ncplane_putstr_aligned(world_plane_, 0, NCALIGN_CENTER, "Neon Oubliette World View");
+    int current_layer = 0;
+    int cam_x = 0;
+    int cam_y = 0;
+    bool show_help = true;
+
+    auto player_view = registry_.view<PlayerComponent, PositionComponent, PlayerCurrentLayerComponent, HUDComponent>();
+    for (auto entity : player_view) {
+        const auto& pos = player_view.get<PositionComponent>(entity);
+        current_layer = player_view.get<PlayerCurrentLayerComponent>(entity).current_z;
+        show_help = player_view.get<HUDComponent>(entity).show_controls_help;
+        cam_x = pos.x;
+        cam_y = pos.y;
+        break;
+    }
+
+    unsigned view_rows, view_cols;
+    ncplane_dim_yx(world_plane_, &view_rows, &view_cols);
+    
+    int offset_x = (int)view_cols / 2 - cam_x;
+    int offset_y = (int)view_rows / 2 - cam_y;
 
     auto hud_view = registry_.view<HUDComponent>();
     for (auto entity : hud_view) {
         const auto& hud = hud_view.get<HUDComponent>(entity);
-        std::string health_str = "Health: " + std::to_string(static_cast<int>(hud.health)) + "%";
-        std::string credits_str = "Credits: " + std::to_string(hud.credits);
-        std::string layer_str = "Layer: " + std::to_string(hud.current_layer_display);
-
         ncplane_set_fg_rgb(hud_plane_, 0x00FFFF);
-        ncplane_putstr_aligned(hud_plane_, 0, NCALIGN_LEFT, health_str.c_str());
-        ncplane_putstr_aligned(hud_plane_, 1, NCALIGN_LEFT, credits_str.c_str());
-        ncplane_putstr_aligned(hud_plane_, 2, NCALIGN_LEFT, layer_str.c_str());
+        ncplane_printf_yx(hud_plane_, 0, 0, "HEALTH: %.0f%%  CREDITS: %d", hud.health, hud.credits);
+        ncplane_printf_yx(hud_plane_, 1, 0, "LAYER: %d", current_layer);
 
-        int notification_line = 3;
+        int row = 2;
         for (const auto& notif : hud.notifications) {
-            ncplane_putstr_aligned(hud_plane_, notification_line++, NCALIGN_LEFT, notif.c_str());
+            ncplane_putstr_yx(hud_plane_, row++, 0, notif.c_str());
+            if (row >= 6) break;
+        }
+
+        if (show_help) {
+            ncplane_set_fg_rgb(hud_plane_, 0xFFFF00);
+            ncplane_putstr_yx(hud_plane_, 0, 35, "CONTROLS [? hide]");
+            ncplane_putstr_yx(hud_plane_, 1, 35, "WASD:Move E:Interact </>:Floor");
         }
     }
 
-    // Render World Entities
-    auto world_view = registry_.view<RenderableComponent, PositionComponent>();
-    for (auto entity : world_view) {
-        const auto& render = world_view.get<RenderableComponent>(entity);
-        const auto& pos = world_view.get<PositionComponent>(entity);
+    auto render_at = [&](int x, int y, char glyph, uint32_t color) {
+        int screen_x = x + offset_x;
+        int screen_y = y + offset_y;
+        if (screen_x >= 0 && screen_x < (int)view_cols && screen_y >= 0 && screen_y < (int)view_rows) {
+            ncplane_set_fg_rgb(world_plane_, color);
+            ncplane_putchar_yx(world_plane_, screen_y, screen_x, glyph);
+        }
+    };
+
+    auto terrain_view = registry_.view<TerrainComponent, RenderableComponent, PositionComponent>();
+    for (auto entity : terrain_view) {
+        const auto& render = terrain_view.get<RenderableComponent>(entity);
+        const auto& pos = terrain_view.get<PositionComponent>(entity);
+        if (pos.layer_id != current_layer) continue;
+        render_at(pos.x, pos.y, render.glyph, parse_hex_color(render.color));
+    }
+
+    auto entity_view = registry_.view<RenderableComponent, PositionComponent>(entt::exclude<TerrainComponent>);
+    for (auto entity : entity_view) {
+        const auto& render = entity_view.get<RenderableComponent>(entity);
+        const auto& pos = entity_view.get<PositionComponent>(entity);
+        if (pos.layer_id != current_layer) continue;
 
         uint32_t color = parse_hex_color(render.color);
-        ncplane_set_fg_rgb(world_plane_, color);
-        ncplane_putchar_yx(world_plane_, pos.y, pos.x, render.glyph);
+        if (registry_.all_of<SizeComponent>(entity)) {
+            const auto& size = registry_.get<SizeComponent>(entity);
+            for (int dx = 0; dx < size.width; ++dx) {
+                for (int dy = 0; dy < size.height; ++dy) {
+                    render_at(pos.x + dx, pos.y + dy, render.glyph, color);
+                }
+            }
+        } else {
+            render_at(pos.x, pos.y, render.glyph, color);
+        }
     }
 
     notcurses_render(nc_context_);
 }
 
-void RenderingSystem::handle_input(const ncinput& input) {
-    (void)input;
+void RenderingSystem::handle_input(const struct ncinput& input) { (void)input; }
+
+void RenderingSystem::handleInventoryToggleEvent(const InventoryToggleEvent& event) {
+    (void)event; inventory_visible_ = !inventory_visible_;
 }
 
-void RenderingSystem::handleInventoryToggleEvent(const ECS::InventoryToggleEvent& event) {
-    (void)event;
-    inventory_visible_ = !inventory_visible_;
+void RenderingSystem::handleHUDNotificationEvent(const HUDNotificationEvent& event) {
+    auto view = registry_.view<HUDComponent, PlayerComponent>();
+    for (auto entity : view) {
+        auto& hud = view.get<HUDComponent>(entity);
+        hud.notifications.insert(hud.notifications.begin(), event.message);
+        if (hud.notifications.size() > 5) hud.notifications.pop_back();
+    }
+}
+
+void RenderingSystem::handleToggleControlsHelpEvent(const ToggleControlsHelpEvent& event) {
+    if (registry_.all_of<HUDComponent>(event.entity)) {
+        registry_.get<HUDComponent>(event.entity).show_controls_help = !registry_.get<HUDComponent>(event.entity).show_controls_help;
+    }
 }
 
 uint32_t RenderingSystem::parse_hex_color(const std::string& hex) {
     if (hex.empty()) return 0xFFFFFF;
-    std::string s = hex;
-    if (s[0] == '#') s = s.substr(1);
-    try {
-        return std::stoul(s, nullptr, 16);
-    } catch (...) {
-        return 0xFFFFFF;
-    }
+    std::string s = (hex[0] == '#') ? hex.substr(1) : hex;
+    try { return std::stoul(s, nullptr, 16); } catch (...) { return 0xFFFFFF; }
 }
 
 } // namespace NeonOubliette::Systems

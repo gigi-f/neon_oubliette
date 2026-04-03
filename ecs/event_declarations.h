@@ -54,6 +54,9 @@ struct PlayerMoveEvent {
 struct BuildingEntranceEvent {
     entt::entity visitor;
     entt::entity building;
+    int entry_x = 0;
+    int entry_y = 0;
+    int entry_layer = 0;
 };
 
 struct InteriorActivatedEvent {
@@ -100,12 +103,20 @@ struct InventoryToggleEvent {
     entt::entity entity;
 };
 
+struct ToggleControlsHelpEvent {
+    entt::entity entity;
+};
+
 struct InspectEvent {
     entt::entity player_entity;
     int layer_id;
     int x;
     int y;
     InspectionMode mode;
+};
+
+struct InteractEvent {
+    entt::entity entity;
 };
 
 struct UseItemEvent {

@@ -47,8 +47,7 @@ void InspectionSystem::create_inspection_plane() {
     uint64_t channels = 0;
     ncchannels_set_bg_rgb(&channels, 0x22252B);
     ncchannels_set_fg_rgb(&channels, 0xFFFFFF);
-    ncplane_set_base(m_inspection_plane, "", 0, channels);
-    ncplane_set_channels(m_inspection_plane, channels);
+    ncplane_set_base(m_inspection_plane, " ", 0, channels);
 }
 
 void InspectionSystem::close_inspection_window() {
@@ -75,25 +74,21 @@ void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
     }
 
     if (target == entt::null) {
-        // Only close window if we explicitly clicked/pressed i/I etc.
         if (event.mode != InspectionMode::GLANCE) {
             close_inspection_window();
         }
         return;
     }
 
-    // Passive Glance (Mode 0)
     if (event.mode == InspectionMode::GLANCE) {
         std::string name = "Something";
         if (registry_.all_of<NameComponent>(target)) {
             name = registry_.get<NameComponent>(target).name;
         }
-        // Brief notification instead of full window
         event_dispatcher_.trigger(HUDNotificationEvent{"You see: " + name, 1.0f, "#AAAAAA"});
         return;
     }
 
-    // Active Scans (Mode 1-5)
     m_current_target = target;
     m_current_mode = event.mode;
     m_window_visible = true;
@@ -216,9 +211,6 @@ void InspectionSystem::draw_content() {
              }
              break;
         }
-        case InspectionMode::GLANCE:
-        case InspectionMode::FORENSIC:
-        case InspectionMode::SURVEILLANCE:
         default: break;
     }
 }

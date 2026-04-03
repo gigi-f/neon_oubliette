@@ -57,6 +57,12 @@ void InputSystem::update(double delta_time) {
                 m_dispatcher.trigger<AdvanceTurnRequestEvent>();
             }
             
+            // Interaction
+            else if (key_id == 'e' || key_id == 'E') {
+                m_dispatcher.trigger(InteractEvent{player_entity});
+                m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+            }
+
             // Movement (Vertical)
             else if (key_id == '>') {
                 m_dispatcher.trigger(PlayerLayerChangeEvent{1});
@@ -66,10 +72,15 @@ void InputSystem::update(double delta_time) {
                 m_dispatcher.trigger<AdvanceTurnRequestEvent>();
             }
             
+            // UI Toggles
+            else if (key_id == '?') {
+                m_dispatcher.trigger(ToggleControlsHelpEvent{player_entity});
+            }
+
             // Inspection
-            else if (key_id == 'i') { // Surface Scan (Adjacent or Current)
+            else if (key_id == 'i') { // Surface Scan
                 m_dispatcher.trigger(InspectEvent{player_entity, pos.layer_id, pos.x, pos.y, InspectionMode::SURFACE_SCAN});
-            } else if (key_id == 'I') { // Biological Audit (Current for now, could be direction later)
+            } else if (key_id == 'I') { // Biological Audit
                 m_dispatcher.trigger(InspectEvent{player_entity, pos.layer_id, pos.x, pos.y, InspectionMode::BIOLOGICAL_AUDIT});
             } else if (key_id == 'c') { // Cognitive Profile
                 m_dispatcher.trigger(InspectEvent{player_entity, pos.layer_id, pos.x, pos.y, InspectionMode::COGNITIVE_PROFILE});

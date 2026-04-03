@@ -22,6 +22,7 @@
 #include "systems/activity_system.h"
 #include "systems/barter_system.h"
 #include "systems/faction_system.h"
+#include "systems/city_generation_system.h"
 
 // Multi-scalar Simulation Systems
 #include "simulation_coordinator.h"
@@ -77,6 +78,9 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<TurnManagerSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<LoggingSystem>(registry, event_dispatcher));
+    
+    // Generation System (One-off usually, but registered for handle access)
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<CityGenerationSystem>(registry, event_dispatcher));
 
     // --- Output Phase ---
     scheduler.add_system(SystemScheduler::Phase::Output,

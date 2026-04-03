@@ -40,6 +40,23 @@ enum class WorkstationType : uint32_t {
     NONE = 0, CRAFTING_BENCH, FORGE, LABORATORY
 };
 
+enum class TerrainType : uint8_t {
+    VOID = 0,
+    STREET,
+    SIDEWALK,
+    GRASS,
+    DIRT,
+    CONCRETE_FLOOR,
+    WOOD_FLOOR,
+    WALL,
+    WINDOW,
+    OFFICE_CARPET
+};
+
+enum class Direction : uint8_t {
+    NORTH, SOUTH, EAST, WEST
+};
+
 // =====================================================================
 // Core Components
 // =====================================================================
@@ -66,6 +83,20 @@ struct PositionComponent {
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer_id)); }
 };
 
+/**
+ * @brief Defines the physical footprint of an entity in tiles.
+ */
+struct SizeComponent {
+    int width = 1;
+    int height = 1;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(width), CEREAL_NVP(height)); }
+};
+
+struct OrientationComponent {
+    Direction facing = Direction::NORTH;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(facing)); }
+};
+
 struct RenderableComponent {
     char glyph = '?'; std::string color = "#FFFFFF"; int layer_id = 0;
     RenderableComponent() = default;
@@ -78,8 +109,9 @@ struct PlayerComponent { template <class Archive> void serialize(Archive&) {} };
 struct HUDComponent {
     float health = 100.0f; int credits = 0; int current_layer_display = 0;
     std::vector<std::string> notifications;
+    bool show_controls_help = true;
     template <class Archive> void serialize(Archive& ar) {
-        ar(CEREAL_NVP(health), CEREAL_NVP(credits), CEREAL_NVP(current_layer_display), CEREAL_NVP(notifications));
+        ar(CEREAL_NVP(health), CEREAL_NVP(credits), CEREAL_NVP(current_layer_display), CEREAL_NVP(notifications), CEREAL_NVP(show_controls_help));
     }
 };
 
@@ -101,6 +133,11 @@ struct ItemComponent {
 struct ItemValueComponent {
     int value = 1;
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(value)); }
+};
+
+struct TerrainComponent {
+    TerrainType type = TerrainType::VOID;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(type)); }
 };
 
 // =====================================================================
@@ -157,6 +194,20 @@ struct BuildingEntranceComponent {
     entt::entity macro_building_id = entt::null; int entry_layer_id = 0;
     BuildingEntranceComponent() = default; BuildingEntranceComponent(entt::entity b, int l) : macro_building_id(b), entry_layer_id(l) {}
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(macro_building_id), CEREAL_NVP(entry_layer_id)); }
+};
+
+/**
+ * @brief Portals connect two specific positions across layers.
+ *        Enables coherent door-to-door mechanics.
+ */
+struct PortalComponent {
+    int target_x = 0;
+    int target_y = 0;
+    int target_layer = 0;
+    bool is_two_way = true;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(target_x), CEREAL_NVP(target_y), CEREAL_NVP(target_layer), CEREAL_NVP(is_two_way));
+    }
 };
 
 // =====================================================================
@@ -323,6 +374,7 @@ struct HarvestableComponent {
 namespace ECS {
     using NameComponent = NeonOubliette::NameComponent;
     using PositionComponent = NeonOubliette::PositionComponent;
+    using SizeComponent = NeonOubliette::SizeComponent;
     using RenderableComponent = NeonOubliette::RenderableComponent;
     using PlayerComponent = NeonOubliette::PlayerComponent;
     using HUDComponent = NeonOubliette::HUDComponent;
@@ -405,6 +457,8 @@ namespace ECS {
     using CurrentPathComponent = NeonOubliette::CurrentPathComponent;
     using CraftingRecipeComponent = NeonOubliette::CraftingRecipeComponent;
     using HarvestableComponent = NeonOubliette::HarvestableComponent;
+    using TerrainComponent = NeonOubliette::TerrainComponent;
+    using PortalComponent = NeonOubliette::PortalComponent;
 }
 
 } // namespace NeonOubliette

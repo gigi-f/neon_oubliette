@@ -2,11 +2,11 @@
 #define NEON_OUBLIETTE_RENDERING_SYSTEM_H
 
 #include <notcurses/notcurses.h>
-
 #include <entt/entt.hpp>
-
-#include "../../ecs/events.h"
+#include "../../ecs/event_declarations.h"
 #include "system_scheduler.h"
+#include <string>
+#include <vector>
 
 namespace NeonOubliette::Systems {
 
@@ -31,7 +31,9 @@ private:
 
     bool inventory_visible_ = false;
 
-    void handleInventoryToggleEvent(const ECS::InventoryToggleEvent& event);
+    void handleInventoryToggleEvent(const InventoryToggleEvent& event);
+    void handleHUDNotificationEvent(const HUDNotificationEvent& event);
+    void handleToggleControlsHelpEvent(const ToggleControlsHelpEvent& event);
     uint32_t parse_hex_color(const std::string& hex);
 };
 

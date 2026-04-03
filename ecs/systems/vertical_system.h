@@ -31,7 +31,7 @@ public:
 
             bool transition_found = false;
 
-            // Check for localized transition components (Stairs/Elevators)
+            // Check for localized transition components (Stairs/Elevators/Portals)
             auto transition_view = m_registry.view<PositionComponent>();
             for (auto t_entity : transition_view) {
                 auto& t_pos = transition_view.get<PositionComponent>(t_entity);
@@ -39,27 +39,32 @@ public:
                 // Must be at the same physical location and layer
                 if (t_pos.x == pos.x && t_pos.y == pos.y && t_pos.layer_id == pos.layer_id) {
                     
-                    // Case 1: Stairs (Intra-Interior or Macro-to-Interior if handled)
+                    // Case 1: Stairs
                     if (m_registry.all_of<StairsComponent>(t_entity)) {
                         auto& stairs = m_registry.get<StairsComponent>(t_entity);
                         
-                        int floor_level = pos.layer_id % 100;
-                        // If we are at the "Exit" level (Floor 0 of an interior) and going down
-                        if (event.dz < 0 && pos.layer_id >= 100 && floor_level == 0) {
-                            // Handled by Exit logic below
-                        } else {
-                            pos.layer_id = stairs.connects_to_layer;
-                            layer.current_z = pos.layer_id;
-                            transition_found = true;
-                            m_dispatcher.enqueue<HUDNotificationEvent>("Used stairs.", 1.5f, "#AAAAFF");
-                        }
+                        // Use event.dz to determine direction if possible, but Stairs often have fixed targets
+                        pos.layer_id = stairs.connects_to_layer;
+                        layer.current_z = pos.layer_id;
+                        transition_found = true;
+                        m_dispatcher.enqueue<HUDNotificationEvent>("Used stairs.", 1.5f, "#AAAAFF");
                     }
                     
-                    // Case 2: Elevator
+                    // Case 2: Portals (Exit Doors)
+                    else if (m_registry.all_of<PortalComponent>(t_entity)) {
+                        auto& portal = m_registry.get<PortalComponent>(t_entity);
+                        
+                        pos.x = portal.target_x;
+                        pos.y = portal.target_y;
+                        pos.layer_id = portal.target_layer;
+                        layer.current_z = pos.layer_id;
+                        transition_found = true;
+                        m_dispatcher.enqueue<HUDNotificationEvent>("Passed through portal.", 1.5f, "#FFFFFF");
+                    }
+
+                    // Case 3: Elevator
                     else if (m_registry.all_of<ElevatorComponent>(t_entity)) {
-                        // auto& elevator = m_registry.get<ElevatorComponent>(t_entity);
                         int target_layer = pos.layer_id + event.dz;
-                        // Elevator bounds check logic would go here
                         pos.layer_id = target_layer; 
                         layer.current_z = pos.layer_id;
                         transition_found = true;
@@ -67,28 +72,6 @@ public:
                     }
                 }
                 if (transition_found) break;
-            }
-
-            // Case 3: Exit Interior to Macro City
-            // If the player is on Floor 0 of an interior and moves "down"
-            if (!transition_found && event.dz < 0) {
-                // Determine if we are in an interior
-                // We use the convention: layer_id = building_entity_index * 100 + floor_level
-                int floor_level = pos.layer_id % 100;
-                entt::entity building_entity = static_cast<entt::entity>(pos.layer_id / 100);
-
-                if (floor_level == 0 && m_registry.valid(building_entity)) {
-                    // Transition back to macro position of the building
-                    if (m_registry.all_of<PositionComponent>(building_entity)) {
-                        auto& b_pos = m_registry.get<PositionComponent>(building_entity);
-                        pos.x = b_pos.x;
-                        pos.y = b_pos.y;
-                        pos.layer_id = b_pos.layer_id; // Usually 0 (Macro)
-                        layer.current_z = pos.layer_id;
-                        transition_found = true;
-                        m_dispatcher.enqueue<HUDNotificationEvent>("Exited to city.", 2.0f, "#FFFFFF");
-                    }
-                }
             }
 
             if (!transition_found && event.dz != 0) {

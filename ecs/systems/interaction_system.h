@@ -2,9 +2,7 @@
 #define NEON_OUBLIETTE_INTERACTION_SYSTEM_H
 
 #include <notcurses/notcurses.h>
-
 #include <entt/entt.hpp>
-
 #include "../components/components.h"
 #include "../event_declarations.h"
 #include "../system_scheduler.h"
@@ -25,6 +23,7 @@ private:
     struct notcurses* nc_context_;
     entt::dispatcher& event_dispatcher_;
 
+    void handleInteractEvent(const InteractEvent& event);
     void handlePickupItemEvent(const PickupItemEvent& event);
 };
 
