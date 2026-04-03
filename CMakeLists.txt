@@ -63,6 +63,7 @@ set(PROJECT_SOURCES
     ecs/systems/activity_system.cpp
     ecs/systems/barter_system.cpp
     ecs/systems/faction_system.cpp
+    ecs/systems/zoning_solver_system.cpp
 )
 
 # --- Executable ---

@@ -42,6 +42,8 @@ public:
      */
     void advance_turn(double delta_time);
 
+    uint64_t get_turn() const { return m_turn_counter; }
+
 private:
     void tick_layer(SimulationLayer layer, double delta_time);
     bool should_layer_tick(SimulationLayer layer, uint64_t turn) const;

@@ -24,8 +24,8 @@ void AgentDecisionSystem::handleTurnEvent(const TurnEvent& event) {
         auto& name = agent_view.get<NameComponent>(entity);
 
         // 1. Update needs
-        needs.hunger = std::max(0.0f, needs.hunger - 2.0f);
-        needs.thirst = std::max(0.0f, needs.thirst - 3.0f);
+        needs.hunger = std::max(0.0f, needs.hunger - 0.5f); // Slower decay
+        needs.thirst = std::max(0.0f, needs.thirst - 0.8f);
 
         // 2. Already has an active task?
         if (m_registry.all_of<AgentTaskComponent>(entity)) {
@@ -129,7 +129,35 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
     }
 
     if (!seeking_resource) {
-        agent_task.task_type = AgentTaskType::IDLE;
+        // Handle Patrol vs Wander vs Idle
+        if (m_registry.all_of<PatrolComponent>(agent_entity)) {
+            auto& patrol = m_registry.get<PatrolComponent>(agent_entity);
+            if (!patrol.waypoints.empty()) {
+                const auto& wp = patrol.waypoints[patrol.current_waypoint_index];
+                
+                // If at waypoint, next one
+                if (agent_pos.x == wp.x && agent_pos.y == wp.y && agent_pos.layer_id == wp.layer_id) {
+                    patrol.current_waypoint_index = (patrol.current_waypoint_index + 1) % patrol.waypoints.size();
+                }
+                
+                // Path to current waypoint
+                const auto& target_wp = patrol.waypoints[patrol.current_waypoint_index];
+                agent_task.task_type = AgentTaskType::PATROL;
+                agent_goal.target_x = target_wp.x;
+                agent_goal.target_y = target_wp.y;
+                agent_goal.target_layer = target_wp.layer_id;
+
+                m_dispatcher.trigger<PathfindingRequestEvent>(
+                    {agent_entity, 
+                     {agent_pos.x, agent_pos.y, agent_pos.layer_id}, 
+                     {target_wp.x, target_wp.y, target_wp.layer_id}, 
+                     m_nextPathRequestId++});
+            } else {
+                agent_task.task_type = AgentTaskType::WANDER;
+            }
+        } else {
+            agent_task.task_type = AgentTaskType::WANDER;
+        }
     }
 }
 

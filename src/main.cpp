@@ -22,6 +22,7 @@
 #include "ecs/systems/serialization_system.h"
 #include "ecs/systems/city_generation_system.h"
 #include "ecs/systems/agent_spawn_system.h"
+#include "ecs/systems/zoning_solver_system.h"
 
 static bool running = true;
 
@@ -59,20 +60,24 @@ int main(int argc, char** argv) {
 
     double delta_time = 0.016;
 
-    // --- City Generation ---
-    NeonOubliette::CityGenerationSystem city_gen(macro_registry, event_dispatcher);
-    city_gen.generateCity(60, 30);
-
     // --- World Config ---
     auto config_entity = macro_registry.create();
-    macro_registry.emplace<NeonOubliette::WorldConfigComponent>(config_entity, 60, 30);
+    macro_registry.emplace<NeonOubliette::WorldConfigComponent>(config_entity, 100, 100, 20);
+
+    // --- Zoning Solver (Phase 2.1) ---
+    NeonOubliette::ZoningSolverSystem zoning_solver(macro_registry, event_dispatcher);
+    zoning_solver.solve_zoning(5, 5); // 5x5 macro-cells of 20x20 tiles = 100x100 world
+
+    // --- City Generation (Phase 2.2+) ---
+    NeonOubliette::CityGenerationSystem city_gen(macro_registry, event_dispatcher);
+    city_gen.generateCityFromZones();
 
     // --- Agent Spawning ---
     NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
-    agent_spawn.spawnAgents(40, 0); // Spawn 40 agents on layer 0
+    agent_spawn.spawnAgents(60, 0); 
 
     // --- Entity Creation ---
-    // Spawn player at (10, 13) - Sidewalk, away from building walls
+    // Spawn player at (10, 13)
     auto player_entity = macro_registry.create();
     macro_registry.emplace<NeonOubliette::PositionComponent>(player_entity, 10, 13, 0); 
     macro_registry.emplace<NeonOubliette::PlayerCurrentLayerComponent>(player_entity, 0);
@@ -90,7 +95,7 @@ int main(int argc, char** argv) {
     macro_registry.emplace<NeonOubliette::Layer4PoliticalComponent>(player_entity);
 
     // Welcome message
-    event_dispatcher.trigger(NeonOubliette::HUDNotificationEvent{"Welcome to Neon Oubliette", 5.0f, "#00FFFF"});
+    event_dispatcher.trigger(NeonOubliette::HUDNotificationEvent{"Neon Oubliette: Procedural Phase Active", 5.0f, "#00FFFF"});
 
     // --- Initial Render ---
     scheduler.run_phase(NeonOubliette::SystemScheduler::Phase::Output, macro_registry, event_dispatcher, delta_time);

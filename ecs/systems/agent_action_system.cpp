@@ -26,9 +26,14 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
 
         switch (task.task_type) {
             case AgentTaskType::SEEK_FOOD:
-            case AgentTaskType::SEEK_WATER: {
+            case AgentTaskType::SEEK_WATER: 
+            case AgentTaskType::PATROL:
+            case AgentTaskType::MOVE_TO_TARGET: {
                 if (m_registry.all_of<GoalComponent>(entity)) {
                     auto& goal = m_registry.get<GoalComponent>(entity);
+                    
+                    // This is simple direct movement if not using Pathfinding yet
+                    // Usually AgentDecisionSystem triggers pathfinding first.
                     int dx = 0;
                     int dy = 0;
 
@@ -44,9 +49,6 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
 
                     if (position.x == goal.target_x && position.y == goal.target_y &&
                         position.layer_id == goal.target_layer) {
-                        m_dispatcher.trigger<HUDNotificationEvent>(
-                            {name.name + " reached its goal!", 1.5f, "#FFFFFF"});
-                        m_registry.remove<GoalComponent>(entity);
                         m_registry.remove<AgentTaskComponent>(entity);
                     } else {
                         m_dispatcher.trigger<MoveEvent>({entity, dx, dy, position.layer_id});
@@ -93,8 +95,6 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
                         }
 
                         if (path_comp.current_step_index >= path_comp.path.size()) {
-                            m_dispatcher.trigger<HUDNotificationEvent>(
-                                {name.name + " completed its path.", 1.5f, "#FFFFFF"});
                             m_registry.remove<CurrentPathComponent>(entity);
                             m_registry.remove<AgentTaskComponent>(entity);
                         }
@@ -102,16 +102,22 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
                         m_registry.remove<CurrentPathComponent>(entity);
                         m_registry.remove<AgentTaskComponent>(entity);
                     }
+                } else {
+                    m_registry.remove<AgentTaskComponent>(entity);
                 }
                 break;
             }
 
-            case AgentTaskType::WANDER:
-            case AgentTaskType::IDLE:
-            default: {
+            case AgentTaskType::WANDER: {
                 int dx = distrib(gen);
                 int dy = distrib(gen);
                 m_dispatcher.trigger<MoveEvent>({entity, dx, dy, position.layer_id});
+                m_registry.remove<AgentTaskComponent>(entity);
+                break;
+            }
+
+            case AgentTaskType::IDLE:
+            default: {
                 m_registry.remove<AgentTaskComponent>(entity);
                 break;
             }

@@ -48,7 +48,7 @@ entt::entity AgentSpawnSystem::createAgent(int x, int y, int layer, const std::s
     m_registry.emplace<RenderableComponent>(entity, glyph, color, layer);
     m_registry.emplace<AgentComponent>(entity);
     m_registry.emplace<NPCComponent>(entity, 100, 0); // Health 100, no macro id for now
-    m_registry.emplace<AgentTaskComponent>(entity, AgentTaskType::WANDER);
+    m_registry.emplace<AgentTaskComponent>(entity, AgentTaskType::IDLE);
     m_registry.emplace<NeedsComponent>(entity, 100.0f, 100.0f);
     m_registry.emplace<SizeComponent>(entity, 1, 1);
 
@@ -61,6 +61,22 @@ entt::entity AgentSpawnSystem::createAgent(int x, int y, int layer, const std::s
 
     if (archetype == "Guard") {
         m_registry.emplace<FactionComponent>(entity, "GOVERNMENT", 50, 1.0f);
+        
+        // Add Patrol waypoints for Guards (Phase 1.3)
+        PatrolComponent patrol;
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> disRel(-5, 5);
+        
+        // Waypoint 1: near spawn
+        patrol.waypoints.push_back({x, y, layer});
+        
+        // Waypoint 2: random offset
+        int wx2 = std::clamp(x + disRel(gen), 0, 59); // Assuming 60x30 for now, should ideally use config
+        int wy2 = std::clamp(y + disRel(gen), 0, 29);
+        patrol.waypoints.push_back({wx2, wy2, layer});
+        
+        m_registry.emplace<PatrolComponent>(entity, patrol);
     } else {
         m_registry.emplace<FactionComponent>(entity, "CITIZEN", 10, 0.1f);
     }

@@ -27,7 +27,6 @@ public:
             auto& opinion = opinion_view.get<PublicOpinionComponent>(entity);
             // If average approval for the ruling 'City Infrastructure' faction is low, 
             // the maintenance_penalty increases (Simulating budget cuts/neglect).
-            // (Placeholder logic: checking for a hypothetical "Civic Union" faction)
             for (auto const& [faction, approval] : opinion.faction_approval) {
                 if (approval < 0.3f) {
                     maintenance_penalty += 0.5f; 
@@ -36,9 +35,9 @@ public:
         }
 
         // 2. Process Infrastructure Decay
-        auto view = m_registry.view<ConditionComponent>();
+        auto view = m_registry.view<Layer0PhysicsComponent>();
         for (auto entity : view) {
-            auto& condition = view.get<ConditionComponent>(entity);
+            auto& phys = view.get<Layer0PhysicsComponent>(entity);
             
             // Base decay rate
             float decay = 0.0001f * maintenance_penalty;
@@ -51,14 +50,14 @@ public:
                 }
             }
 
-            condition.integrity -= decay;
+            phys.structural_integrity -= decay;
 
             // Trigger failure events
-            if (condition.integrity <= 0.0f) {
-                condition.integrity = 0.0f;
+            if (phys.structural_integrity <= 0.0f) {
+                phys.structural_integrity = 0.0f;
                 m_dispatcher.enqueue<InfrastructureBreakdownEvent>({entity, "Systemic failure due to neglect", 0});
-            } else if (condition.integrity < 0.25f && m_dist(m_gen) < 0.01f) {
-                m_dispatcher.enqueue<InfrastructureDegradationEvent>({entity, condition.integrity, decay, 0});
+            } else if (phys.structural_integrity < 0.25f && m_dist(m_gen) < 0.01f) {
+                m_dispatcher.enqueue<InfrastructureDegradationEvent>({entity, phys.structural_integrity, decay, 0});
             }
         }
     }

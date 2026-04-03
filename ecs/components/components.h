@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "../command_buffer.h"
+#include "zoning_components.h"
 
 namespace NeonOubliette {
 
@@ -29,7 +30,7 @@ enum class AgentTaskType : uint32_t {
     IDLE, WANDER, SEEK_FOOD, SEEK_WATER, SEEK_SHELTER, GO_TO_WORK,
     PICK_UP_ITEM, CONSUME_ITEM, MOVE_TO_TARGET, MOVE_ALONG_PATH,
     SEEK_HARVESTABLE, OPEN_CONTAINER, TAKE_ITEM_FROM_CONTAINER,
-    CRAFT_ITEM, USE_ITEM, AWAITING_PATH, SHOVE
+    CRAFT_ITEM, USE_ITEM, AWAITING_PATH, SHOVE, PATROL
 };
 
 enum class ActivityType : uint32_t {
@@ -57,6 +58,10 @@ enum class Direction : uint8_t {
     NORTH, SOUTH, EAST, WEST
 };
 
+enum class WeatherState : uint8_t {
+    CLEAR, OVERCAST, RAIN, HEAVY_RAIN, ACID_RAIN, SMOG, ELECTRICAL_STORM
+};
+
 // =====================================================================
 // Core Components
 // =====================================================================
@@ -64,7 +69,8 @@ enum class Direction : uint8_t {
 struct WorldConfigComponent {
     int width = 0;
     int height = 0;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(width), CEREAL_NVP(height)); }
+    int macro_cell_size = 20;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(width), CEREAL_NVP(height), CEREAL_NVP(macro_cell_size)); }
 };
 
 struct NameComponent {
@@ -153,9 +159,9 @@ struct TerrainComponent {
 // =====================================================================
 
 struct BuildingComponent {
-    int height = 1; std::string zoning; int occupant_count = 0;
+    int height = 1; ZoneType zone_type = ZoneType::VOID; int occupant_count = 0;
     CommandBuffer command_buffer;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(height), CEREAL_NVP(zoning), CEREAL_NVP(occupant_count)); }
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(height), CEREAL_NVP(zone_type), CEREAL_NVP(occupant_count)); }
 };
 
 struct FloorComponent {
@@ -185,12 +191,6 @@ struct StairsComponent {
 struct ElevatorComponent {
     int top_layer = 0; int bottom_layer = 0;
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(top_layer), CEREAL_NVP(bottom_layer)); }
-};
-
-struct ConditionComponent {
-    float integrity = 1.0f;
-    ConditionComponent() = default; ConditionComponent(float i) : integrity(i) {}
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(integrity)); }
 };
 
 struct InteriorGeneratedComponent {
@@ -243,6 +243,13 @@ struct NeedsComponent {
     NeedsComponent() = default; NeedsComponent(float h, float t) : hunger(h), thirst(t) {}
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(hunger), CEREAL_NVP(thirst), CEREAL_NVP(frustration)); }
 };
+struct PatrolComponent {
+    std::vector<PositionComponent> waypoints;
+    size_t current_waypoint_index = 0;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(waypoints), CEREAL_NVP(current_waypoint_index));
+    }
+};
 
 // =====================================================================
 // Environment & Infrastructure
@@ -252,6 +259,15 @@ struct WasteComponent { float waste_level = 0.0f; template <class Archive> void 
 struct RoadComponent { float traffic_density = 0.0f; template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(traffic_density)); } };
 struct PollutionLevelComponent { float air_pollution = 0.0f; template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(air_pollution)); } };
 struct ObstacleComponent { template <class Archive> void serialize(Archive&) {} };
+
+struct WeatherComponent {
+    WeatherState state = WeatherState::CLEAR;
+    float intensity = 0.0f;
+    uint32_t ticks_remaining = 100;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(state), CEREAL_NVP(intensity), CEREAL_NVP(ticks_remaining));
+    }
+};
 
 // =====================================================================
 // Macro & Market Components
@@ -400,7 +416,6 @@ namespace ECS {
     using ApartmentComponent = NeonOubliette::ApartmentComponent;
     using StairsComponent = NeonOubliette::StairsComponent;
     using ElevatorComponent = NeonOubliette::ElevatorComponent;
-    using ConditionComponent = NeonOubliette::ConditionComponent;
     using InteriorGeneratedComponent = NeonOubliette::InteriorGeneratedComponent;
     using BuildingEntranceComponent = NeonOubliette::BuildingEntranceComponent;
     using AgentComponent = NeonOubliette::AgentComponent;

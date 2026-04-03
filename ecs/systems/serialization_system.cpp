@@ -6,6 +6,7 @@
 
 #include "../components/components.h"
 #include "../components/simulation_layers.h"
+#include "../components/zoning_components.h"
 
 namespace NeonOubliette {
 
@@ -77,7 +78,6 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::PollutionLevelComponent>(archive)
         .get<NeonOubliette::PipeSegmentComponent>(archive)
         .get<NeonOubliette::WaterQualityComponent>(archive)
-        .get<NeonOubliette::ConditionComponent>(archive)
         .get<NeonOubliette::WorkOrderComponent>(archive)
         .get<NeonOubliette::RepairProgressComponent>(archive)
         .get<NeonOubliette::SkillComponent>(archive)
@@ -100,7 +100,12 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::Layer1BiologyComponent>(archive)
         .get<NeonOubliette::Layer2CognitiveComponent>(archive)
         .get<NeonOubliette::Layer3EconomicComponent>(archive)
-        .get<NeonOubliette::Layer4PoliticalComponent>(archive);
+        .get<NeonOubliette::Layer4PoliticalComponent>(archive)
+        .get<NeonOubliette::MacroZoneComponent>(archive)
+        .get<NeonOubliette::PropertyComponent>(archive)
+        .get<NeonOubliette::HeatIslandComponent>(archive)
+        .get<NeonOubliette::WeatherComponent>(archive)
+        .get<NeonOubliette::PatrolComponent>(archive);
 }
 
 void SerializationSystem::load_game(const std::string& filename) {
@@ -168,7 +173,6 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::PollutionLevelComponent>(archive)
         .get<NeonOubliette::PipeSegmentComponent>(archive)
         .get<NeonOubliette::WaterQualityComponent>(archive)
-        .get<NeonOubliette::ConditionComponent>(archive)
         .get<NeonOubliette::WorkOrderComponent>(archive)
         .get<NeonOubliette::RepairProgressComponent>(archive)
         .get<NeonOubliette::SkillComponent>(archive)
@@ -192,6 +196,11 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::Layer2CognitiveComponent>(archive)
         .get<NeonOubliette::Layer3EconomicComponent>(archive)
         .get<NeonOubliette::Layer4PoliticalComponent>(archive)
+        .get<NeonOubliette::MacroZoneComponent>(archive)
+        .get<NeonOubliette::PropertyComponent>(archive)
+        .get<NeonOubliette::HeatIslandComponent>(archive)
+        .get<NeonOubliette::WeatherComponent>(archive)
+        .get<NeonOubliette::PatrolComponent>(archive)
         .orphans();
 }
 
