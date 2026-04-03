@@ -2,6 +2,7 @@
 
 #include "systems/agent_action_system.h"
 #include "systems/agent_decision_system.h"
+#include "systems/agent_spawn_system.h"
 #include "systems/consumption_system.h"
 #include "systems/container_system.h"
 #include "systems/crafting_system.h"
@@ -52,6 +53,8 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
                          std::make_unique<AgentDecisionSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<AgentActionSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro,
+                         std::make_unique<AgentSpawnSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<MovementSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<VerticalSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BuildingGenerationSystem>(registry, event_dispatcher));

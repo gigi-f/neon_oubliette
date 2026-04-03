@@ -61,6 +61,12 @@ enum class Direction : uint8_t {
 // Core Components
 // =====================================================================
 
+struct WorldConfigComponent {
+    int width = 0;
+    int height = 0;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(width), CEREAL_NVP(height)); }
+};
+
 struct NameComponent {
     std::string name;
     NameComponent() = default;
@@ -127,6 +133,8 @@ struct InventoryComponent {
 
 struct ItemComponent {
     uint32_t item_type_id = 0; std::string name;
+    ItemComponent() = default;
+    ItemComponent(uint32_t id, std::string n) : item_type_id(id), name(n) {}
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(item_type_id), CEREAL_NVP(name)); }
 };
 
@@ -360,11 +368,15 @@ struct CurrentPathComponent {
 struct CraftingRecipeComponent {
     std::string recipe_name = "Unnamed Recipe"; WorkstationType workstation_type = WorkstationType::NONE;
     std::map<uint32_t, int> ingredients; uint32_t result_item_type_id = 0; int turns_to_craft = 1;
+    CraftingRecipeComponent() = default;
+    CraftingRecipeComponent(std::string n, WorkstationType wt, std::map<uint32_t, int> ing, uint32_t rid, int t) : recipe_name(n), workstation_type(wt), ingredients(ing), result_item_type_id(rid), turns_to_craft(t) {}
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(recipe_name), CEREAL_NVP(workstation_type), CEREAL_NVP(ingredients), CEREAL_NVP(result_item_type_id), CEREAL_NVP(turns_to_craft)); }
 };
 struct HarvestableComponent {
     uint32_t yields_item_type_id = 0; int quantity_per_harvest = 1; int turns_to_harvest = 1; int charges_remaining = 1;
     WorkstationType required_tool_type = WorkstationType::NONE;
+    HarvestableComponent() = default;
+    HarvestableComponent(uint32_t yid, int q, int t, int c, WorkstationType rt) : yields_item_type_id(yid), quantity_per_harvest(q), turns_to_harvest(t), charges_remaining(c), required_tool_type(rt) {}
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(yields_item_type_id), CEREAL_NVP(quantity_per_harvest), CEREAL_NVP(turns_to_harvest), CEREAL_NVP(charges_remaining), CEREAL_NVP(required_tool_type)); }
 };
 

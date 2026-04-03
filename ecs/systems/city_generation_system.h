@@ -58,6 +58,30 @@ public:
         // Small Entities: 1x1
         createEntity("Stray Dog", 5, 10, 1, 1, "#AA8855", 'd', false);
         createEntity("Mailman", 12, 13, 1, 1, "#5555FF", 'm', false);
+
+        // --- Consumable Items (Phase 1.4) ---
+        auto createFood = [&](int x, int y, std::string name) {
+            auto e = m_registry.create();
+            m_registry.emplace<NameComponent>(e, name);
+            m_registry.emplace<PositionComponent>(e, x, y, 0);
+            m_registry.emplace<ItemComponent>(e, 1, name);
+            m_registry.emplace<RenderableComponent>(e, '%', "#00FF00", 0);
+            m_registry.emplace<ConsumableComponent>(e, 30, 0); // restores 30 hunger
+        };
+
+        auto createWater = [&](int x, int y, std::string name) {
+            auto e = m_registry.create();
+            m_registry.emplace<NameComponent>(e, name);
+            m_registry.emplace<PositionComponent>(e, x, y, 0);
+            m_registry.emplace<ItemComponent>(e, 2, name);
+            m_registry.emplace<RenderableComponent>(e, '~', "#0000FF", 0);
+            m_registry.emplace<ConsumableComponent>(e, 0, 40); // restores 40 thirst
+        };
+
+        createFood(15, 14, "Synth-Bread");
+        createFood(35, 14, "Vat-Meat");
+        createWater(20, 18, "Purified Water");
+        createWater(40, 18, "Recycled Slurry");
     }
 
 private:

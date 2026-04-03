@@ -106,6 +106,7 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
                 break;
             }
 
+            case AgentTaskType::WANDER:
             case AgentTaskType::IDLE:
             default: {
                 int dx = distrib(gen);

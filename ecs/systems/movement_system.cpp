@@ -19,6 +19,18 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
         int target_y = pos.y + event.dy;
         int target_layer = event.layer_id;
 
+        // --- World Bounds Clamping (Phase 1.2) ---
+        auto config_view = m_registry.view<WorldConfigComponent>();
+        if (!config_view.empty()) {
+            auto config_entity = config_view.front();
+            const auto& config = config_view.get<WorldConfigComponent>(config_entity);
+            
+            if (target_x < 0) target_x = 0;
+            if (target_x >= config.width) target_x = config.width - 1;
+            if (target_y < 0) target_y = 0;
+            if (target_y >= config.height) target_y = config.height - 1;
+        }
+
         // --- Volumetric Collision Detection ---
         bool blocked = false;
         

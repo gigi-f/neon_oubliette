@@ -21,6 +21,7 @@
 #include "ecs/event_declarations.h"
 #include "ecs/systems/serialization_system.h"
 #include "ecs/systems/city_generation_system.h"
+#include "ecs/systems/agent_spawn_system.h"
 
 static bool running = true;
 
@@ -61,6 +62,14 @@ int main(int argc, char** argv) {
     // --- City Generation ---
     NeonOubliette::CityGenerationSystem city_gen(macro_registry, event_dispatcher);
     city_gen.generateCity(60, 30);
+
+    // --- World Config ---
+    auto config_entity = macro_registry.create();
+    macro_registry.emplace<NeonOubliette::WorldConfigComponent>(config_entity, 60, 30);
+
+    // --- Agent Spawning ---
+    NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
+    agent_spawn.spawnAgents(40, 0); // Spawn 40 agents on layer 0
 
     // --- Entity Creation ---
     // Spawn player at (10, 13) - Sidewalk, away from building walls
