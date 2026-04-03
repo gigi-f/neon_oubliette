@@ -30,6 +30,7 @@ private:
     InspectionMode m_current_mode = InspectionMode::GLANCE;
 
     void handleInspectEvent(const InspectEvent& event);
+    void handleCloseInspectionWindowEvent(const CloseInspectionWindowEvent& event);
     void draw_inspection_window();
     void create_inspection_plane();
     void close_inspection_window();

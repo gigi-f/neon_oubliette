@@ -55,7 +55,10 @@ void RenderingSystem::initialize() {
         nopts.cols = 30;
         inventory_plane_ = ncplane_create(stdp, &nopts);
         if (inventory_plane_) {
-            ncplane_set_base(inventory_plane_, " ", 0, channels);
+            uint64_t inv_channels = 0;
+            ncchannels_set_bg_rgb(&inv_channels, 0x1A1A2E);
+            ncchannels_set_fg_rgb(&inv_channels, 0xE0E0E0);
+            ncplane_set_base(inventory_plane_, " ", 0, inv_channels);
             ncplane_set_scrolling(inventory_plane_, true);
             ncplane_move_below(inventory_plane_, world_plane_);
         }
@@ -75,7 +78,14 @@ void RenderingSystem::update(double delta_time) {
 
     ncplane_erase(world_plane_);
     ncplane_erase(hud_plane_);
-    if (inventory_visible_) ncplane_erase(inventory_plane_);
+    if (inventory_visible_) {
+        ncplane_erase(inventory_plane_);
+        ncplane_set_fg_rgb(inventory_plane_, 0x00FFFF);
+        ncplane_putstr_yx(inventory_plane_, 0, 1, "[ INVENTORY ]");
+        ncplane_set_fg_rgb(inventory_plane_, 0xAAAAAA);
+        ncplane_putstr_yx(inventory_plane_, 2, 1, "(empty)");
+        ncplane_putstr_yx(inventory_plane_, 9, 1, "B: close");
+    }
 
     int current_layer = 0;
     int cam_x = 0;
@@ -115,7 +125,7 @@ void RenderingSystem::update(double delta_time) {
             ncplane_set_fg_rgb(hud_plane_, 0xFFFF00);
             ncplane_putstr_yx(hud_plane_, 0, 35, "CONTROLS [? hide]");
             ncplane_putstr_yx(hud_plane_, 1, 35, "WASD:Move  SPC:Wait  Q:Quit");
-            ncplane_putstr_yx(hud_plane_, 2, 35, "E:Interact  B:Inventory");
+            ncplane_putstr_yx(hud_plane_, 2, 35, "E:Interact  B:Inventory  ESC:Close");
             ncplane_putstr_yx(hud_plane_, 3, 35, "</>:Floor");
             ncplane_putstr_yx(hud_plane_, 4, 35, "i:Scan  I:BioAudit  c:Cogn");
             ncplane_putstr_yx(hud_plane_, 5, 35, "f:Finance  t:Structure");
@@ -158,6 +168,7 @@ void RenderingSystem::update(double delta_time) {
         }
     }
 
+    ncplane_move_top(hud_plane_);
     notcurses_render(nc_context_);
 }
 

@@ -103,6 +103,8 @@ struct InventoryToggleEvent {
     entt::entity entity;
 };
 
+struct CloseInspectionWindowEvent {};
+
 struct ToggleControlsHelpEvent {
     entt::entity entity;
 };
@@ -348,6 +350,7 @@ namespace ECS {
     using SaveGameEvent = NeonOubliette::SaveGameEvent;
     using LoadGameEvent = NeonOubliette::LoadGameEvent;
     using InventoryToggleEvent = NeonOubliette::InventoryToggleEvent;
+    using CloseInspectionWindowEvent = NeonOubliette::CloseInspectionWindowEvent;
     using RawMaterialDeliveryEvent = NeonOubliette::RawMaterialDeliveryEvent;
     using CongestionEvent = NeonOubliette::CongestionEvent;
     using PlayerMoveEvent = NeonOubliette::PlayerMoveEvent;

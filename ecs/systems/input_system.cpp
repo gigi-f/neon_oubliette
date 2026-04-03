@@ -77,6 +77,8 @@ void InputSystem::update(double delta_time) {
                 m_dispatcher.trigger(ToggleControlsHelpEvent{player_entity});
             } else if (key_id == 'b' || key_id == 'B') {
                 m_dispatcher.trigger(InventoryToggleEvent{player_entity});
+            } else if (key_id == NCKEY_ESC) {
+                m_dispatcher.trigger<CloseInspectionWindowEvent>();
             }
 
             // Inspection

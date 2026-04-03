@@ -14,6 +14,7 @@ InspectionSystem::InspectionSystem(entt::registry& registry, struct notcurses* n
                                    entt::dispatcher& event_dispatcher)
     : registry_(registry), nc_context_(nc_context), event_dispatcher_(event_dispatcher) {
     event_dispatcher_.sink<InspectEvent>().connect<&InspectionSystem::handleInspectEvent>(this);
+    event_dispatcher_.sink<CloseInspectionWindowEvent>().connect<&InspectionSystem::handleCloseInspectionWindowEvent>(this);
 }
 
 InspectionSystem::~InspectionSystem() {
@@ -57,6 +58,11 @@ void InspectionSystem::close_inspection_window() {
     }
     m_window_visible = false;
     m_current_target = entt::null;
+}
+
+void InspectionSystem::handleCloseInspectionWindowEvent(const CloseInspectionWindowEvent& event) {
+    (void)event;
+    close_inspection_window();
 }
 
 void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
@@ -112,6 +118,9 @@ void InspectionSystem::draw_inspection_window() {
     draw_tabs();
     draw_ascii_portrait();
     draw_content();
+
+    ncplane_set_fg_rgb(m_inspection_plane, 0x888888);
+    ncplane_putstr_yx(m_inspection_plane, 23, 2, "ESC: close");
 }
 
 void InspectionSystem::draw_tabs() {
