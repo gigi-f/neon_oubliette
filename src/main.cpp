@@ -64,19 +64,26 @@ int main(int argc, char** argv) {
 
     double delta_time = 0.016;
 
-    // --- World Config (100x100 = 1,600 Macro Tiles @ 20-tile cells) ---
+    // --- World Dimensions (single source of truth) ---
+    constexpr int MACRO_COLS       = 40;
+    constexpr int MACRO_ROWS       = 40;
+    constexpr int MACRO_CELL_SIZE  = 20;
+    constexpr int WORLD_WIDTH      = MACRO_COLS * MACRO_CELL_SIZE;  // 800
+    constexpr int WORLD_HEIGHT     = MACRO_ROWS * MACRO_CELL_SIZE;  // 800
+
+    // --- World Config ---
     auto config_entity = macro_registry.create();
-    macro_registry.emplace<NeonOubliette::WorldConfigComponent>(config_entity, 100, 100, 20, 99999u);
+    macro_registry.emplace<NeonOubliette::WorldConfigComponent>(config_entity, WORLD_WIDTH, WORLD_HEIGHT, MACRO_CELL_SIZE, 99999u);
     macro_registry.emplace<NeonOubliette::SimulationStateComponent>(config_entity);
     macro_registry.emplace<NeonOubliette::GodCursorComponent>(config_entity);
 
     // --- Phase 2: Global Infrastructure Skeleton ---
     NeonOubliette::InfrastructureNetworkSystem infra_gen(macro_registry, event_dispatcher);
-    infra_gen.generate_skeleton(100, 100);
+    infra_gen.generate_skeleton(WORLD_WIDTH, WORLD_HEIGHT);
 
-    // --- Phase 2: Zoning Solver (40x40 macro-grid = 100x100 world) ---
+    // --- Phase 2: Zoning Solver ---
     NeonOubliette::ZoningSolverSystem zoning_solver(macro_registry, event_dispatcher);
-    zoning_solver.solve_zoning(40, 40); 
+    zoning_solver.solve_zoning(MACRO_COLS, MACRO_ROWS);
 
     // --- Phase 2: Capillaries & Junctions ---
     infra_gen.initialize(); // Populate zone cache
@@ -89,7 +96,7 @@ int main(int argc, char** argv) {
 
     // --- Entity Creation (Player) ---
     auto player_entity = macro_registry.create();
-    macro_registry.emplace<NeonOubliette::PositionComponent>(player_entity, 400, 400, 0); 
+    macro_registry.emplace<NeonOubliette::PositionComponent>(player_entity, WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 0);
     macro_registry.emplace<NeonOubliette::PlayerCurrentLayerComponent>(player_entity, 0);
     macro_registry.emplace<NeonOubliette::PlayerComponent>(player_entity); 
     macro_registry.emplace<NeonOubliette::NameComponent>(player_entity, "Neon Operator");
