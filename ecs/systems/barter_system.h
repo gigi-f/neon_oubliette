@@ -19,7 +19,8 @@ public:
     void handleBarterEvent(const BarterEvent& event);
 
 private:
-    int calculateTotalValue(const std::vector<entt::entity>& items);
+    float calculateUtilityValue(entt::entity agent_entity, const std::vector<entt::entity>& items);
+    float getBaseItemValue(entt::entity item_entity);
     
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;

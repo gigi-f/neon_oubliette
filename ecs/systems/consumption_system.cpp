@@ -39,6 +39,12 @@ void ConsumptionSystem::handleConsumeItemEvent(const ConsumeItemEvent& event) {
         dispatcher.trigger(LogEvent{log_msg, LogSeverity::INFO, "ConsumptionSystem"});
         dispatcher.trigger(HUDNotificationEvent{log_msg, 2.0f, "#00FF00"}); // Green for positive feedback
 
+        // Remove from inventory first
+        if (registry.all_of<InventoryComponent>(event.consumer_entity)) {
+            auto& inv = registry.get<InventoryComponent>(event.consumer_entity);
+            inv.contained_items.erase(std::remove(inv.contained_items.begin(), inv.contained_items.end(), event.item_to_consume_entity), inv.contained_items.end());
+        }
+
         // Remove the item after consumption
         registry.destroy(event.item_to_consume_entity);
     }

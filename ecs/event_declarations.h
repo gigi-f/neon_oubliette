@@ -84,7 +84,15 @@ struct TurnEvent {
     uint64_t turn_number;
 };
 
+struct TimeOfDayChangeEvent {
+    TimeOfDay new_time;
+};
+
 struct AdvanceTurnRequestEvent {};
+
+struct ToggleGodModeEvent {};
+struct TogglePauseEvent {};
+struct AdjustGodModeSpeedEvent { float delta = 0.5f; };
 
 struct LogEvent {
     std::string message;
@@ -154,6 +162,7 @@ struct PathfindingRequestEvent {
 struct PathfindingResponseEvent {
     entt::entity entity;
     std::vector<PositionComponent> path;
+    std::vector<PositionComponent> macro_path; // NEW: The sequence of high-level nodes
     uint32_t request_id;
     bool success;
 };
@@ -193,7 +202,13 @@ struct ActivityInterruptedEvent {
 struct ChangeFactionStandingEvent {
     std::string acting_faction_id;
     std::string target_faction_id;
-    int standing_change;
+    float standing_change;
+};
+
+struct AgentFactionReputationEvent {
+    entt::entity agent_entity;
+    std::string faction_id;
+    float change_amount;
 };
 
 // --- Barter Events ---
@@ -251,6 +266,20 @@ struct PurchaseEvent {
     std::string item_name;
     uint32_t quantity;
     uint64_t price_paid;
+};
+
+struct StockPurchaseEvent {
+    entt::entity agent;
+    std::string ticker;
+    uint64_t shares;
+    double price_per_share;
+};
+
+struct StockSaleEvent {
+    entt::entity agent;
+    std::string ticker;
+    uint64_t shares;
+    double price_per_share;
 };
 
 struct CommerceEvent {

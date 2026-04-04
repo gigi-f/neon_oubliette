@@ -7,6 +7,7 @@
 #include "system_scheduler.h"
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace NeonOubliette::Systems {
 
@@ -35,6 +36,8 @@ private:
     void handleHUDNotificationEvent(const HUDNotificationEvent& event);
     void handleToggleControlsHelpEvent(const ToggleControlsHelpEvent& event);
     uint32_t parse_hex_color(const std::string& hex);
+
+    std::unordered_map<std::string, uint32_t> color_cache_;
 };
 
 } // namespace NeonOubliette::Systems

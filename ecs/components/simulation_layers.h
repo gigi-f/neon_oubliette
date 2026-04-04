@@ -64,7 +64,8 @@ enum class MaterialType : uint8_t {
     STEEL,
     PLASTIC,
     GLASS,
-    ELECTRONICS
+    ELECTRONICS,
+    WATER
 };
 
 struct Layer0PhysicsComponent {
@@ -95,7 +96,9 @@ enum class SpeciesType : uint8_t {
     RAT,
     SYNTHETIC,
     CANINE,
-    FELINE
+    FELINE,
+    CACOGEN,    // [NEW] Off-worlder/Monster
+    HIERODULE   // [NEW] Servant of the "New Sun"
 };
 
 enum class OrganType : uint8_t {
@@ -180,6 +183,28 @@ struct Layer2CognitiveComponent {
     }
 };
 
+/**
+ * @brief [NEW CLASS] Defines an entity's standing in the social hierarchy.
+ */
+struct SocialHierarchyComponent {
+    float status = 0.5f; // 0.0 to 1.0
+    std::string class_title = "Citizen";
+    bool is_autonomous = true;
+    
+    // Deference logic
+    entt::entity currently_yielding_to = entt::null;
+    int yield_ticks_remaining = 0;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("status", status),
+           cereal::make_nvp("class_title", class_title),
+           cereal::make_nvp("is_autonomous", is_autonomous),
+           cereal::make_nvp("currently_yielding_to", currently_yielding_to),
+           cereal::make_nvp("yield_ticks_remaining", yield_ticks_remaining));
+    }
+};
+
 // =====================================================================
 // Layer 3: Economic
 // =====================================================================
@@ -200,13 +225,40 @@ struct Layer3EconomicComponent {
     std::map<std::string, int> bank_accounts; // BankID -> Balance
     std::vector<entt::entity> inventory;
     int credit_score = 600;
+    std::map<std::string, uint64_t> portfolio; // Ticker -> Shares
 
     template <class Archive>
     void serialize(Archive& ar) {
         ar(cereal::make_nvp("cash_on_hand", cash_on_hand),
            cereal::make_nvp("bank_accounts", bank_accounts),
            cereal::make_nvp("inventory", inventory),
-           cereal::make_nvp("credit_score", credit_score));
+           cereal::make_nvp("credit_score", credit_score),
+           cereal::make_nvp("portfolio", portfolio));
+    }
+};
+
+struct StockComponent {
+    std::string ticker;
+    std::string company_name;
+    double current_price = 100.0;
+    double previous_price = 100.0;
+    double opening_price = 100.0;
+    uint64_t total_shares = 1000000;
+    uint64_t outstanding_shares = 0;
+    float volatility = 0.05f;
+    float momentum = 0.0f;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("ticker", ticker),
+           cereal::make_nvp("company_name", company_name),
+           cereal::make_nvp("current_price", current_price),
+           cereal::make_nvp("previous_price", previous_price),
+           cereal::make_nvp("opening_price", opening_price),
+           cereal::make_nvp("total_shares", total_shares),
+           cereal::make_nvp("outstanding_shares", outstanding_shares),
+           cereal::make_nvp("volatility", volatility),
+           cereal::make_nvp("momentum", momentum));
     }
 };
 
@@ -214,12 +266,67 @@ struct Layer3EconomicComponent {
 // Layer 4: Political/Power
 // =====================================================================
 
+enum class FactionArchetype : uint8_t {
+    CONSENSUS,    // Aura-9: Order, Routine, Efficiency
+    ENTROPIC_DRIFT, // Malware-Alpha: Chaos, Incentives, Stolen Data
+    SILICON_MAW,    // The Architect: Bio-Digital Hybrid, Energy over Hunger
+    VOID_WALKERS,  // The Signal: Synchronicity, Geometric Ritual
+    SYNDICATE,     // The Arbiter: Combat, Gambling, Entertainment
+    UNALIGNED
+};
+
+enum class DirectiveType : uint8_t {
+    NONE,
+    ROUTINE_ENFORCEMENT, // Increases speed if on schedule, hurts frustration if not
+    UTILITY_BURST,       // Massive weight to specific actions (e.g. hack, graffiti)
+    BIOLOGICAL_OVERRIDE, // Modifies need decay rates (hunger -> charge)
+    SYNCHRONICITY,       // Moves agents to specific coordinates at specific times
+    CRACKDOWN            // Guards aggressive towards non-faction members
+};
+
+struct FactionLeaderComponent {
+    std::string leader_name;
+    FactionArchetype archetype = FactionArchetype::UNALIGNED;
+    float influence_strength = 1.0f; // Multiplier for directives
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("leader_name", leader_name),
+           cereal::make_nvp("archetype", archetype),
+           cereal::make_nvp("influence_strength", influence_strength));
+    }
+};
+
+struct FactionDirectiveComponent {
+    DirectiveType active_directive = DirectiveType::NONE;
+    int duration_ticks = 0;
+    float magnitude = 1.0f;
+    std::string target_faction_id = ""; // If applicable
+    
+    // For Synchronicity: Target coordinates
+    int target_x = -1;
+    int target_y = -1;
+    int target_layer = 0;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("active_directive", active_directive),
+           cereal::make_nvp("duration_ticks", duration_ticks),
+           cereal::make_nvp("magnitude", magnitude),
+           cereal::make_nvp("target_faction_id", target_faction_id),
+           cereal::make_nvp("target_x", target_x),
+           cereal::make_nvp("target_y", target_y),
+           cereal::make_nvp("target_layer", target_layer));
+    }
+};
+
 struct Layer4PoliticalComponent {
     std::string primary_faction;
     float faction_loyalty = 1.0f;
     std::string rank;
     float soft_power = 0.0f;
     float hard_power = 0.0f;
+    float directive_compliance = 1.0f; // 0.0 to 1.0: how much they obey the leader
 
     template <class Archive>
     void serialize(Archive& ar) {
@@ -227,7 +334,39 @@ struct Layer4PoliticalComponent {
            cereal::make_nvp("faction_loyalty", faction_loyalty),
            cereal::make_nvp("rank", rank),
            cereal::make_nvp("soft_power", soft_power),
-           cereal::make_nvp("hard_power", hard_power));
+           cereal::make_nvp("hard_power", hard_power),
+           cereal::make_nvp("directive_compliance", directive_compliance));
+    }
+};
+
+// =====================================================================
+// Layer 3 (Chunk-Level Economics)
+// =====================================================================
+
+struct MarketDemandComponent {
+    // item_type_id -> demand_score (aggregate needs of agents)
+    std::map<uint32_t, float> item_type_demand;
+    // item_type_id -> scarcity_multiplier (demand/supply)
+    std::map<uint32_t, float> item_type_scarcity;
+    
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("item_type_demand", item_type_demand),
+           cereal::make_nvp("item_type_scarcity", item_type_scarcity));
+    }
+};
+
+// =====================================================================
+// Layer 4 (Chunk-Level Political/Influence)
+// =====================================================================
+
+struct FactionInfluenceFieldComponent {
+    // faction_id -> influence value (0.0 to 100.0)
+    std::map<std::string, float> influence;
+    
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("influence", influence));
     }
 };
 

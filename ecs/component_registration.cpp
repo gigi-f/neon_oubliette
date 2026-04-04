@@ -43,6 +43,7 @@ void register_all_events(entt::dispatcher& dispatcher) {
     // Economy & Barter
     dispatcher.sink<BarterEvent>();
     dispatcher.sink<ChangeFactionStandingEvent>();
+    dispatcher.sink<AgentFactionReputationEvent>();
     dispatcher.sink<PurchaseEvent>();
     dispatcher.sink<CommerceEvent>();
     dispatcher.sink<RawMaterialDeliveryEvent>();

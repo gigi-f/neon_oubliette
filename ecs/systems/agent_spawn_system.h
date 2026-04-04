@@ -3,6 +3,7 @@
 
 #include <entt/entt.hpp>
 #include "../components/components.h"
+#include "../components/simulation_layers.h"
 #include "../system_scheduler.h"
 #include <string>
 #include <vector>
@@ -29,9 +30,14 @@ public:
     void spawnAgents(int count, int layer = 0);
 
     /**
+     * @brief Spawns N agents into chunk storage (cold storage).
+     */
+    void spawnAgentsIntoChunks(int total_count);
+
+    /**
      * @brief Spawns a single agent of a specific type.
      */
-    entt::entity createAgent(int x, int y, int layer, const std::string& name, const std::string& archetype, char glyph, const std::string& color);
+    entt::entity createAgent(int x, int y, int layer, const std::string& name, const std::string& archetype, char glyph, const std::string& color, const std::string& faction_id = "CITIZEN", SpeciesType species = SpeciesType::HUMAN);
 
 private:
     entt::registry& m_registry;

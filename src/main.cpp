@@ -18,11 +18,15 @@
 #include "ecs/simulation_coordinator.h"
 #include "ecs/components/components.h"
 #include "ecs/components/simulation_layers.h"
+#include "ecs/components/lod_components.h"
 #include "ecs/event_declarations.h"
 #include "ecs/systems/serialization_system.h"
 #include "ecs/systems/city_generation_system.h"
 #include "ecs/systems/agent_spawn_system.h"
 #include "ecs/systems/zoning_solver_system.h"
+#include "ecs/systems/infrastructure_network_system.h"
+#include "ecs/systems/macro_navigation_system.h"
+#include "ecs/systems/chunk_streaming_system.h"
 
 static bool running = true;
 
@@ -60,32 +64,42 @@ int main(int argc, char** argv) {
 
     double delta_time = 0.016;
 
-    // --- World Config ---
+    // --- World Config (100x100 = 1,600 Macro Tiles @ 20-tile cells) ---
     auto config_entity = macro_registry.create();
-    macro_registry.emplace<NeonOubliette::WorldConfigComponent>(config_entity, 100, 100, 20);
+    macro_registry.emplace<NeonOubliette::WorldConfigComponent>(config_entity, 100, 100, 20, 99999u);
+    macro_registry.emplace<NeonOubliette::SimulationStateComponent>(config_entity);
+    macro_registry.emplace<NeonOubliette::GodCursorComponent>(config_entity);
 
-    // --- Zoning Solver (Phase 2.1) ---
+    // --- Phase 2: Global Infrastructure Skeleton ---
+    NeonOubliette::InfrastructureNetworkSystem infra_gen(macro_registry, event_dispatcher);
+    infra_gen.generate_skeleton(100, 100);
+
+    // --- Phase 2: Zoning Solver (40x40 macro-grid = 100x100 world) ---
     NeonOubliette::ZoningSolverSystem zoning_solver(macro_registry, event_dispatcher);
-    zoning_solver.solve_zoning(5, 5); // 5x5 macro-cells of 20x20 tiles = 100x100 world
+    zoning_solver.solve_zoning(40, 40); 
 
-    // --- City Generation (Phase 2.2+) ---
-    NeonOubliette::CityGenerationSystem city_gen(macro_registry, event_dispatcher);
-    city_gen.generateCityFromZones();
+    // --- Phase 2: Capillaries & Junctions ---
+    infra_gen.initialize(); // Populate zone cache
+    infra_gen.generate_capillaries();
+    infra_gen.resolve_junctions();
 
-    // --- Agent Spawning ---
-    NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
-    agent_spawn.spawnAgents(60, 0); 
+    // --- Phase 3.3: Hierarchical Pathfinding Graph ---
+    NeonOubliette::MacroNavigationSystem macro_nav(macro_registry, event_dispatcher);
+    macro_nav.rebuild_graph();
 
-    // --- Entity Creation ---
-    // Spawn player at (10, 13)
+    // --- Entity Creation (Player) ---
     auto player_entity = macro_registry.create();
-    macro_registry.emplace<NeonOubliette::PositionComponent>(player_entity, 10, 13, 0); 
+    macro_registry.emplace<NeonOubliette::PositionComponent>(player_entity, 400, 400, 0); 
     macro_registry.emplace<NeonOubliette::PlayerCurrentLayerComponent>(player_entity, 0);
     macro_registry.emplace<NeonOubliette::PlayerComponent>(player_entity); 
-    macro_registry.emplace<NeonOubliette::NameComponent>(player_entity, "Player One");
+    macro_registry.emplace<NeonOubliette::NameComponent>(player_entity, "Neon Operator");
     macro_registry.emplace<NeonOubliette::InventoryComponent>(player_entity);
     macro_registry.emplace<NeonOubliette::RenderableComponent>(player_entity, '@', "#FFFFFF", 0);
     macro_registry.emplace<NeonOubliette::HUDComponent>(player_entity); 
+    macro_registry.emplace<NeonOubliette::PersistentEntityComponent>(player_entity, true);
+    macro_registry.emplace<NeonOubliette::VisibilityComponent>(player_entity, 18);
+    macro_registry.emplace<NeonOubliette::MemoryComponent>(player_entity);
+    macro_registry.emplace<NeonOubliette::VerticalViewComponent>(player_entity, 1);
 
     // Initial Multi-Layer Components
     macro_registry.emplace<NeonOubliette::Layer0PhysicsComponent>(player_entity);
@@ -94,8 +108,19 @@ int main(int argc, char** argv) {
     macro_registry.emplace<NeonOubliette::Layer3EconomicComponent>(player_entity);
     macro_registry.emplace<NeonOubliette::Layer4PoliticalComponent>(player_entity);
 
+    // --- Phase 3: Chunk Streaming System Initial Trigger ---
+    NeonOubliette::ChunkStreamingSystem streaming(macro_registry, event_dispatcher);
+    streaming.initialize();
+    // Manual first update to populate initial area around player
+    streaming.update(0.0);
+
+    // --- Agent Spawning (Distributed into Chunks) ---
+    NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
+    agent_spawn.spawnAgentsIntoChunks(1000); // Massive world population
+    agent_spawn.spawnAgents(20, 0); // Local starting population
+
     // Welcome message
-    event_dispatcher.trigger(NeonOubliette::HUDNotificationEvent{"Neon Oubliette: Procedural Phase Active", 5.0f, "#00FFFF"});
+    event_dispatcher.trigger(NeonOubliette::HUDNotificationEvent{"Neon Oubliette: Infrastructure Active (40x40)", 5.0f, "#00FFFF"});
 
     // --- Initial Render ---
     scheduler.run_phase(NeonOubliette::SystemScheduler::Phase::Output, macro_registry, event_dispatcher, delta_time);

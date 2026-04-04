@@ -1,5 +1,7 @@
 #include "interaction_system.h"
+#include <algorithm>
 #include "../components/components.h"
+#include "../components/transit_components.h"
 #include "../event_declarations.h"
 #include "building_generation_system.h"
 
@@ -23,6 +25,76 @@ void InteractionSystem::handleInteractEvent(const InteractEvent& event) {
 
     if (registry_.all_of<PositionComponent>(event.entity)) {
         auto& pos = registry_.get<PositionComponent>(event.entity);
+
+        // [NEW] 0. Check for RidingComponent (Unboarding)
+        if (registry_.all_of<RidingComponent>(event.entity)) {
+            auto vehicle = registry_.get<RidingComponent>(event.entity).vehicle;
+            if (registry_.valid(vehicle)) {
+                if (registry_.all_of<TransitOccupantsComponent>(vehicle)) {
+                    auto& occupants = registry_.get<TransitOccupantsComponent>(vehicle).occupants;
+                    occupants.erase(std::remove(occupants.begin(), occupants.end(), event.entity), occupants.end());
+                }
+                
+                // If the driver exits, clear the driver field in PersonalVehicleComponent
+                if (registry_.all_of<PersonalVehicleComponent>(vehicle)) {
+                    auto& pv = registry_.get<PersonalVehicleComponent>(vehicle);
+                    if (pv.driver == event.entity) {
+                        pv.driver = entt::null;
+                    }
+                }
+            }
+            registry_.remove<RidingComponent>(event.entity);
+            event_dispatcher_.trigger(HUDNotificationEvent{"Exited vehicle.", 1.5f, "#FFFF00"});
+            return;
+        }
+
+        // [NEW] 0.5. Check for Personal Vehicles at current position or adjacent?
+        // Let's check current position first.
+        auto pv_view = registry_.view<PersonalVehicleComponent, PositionComponent, TransitOccupantsComponent>();
+        for (auto pv_entity : pv_view) {
+            auto& pv_pos = pv_view.get<PositionComponent>(pv_entity);
+            if (pos.x == pv_pos.x && pos.y == pv_pos.y && pos.layer_id == pv_pos.layer_id) {
+                auto& pv = pv_view.get<PersonalVehicleComponent>(pv_entity);
+                auto& occupants = pv_view.get<TransitOccupantsComponent>(pv_entity).occupants;
+                
+                if (occupants.size() < (size_t)pv.capacity) {
+                    occupants.push_back(event.entity);
+                    registry_.emplace<RidingComponent>(event.entity, pv_entity);
+                    
+                    // If no driver, become the driver
+                    if (pv.driver == entt::null) {
+                        pv.driver = event.entity;
+                        event_dispatcher_.trigger(HUDNotificationEvent{"Took the wheel.", 1.5f, "#00FFFF"});
+                    } else {
+                        event_dispatcher_.trigger(HUDNotificationEvent{"Entered as passenger.", 1.5f, "#00FFFF"});
+                    }
+                    return;
+                }
+            }
+        }
+
+        // [NEW] 0.6. Check for Transit Stations (Boarding)
+        auto station_view = registry_.view<TransitStationComponent, PositionComponent>();
+        for (auto station : station_view) {
+            auto& s_pos = station_view.get<PositionComponent>(station);
+            if (pos.x == s_pos.x && pos.y == s_pos.y && pos.layer_id == s_pos.layer_id) {
+                // Find a vehicle at this station
+                auto vehicle_view = registry_.view<TransitVehicleComponent, PositionComponent, TransitOccupantsComponent>();
+                for (auto vehicle : vehicle_view) {
+                    auto& v_pos = vehicle_view.get<PositionComponent>(vehicle);
+                    if (v_pos.x == s_pos.x && v_pos.y == s_pos.y && v_pos.layer_id == s_pos.layer_id) {
+                        auto& transit = vehicle_view.get<TransitVehicleComponent>(vehicle);
+                        auto& occupants = vehicle_view.get<TransitOccupantsComponent>(vehicle).occupants;
+                        if (occupants.size() < (size_t)transit.capacity) {
+                            occupants.push_back(event.entity);
+                            registry_.emplace<RidingComponent>(event.entity, vehicle);
+                            event_dispatcher_.trigger(HUDNotificationEvent{"Boarded vehicle.", 1.5f, "#00FFFF"});
+                            return;
+                        }
+                    }
+                }
+            }
+        }
 
         // 1. Check for Building Entrance Components (Doors)
         auto entrance_view = registry_.view<BuildingEntranceComponent, PositionComponent>();

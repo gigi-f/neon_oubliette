@@ -19,9 +19,17 @@ void ZoningSolverSystem::initialize_rules() {
     m_adjacency_rules[ZoneType::COMMERCIAL] = {ZoneType::CORPORATE, ZoneType::RESIDENTIAL, ZoneType::TRANSIT, ZoneType::COMMERCIAL, ZoneType::PARK};
     m_adjacency_rules[ZoneType::RESIDENTIAL] = {ZoneType::COMMERCIAL, ZoneType::PARK, ZoneType::SLUM, ZoneType::RESIDENTIAL};
     m_adjacency_rules[ZoneType::SLUM] = {ZoneType::RESIDENTIAL, ZoneType::INDUSTRIAL, ZoneType::SLUM};
-    m_adjacency_rules[ZoneType::INDUSTRIAL] = {ZoneType::SLUM, ZoneType::TRANSIT, ZoneType::INDUSTRIAL};
+    m_adjacency_rules[ZoneType::INDUSTRIAL] = {ZoneType::SLUM, ZoneType::TRANSIT, ZoneType::INDUSTRIAL, ZoneType::AIRPORT};
     m_adjacency_rules[ZoneType::PARK] = {ZoneType::RESIDENTIAL, ZoneType::COMMERCIAL, ZoneType::PARK};
-    m_adjacency_rules[ZoneType::TRANSIT] = {ZoneType::CORPORATE, ZoneType::COMMERCIAL, ZoneType::RESIDENTIAL, ZoneType::SLUM, ZoneType::INDUSTRIAL, ZoneType::PARK, ZoneType::TRANSIT};
+    m_adjacency_rules[ZoneType::TRANSIT] = {ZoneType::CORPORATE, ZoneType::COMMERCIAL, ZoneType::RESIDENTIAL, ZoneType::SLUM, ZoneType::INDUSTRIAL, ZoneType::PARK, ZoneType::TRANSIT, ZoneType::AIRPORT};
+    m_adjacency_rules[ZoneType::AIRPORT] = {ZoneType::INDUSTRIAL, ZoneType::TRANSIT, ZoneType::AIRPORT};
+    m_adjacency_rules[ZoneType::COLOSSEUM] = {ZoneType::COMMERCIAL, ZoneType::TRANSIT, ZoneType::PARK, ZoneType::CORPORATE, ZoneType::COLOSSEUM};
+    
+    // Add COLOSSEUM to existing rules
+    m_adjacency_rules[ZoneType::COMMERCIAL].push_back(ZoneType::COLOSSEUM);
+    m_adjacency_rules[ZoneType::TRANSIT].push_back(ZoneType::COLOSSEUM);
+    m_adjacency_rules[ZoneType::PARK].push_back(ZoneType::COLOSSEUM);
+    m_adjacency_rules[ZoneType::CORPORATE].push_back(ZoneType::COLOSSEUM);
 }
 
 void ZoningSolverSystem::solve_zoning(int macro_width, int macro_height) {
@@ -35,6 +43,19 @@ void ZoningSolverSystem::solve_zoning(int macro_width, int macro_height) {
         for (int y = 0; y < macro_height; ++y) {
             grid[x][y].possibilities = all_types;
         }
+    }
+
+    // 1.5 Seed an AIRPORT at the edges (0,0) and (width-1, height-1)
+    grid[0][0].final_type = ZoneType::AIRPORT;
+    grid[0][0].possibilities = {ZoneType::AIRPORT};
+    grid[0][0].collapsed = true;
+    propagate_constraints(grid, 0, 0);
+
+    if (macro_width > 4 && macro_height > 4) {
+        grid[macro_width-1][macro_height-1].final_type = ZoneType::AIRPORT;
+        grid[macro_width-1][macro_height-1].possibilities = {ZoneType::AIRPORT};
+        grid[macro_width-1][macro_height-1].collapsed = true;
+        propagate_constraints(grid, macro_width-1, macro_height-1);
     }
 
     std::random_device rd;

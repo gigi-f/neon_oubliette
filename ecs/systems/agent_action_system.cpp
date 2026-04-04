@@ -28,6 +28,7 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
             case AgentTaskType::SEEK_FOOD:
             case AgentTaskType::SEEK_WATER: 
             case AgentTaskType::PATROL:
+            case AgentTaskType::GO_TO_WORK:
             case AgentTaskType::MOVE_TO_TARGET: {
                 if (m_registry.all_of<GoalComponent>(entity)) {
                     auto& goal = m_registry.get<GoalComponent>(entity);
@@ -90,17 +91,23 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
                             m_dispatcher.trigger<MoveEvent>({entity, dx, dy, position.layer_id});
                             path_comp.current_step_index++;
                         } else {
-                            m_registry.remove<CurrentPathComponent>(entity);
-                            m_registry.remove<AgentTaskComponent>(entity);
-                        }
-
-                        if (path_comp.current_step_index >= path_comp.path.size()) {
+                            // Path broken (e.g. obstacle spawned)
                             m_registry.remove<CurrentPathComponent>(entity);
                             m_registry.remove<AgentTaskComponent>(entity);
                         }
                     } else {
-                        m_registry.remove<CurrentPathComponent>(entity);
-                        m_registry.remove<AgentTaskComponent>(entity);
+                        // Current local path finished. Check macro path.
+                        if (!path_comp.macro_path.empty()) {
+                            PositionComponent next_macro_goal = path_comp.macro_path.front();
+                            // Request path to the next node in the macro sequence
+                            m_dispatcher.enqueue<PathfindingRequestEvent>({entity, position, next_macro_goal, path_comp.request_id});
+                            path_comp.path.clear();
+                            path_comp.current_step_index = 0;
+                            task.task_type = AgentTaskType::AWAITING_PATH;
+                        } else {
+                            m_registry.remove<CurrentPathComponent>(entity);
+                            m_registry.remove<AgentTaskComponent>(entity);
+                        }
                     }
                 } else {
                     m_registry.remove<AgentTaskComponent>(entity);
@@ -115,6 +122,11 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
                 m_registry.remove<AgentTaskComponent>(entity);
                 break;
             }
+
+            case AgentTaskType::AWAITING_PATH:
+            case AgentTaskType::WAIT_FOR_TRANSIT:
+            case AgentTaskType::RIDE_TRANSIT:
+                break;
 
             case AgentTaskType::IDLE:
             default: {

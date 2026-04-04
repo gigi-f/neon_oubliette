@@ -7,6 +7,8 @@
 #include <map>
 #include "system_scheduler.h"
 #include "components/simulation_layers.h"
+#include "components/components.h"
+#include "event_declarations.h"
 
 namespace NeonOubliette {
 
@@ -47,6 +49,14 @@ public:
 private:
     void tick_layer(SimulationLayer layer, double delta_time);
     bool should_layer_tick(SimulationLayer layer, uint64_t turn) const;
+
+    // Simulation Ticking Logic
+    void run_simulation_tick(double delta_time);
+
+    // Event Handlers
+    void on_toggle_god_mode(const ToggleGodModeEvent& event);
+    void on_toggle_pause(const TogglePauseEvent& event);
+    void on_adjust_speed(const AdjustGodModeSpeedEvent& event);
 
     uint64_t m_turn_counter = 0;
     entt::registry& m_registry;

@@ -31,6 +31,8 @@ private:
                                                                    NeedsComponent& needs, bool& is_container_resource,
                                                                    entt::entity& container_entity);
 
+    entt::entity findNearestTransitStation(const PositionComponent& pos, float max_dist);
+
     void evaluateAgentNeedsAndSetTask(entt::entity agent_entity, PositionComponent& agent_pos,
                                       NeedsComponent& agent_needs, InventoryComponent* agent_inventory,
                                       AgentTaskComponent& agent_task, GoalComponent& agent_goal);

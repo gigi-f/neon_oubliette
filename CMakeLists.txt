@@ -63,7 +63,15 @@ set(PROJECT_SOURCES
     ecs/systems/activity_system.cpp
     ecs/systems/barter_system.cpp
     ecs/systems/faction_system.cpp
+    ecs/systems/economic_system.cpp
+    ecs/systems/stock_market_system.cpp
     ecs/systems/zoning_solver_system.cpp
+    ecs/systems/infrastructure_network_system.cpp
+    ecs/systems/chunk_streaming_system.cpp
+    ecs/systems/macro_navigation_system.cpp
+    ecs/systems/transit_system.cpp
+    ecs/systems/social_interaction_system.cpp
+    ecs/systems/xeno_system.cpp
 )
 
 # --- Executable ---

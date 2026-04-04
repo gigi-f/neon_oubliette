@@ -13,6 +13,7 @@
 #include "systems/logging_system.h"
 #include "systems/movement_system.h"
 #include "systems/pathfinding_system.h"
+#include "systems/macro_navigation_system.h"
 #include "systems/rendering_system.h"
 #include "systems/serialization_system.h"
 #include "systems/turn_manager_system.h"
@@ -25,19 +26,26 @@
 #include "systems/faction_system.h"
 #include "systems/city_generation_system.h"
 #include "systems/zoning_solver_system.h"
+#include "systems/infrastructure_network_system.h"
+#include "systems/transit_system.h"
+#include "systems/chunk_streaming_system.h"
 
 // Multi-scalar Simulation Systems
 #include "simulation_coordinator.h"
 #include "systems/physics_system.h"
 #include "systems/biology_system.h"
 #include "systems/cognitive_system.h"
+#include "systems/social_interaction_system.h"
 #include "systems/economic_system.h"
+#include "systems/stock_market_system.h"
 #include "systems/political_system.h"
 #include "systems/infrastructure_system.h"
 #include "systems/environmental_system.h"
 #include "systems/ecosystem_system.h"
 #include "systems/economic_market_system.h"
 #include "systems/political_opinion_system.h"
+#include "systems/infrastructure_influence_system.h"
+#include "systems/xeno_system.h"
 
 namespace NeonOubliette {
 
@@ -48,6 +56,8 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
                          std::make_unique<Systems::InputSystem>(registry, nc_context, event_dispatcher));
 
     // --- Macro Phase ---
+    scheduler.add_system(SystemScheduler::Phase::Macro,
+                         std::make_unique<MacroNavigationSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<PathfindingSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro,
@@ -70,7 +80,6 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
 
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ActivitySystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BarterSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<FactionSystem>(registry, event_dispatcher));
 
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<CraftingSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro,
@@ -83,9 +92,12 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
                          std::make_unique<TurnManagerSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<LoggingSystem>(registry, event_dispatcher));
     
-    // Generation & Zoning Systems
+    // Generation, Zoning & Streaming
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<CityGenerationSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ZoningSolverSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<InfrastructureNetworkSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<TransitSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ChunkStreamingSystem>(registry, event_dispatcher));
 
     // --- Output Phase ---
     scheduler.add_system(SystemScheduler::Phase::Output,
@@ -98,15 +110,20 @@ void register_simulation_systems(SimulationCoordinator& coordinator, entt::regis
     coordinator.add_simulation_system(std::make_unique<PhysicsSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<InfrastructureSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<EnvironmentalSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<InfrastructureInfluenceSystem>(registry, event_dispatcher));
     
     coordinator.add_simulation_system(std::make_unique<BiologySystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<EcosystemSystem>(registry, event_dispatcher));
     
     coordinator.add_simulation_system(std::make_unique<CognitiveSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<XenoSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<SocialInteractionSystem>(registry, event_dispatcher));
     
     coordinator.add_simulation_system(std::make_unique<EconomicSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<StockMarketSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<EconomicMarketSystem>(registry, event_dispatcher));
     
+    coordinator.add_simulation_system(std::make_unique<FactionSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<PoliticalSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<PoliticalOpinionSystem>(registry, event_dispatcher));
 }

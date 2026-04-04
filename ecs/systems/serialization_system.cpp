@@ -7,6 +7,8 @@
 #include "../components/components.h"
 #include "../components/simulation_layers.h"
 #include "../components/zoning_components.h"
+#include "../components/infrastructure_components.h"
+#include "../components/transit_components.h"
 
 namespace NeonOubliette {
 
@@ -105,7 +107,16 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::PropertyComponent>(archive)
         .get<NeonOubliette::HeatIslandComponent>(archive)
         .get<NeonOubliette::WeatherComponent>(archive)
-        .get<NeonOubliette::PatrolComponent>(archive);
+        .get<NeonOubliette::PatrolComponent>(archive)
+        .get<NeonOubliette::InfrastructureArterialComponent>(archive)
+        .get<NeonOubliette::ConduitFieldComponent>(archive)
+        .get<NeonOubliette::InfrastructureNodeComponent>(archive)
+        .get<NeonOubliette::PersonalVehicleComponent>(archive)
+        .get<NeonOubliette::TransitOccupantsComponent>(archive)
+        .get<NeonOubliette::RidingComponent>(archive)
+        .get<NeonOubliette::TransitVehicleComponent>(archive)
+        .get<NeonOubliette::TransitRouteComponent>(archive)
+        .get<NeonOubliette::TransitStationComponent>(archive);
 }
 
 void SerializationSystem::load_game(const std::string& filename) {
@@ -201,6 +212,15 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::HeatIslandComponent>(archive)
         .get<NeonOubliette::WeatherComponent>(archive)
         .get<NeonOubliette::PatrolComponent>(archive)
+        .get<NeonOubliette::InfrastructureArterialComponent>(archive)
+        .get<NeonOubliette::ConduitFieldComponent>(archive)
+        .get<NeonOubliette::InfrastructureNodeComponent>(archive)
+        .get<NeonOubliette::PersonalVehicleComponent>(archive)
+        .get<NeonOubliette::TransitOccupantsComponent>(archive)
+        .get<NeonOubliette::RidingComponent>(archive)
+        .get<NeonOubliette::TransitVehicleComponent>(archive)
+        .get<NeonOubliette::TransitRouteComponent>(archive)
+        .get<NeonOubliette::TransitStationComponent>(archive)
         .orphans();
 }
 

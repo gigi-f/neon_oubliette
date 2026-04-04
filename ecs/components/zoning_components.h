@@ -17,6 +17,8 @@ enum class ZoneType : uint8_t {
     INDUSTRIAL,
     PARK,
     TRANSIT,
+    AIRPORT,
+    COLOSSEUM,
     Count
 };
 
@@ -31,6 +33,7 @@ struct MacroZoneComponent {
     int macro_y = 0;
     float density = 0.5f; // 0.0 to 1.0 (building vs open space)
     std::string district_name;
+    std::vector<entt::entity> arterial_entities; // Links to global skeleton entities in this zone
     
     template <class Archive>
     void serialize(Archive& ar) {
@@ -38,7 +41,8 @@ struct MacroZoneComponent {
            cereal::make_nvp("macro_x", macro_x),
            cereal::make_nvp("macro_y", macro_y),
            cereal::make_nvp("density", density),
-           cereal::make_nvp("district_name", district_name));
+           cereal::make_nvp("district_name", district_name),
+           cereal::make_nvp("arterial_entities", arterial_entities));
     }
 };
 

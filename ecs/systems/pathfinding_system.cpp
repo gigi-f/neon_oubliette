@@ -1,5 +1,6 @@
 #include "pathfinding_system.h"
-
+#include "macro_navigation_system.h"
+#include "../components/infrastructure_components.h"
 #include <algorithm>
 #include <map>
 #include <queue>
@@ -14,16 +15,14 @@ PathfindingSystem::PathfindingSystem(entt::registry& registry, entt::dispatcher&
 
 // Helper to check if a position is traversable (no solid entities)
 bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity requester_entity) const {
-    // Check if position is within conceptual map bounds (e.g., 0-99 for x/y)
-    if (pos.x < 0 || pos.x >= 100 || pos.y < 0 || pos.y >= 100 || pos.layer_id != 0) {
-        // For now, only layer 0 is considered traversable for pathfinding.
-        // Will expand to multi-layer pathfinding later.
+    auto config_view = registry.view<WorldConfigComponent>();
+    if (config_view.empty()) return false;
+    const auto& config = config_view.get<WorldConfigComponent>(config_view.front());
+
+    if (pos.x < 0 || pos.x >= config.width || pos.y < 0 || pos.y >= config.height || pos.layer_id != 0) {
         return false;
     }
 
-    // Iterate through all entities that have a PositionComponent and an ObstacleComponent
-    // If any such entity (other than the requester itself) is at 'pos',
-    // then the position is not traversable.
     bool is_obstacle = false;
     auto view = registry.view<PositionComponent, ObstacleComponent>();
     for (auto entity : view) {
@@ -40,7 +39,6 @@ bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity reques
 
 // Heuristic function (Manhattan distance for grid-based movement)
 int PathfindingSystem::getHeuristic(PositionComponent a, PositionComponent b) const {
-    // For now, only considers X and Y. Layer changes are assumed to be a separate movement.
     return std::abs(a.x - b.x) + std::abs(a.y - b.y);
 }
 
@@ -54,9 +52,6 @@ std::vector<PositionComponent> PathfindingSystem::reconstructPath(PathfindingSys
     }
     std::reverse(path.begin(), path.end());
 
-    // The first step in the path is the starting position, which the agent is already on.
-    // We want the path to represent the sequence of *moves* needed to reach the target.
-    // So, we remove the starting position from the reconstructed path.
     if (!path.empty()) {
         path.erase(path.begin()); // Remove the current position (start_pos) from the path
     }
@@ -65,39 +60,103 @@ std::vector<PositionComponent> PathfindingSystem::reconstructPath(PathfindingSys
 
 void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEvent& event) {
     std::vector<PositionComponent> path;
+    std::vector<PositionComponent> macro_path;
     bool success = false;
 
-    // Check if start or target positions are valid and traversable
-    if (!isTraversable(event.start, event.entity)) {
-        // Start position is an obstacle
-        dispatcher.enqueue<PathfindingResponseEvent>({event.entity, path, event.request_id, false});
-        return;
+    // 1. Check if we need Hierarchical Pathfinding
+    int dist = getHeuristic(event.start, event.goal);
+    if (dist > 60) {
+        // Use Arterial Graph
+        auto* graph_comp = registry.ctx().find<ArterialGraphComponent>();
+        if (graph_comp) {
+            // Find a way to get MacroNavigationSystem's find_macro_path logic
+            // For now, we'll implement a local version of it or assume it's available.
+            // Since we can't easily call other systems, we'll do the macro search here.
+            
+            auto find_node = [&](PositionComponent p) -> entt::entity {
+                auto view = registry.view<InfrastructureNodeComponent, PositionComponent>();
+                entt::entity nearest = entt::null;
+                float min_d = 1e9f;
+                for (auto e : view) {
+                    const auto& np = view.get<PositionComponent>(e);
+                    float d = std::abs(np.x - p.x) + std::abs(np.y - p.y);
+                    if (d < min_d) { min_d = d; nearest = e; }
+                }
+                return nearest;
+            };
+
+            entt::entity start_node = find_node(event.start);
+            entt::entity goal_node = find_node(event.goal);
+
+            if (start_node != entt::null && goal_node != entt::null && start_node != goal_node) {
+                // Perform A* on Arterial Graph
+                struct MNode {
+                    entt::entity entity;
+                    float g; float h; entt::entity p;
+                    float f() const { return g + h; }
+                    bool operator>(const MNode& o) const { return f() > o.f(); }
+                };
+                std::priority_queue<MNode, std::vector<MNode>, std::greater<MNode>> open;
+                std::map<entt::entity, float> gs;
+                std::map<entt::entity, entt::entity> ps;
+
+                const auto& gp = registry.get<PositionComponent>(goal_node);
+                open.push({start_node, 0, (float)getHeuristic(registry.get<PositionComponent>(start_node), gp), entt::null});
+                gs[start_node] = 0;
+
+                bool found_macro = false;
+                while (!open.empty()) {
+                    MNode curr = open.top(); open.pop();
+                    if (curr.entity == goal_node) { found_macro = true; break; }
+                    if (graph_comp->adj_list.count(curr.entity)) {
+                        for (auto const& edge : graph_comp->adj_list.at(curr.entity)) {
+                            float ng = curr.g + edge.cost;
+                            if (!gs.count(edge.target_node) || ng < gs[edge.target_node]) {
+                                gs[edge.target_node] = ng; ps[edge.target_node] = curr.entity;
+                                open.push({edge.target_node, ng, (float)getHeuristic(registry.get<PositionComponent>(edge.target_node), gp), curr.entity});
+                            }
+                        }
+                    }
+                }
+
+                if (found_macro) {
+                    entt::entity c = goal_node;
+                    while (c != entt::null) {
+                        macro_path.push_back(registry.get<PositionComponent>(c));
+                        c = ps.count(c) ? ps.at(c) : entt::null;
+                    }
+                    std::reverse(macro_path.begin(), macro_path.end());
+                    
+                    // The first goal for local A* is the first node in macro_path
+                    PositionComponent local_goal = macro_path.front();
+                    
+                    // Run local A* to the first macro node
+                    // (Implementation below)
+                    // We'll set event.goal to local_goal for the rest of this function
+                    // and then restore it or just use a local goal.
+                }
+            }
+        }
     }
-    if (!isTraversable(event.goal, entt::null)) { // Target can be an entity, so don't block by itself
-        // Target position is an obstacle that cannot be moved onto.
-        dispatcher.enqueue<PathfindingResponseEvent>({event.entity, path, event.request_id, false});
-        return;
+
+    // 2. Standard Local A* (either to final goal or to first macro node)
+    PositionComponent target = (macro_path.empty()) ? event.goal : macro_path.front();
+    if (!macro_path.empty()) {
+        macro_path.erase(macro_path.begin()); // Remove the one we are pathfinding to now
     }
 
     // Handle case where start and target are the same
-    if (event.start == event.goal) {
-        // Path is already at the target, so an empty path means success.
-        dispatcher.enqueue<PathfindingResponseEvent>({event.entity, path, event.request_id, true});
+    if (event.start == target) {
+        dispatcher.enqueue<PathfindingResponseEvent>({event.entity, {}, macro_path, event.request_id, true});
         return;
     }
 
-    // Use a priority queue for A* algorithm
     auto cmp = [](const Node* a, const Node* b) { return *a > *b; };
     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)> open_set(cmp);
-
-    // Store all dynamically allocated nodes to clean up later
     std::vector<Node*> all_nodes;
-
-    // Map to store the node with the best g_cost found so far for each position
     std::map<PositionComponent, Node*> nodes_in_open_or_closed;
 
-    PathfindingSystem::Node* start_node =
-        new PathfindingSystem::Node(event.start, 0, getHeuristic(event.start, event.goal));
+    Node* start_node = new Node(event.start, 0, getHeuristic(event.start, target));
     open_set.push(start_node);
     all_nodes.push_back(start_node);
     nodes_in_open_or_closed[event.start] = start_node;
@@ -106,14 +165,12 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
         Node* current_node = open_set.top();
         open_set.pop();
 
-        // If we reached the target, reconstruct path and exit
-        if (current_node->pos == event.goal) {
+        if (current_node->pos == target) {
             path = reconstructPath(current_node);
             success = true;
             break;
         }
 
-        // Define possible movements (8 directions for x,y + same layer_id for now)
         int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1};
         int dy[] = {-1, -1, -1, 0, 0, 1, 1, 1};
 
@@ -124,11 +181,9 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
 
             if (isTraversable(neighbor_pos, event.entity)) {
                 int new_g_cost = current_node->g_cost + 1;
-
                 auto it = nodes_in_open_or_closed.find(neighbor_pos);
                 if (it == nodes_in_open_or_closed.end() || new_g_cost < it->second->g_cost) {
-                    PathfindingSystem::Node* neighbor_node = new PathfindingSystem::Node(
-                        neighbor_pos, new_g_cost, getHeuristic(neighbor_pos, event.goal), current_node);
+                    Node* neighbor_node = new Node(neighbor_pos, new_g_cost, getHeuristic(neighbor_pos, target), current_node);
                     open_set.push(neighbor_node);
                     all_nodes.push_back(neighbor_node);
                     nodes_in_open_or_closed[neighbor_pos] = neighbor_node;
@@ -137,12 +192,8 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
         }
     }
 
-    // Clean up dynamically allocated nodes
-    for (PathfindingSystem::Node* node : all_nodes) {
-        delete node;
-    }
-
-    dispatcher.enqueue<PathfindingResponseEvent>({event.entity, path, event.request_id, success});
+    for (Node* node : all_nodes) delete node;
+    dispatcher.enqueue<PathfindingResponseEvent>({event.entity, path, macro_path, event.request_id, success});
 }
 
 } // namespace NeonOubliette
