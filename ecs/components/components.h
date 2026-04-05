@@ -361,10 +361,10 @@ struct WeatherComponent {
     uint32_t time_of_day_ticks = 0;
     
     // Day cycle durations (in turns)
-    static constexpr uint32_t DAWN_DURATION = 50;
-    static constexpr uint32_t DAY_DURATION = 200;
-    static constexpr uint32_t DUSK_DURATION = 50;
-    static constexpr uint32_t NIGHT_DURATION = 200;
+    static constexpr uint32_t DAWN_DURATION  = 1000;
+    static constexpr uint32_t DAY_DURATION   = 4000;
+    static constexpr uint32_t DUSK_DURATION  = 1000;
+    static constexpr uint32_t NIGHT_DURATION = 4000;
 
     template <class Archive> void serialize(Archive& ar) {
         ar(CEREAL_NVP(state), CEREAL_NVP(intensity), CEREAL_NVP(ambient_temperature), CEREAL_NVP(ticks_remaining), CEREAL_NVP(time_of_day), CEREAL_NVP(time_of_day_ticks));
