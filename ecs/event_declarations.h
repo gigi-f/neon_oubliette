@@ -54,6 +54,7 @@ struct PlayerMoveEvent {
 struct BuildingEntranceEvent {
     entt::entity visitor;
     entt::entity building;
+    entt::entity door_entity = entt::null;
     int entry_x = 0;
     int entry_y = 0;
     int entry_layer = 0;
@@ -78,6 +79,12 @@ struct HUDNotificationEvent {
     std::string color_hex = "#FFFFFF";
 };
 
+struct SpeechEvent {
+    entt::entity speaker;
+    std::string text;
+    uint32_t duration_ticks = 20;
+};
+
 // --- System Events ---
 
 struct TurnEvent {
@@ -93,6 +100,15 @@ struct AdvanceTurnRequestEvent {};
 struct ToggleGodModeEvent {};
 struct TogglePauseEvent {};
 struct AdjustGodModeSpeedEvent { float delta = 0.5f; };
+struct GodModeFocusBuildingEvent { entt::entity building_entity; };
+struct GodModeExitFocusEvent {};
+
+struct GodModeFollowAgentEvent { entt::entity target; };
+struct GodModeTeleportCursorEvent { int x; int y; int layer; };
+struct GodModeTagEntityEvent { entt::entity target; std::string tag_label; };
+struct OpenContextMenuEvent { int x; int y; int layer_id; entt::entity target_entity = entt::null; };
+struct CloseContextMenuEvent {};
+struct ContextMenuSelectEvent { int selection_index; };
 
 struct LogEvent {
     std::string message;
@@ -105,6 +121,9 @@ struct ShutdownEvent {};
 struct SaveGameEvent {};
 struct LoadGameEvent {};
 
+// --- Chunk/World Change Events ---
+struct ChunkChangedEvent {};  // Fired when chunks load/unload, invalidates spatial caches
+
 // --- Interaction & UI Events ---
 
 struct InventoryToggleEvent {
@@ -112,6 +131,8 @@ struct InventoryToggleEvent {
 };
 
 struct CloseInspectionWindowEvent {};
+
+struct CloseDialogueWindowEvent {};
 
 struct ToggleControlsHelpEvent {
     entt::entity entity;
@@ -125,8 +146,16 @@ struct InspectEvent {
     InspectionMode mode;
 };
 
+struct DialogueEvent {
+    entt::entity player_entity;
+    entt::entity target_agent;
+};
+
 struct InteractEvent {
     entt::entity entity;
+    int layer_id = 0;
+    int x = 0;
+    int y = 0;
 };
 
 struct UseItemEvent {

@@ -2,7 +2,7 @@
 
 ### Prerequisites: brew install cmake pkgconf notcurses cereal
 
-### To build: cd /Users/gm1/Code/neon_oubliette/build && cmake .. && cmake --build . -j$(sysctl -n hw.ncpu)
+### To build: cd /Users/gm1/Code/neon_oubliette/build && cmake --build . -j2
 
 ### To run: cd /Users/gm1/Code/neon_oubliette/build/bin && ./neon_oubliette
 
@@ -38,16 +38,4 @@ A procedurally generated, hyper-detailed simulation of a futuristic mega-city.
 | 3 | Economic | Markets, transactions, debt |
 | 4 | Political | Factions, laws, territory |
 
-## Key Documents
 
-- SIMULATION_LAYERS_ARCHITECTURE.md
-- INSPECT_MECHANICS_SPEC.md  
-- SYSTEM_INTERACTION_MATRIX.md
-- ENTITY_DATA_SCHEMA.md
-
-## Status
-
-- [x] Design Phase Complete
-- [x] Technical Research Complete
-- [x] Architecture Polish (Simulation Coordinator)
-- [ ] Implementation Planning

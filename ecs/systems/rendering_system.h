@@ -26,9 +26,15 @@ private:
     struct notcurses* nc_context_;
     entt::dispatcher& event_dispatcher_;
 
-    struct ncplane* world_plane_;
-    struct ncplane* hud_plane_;
-    struct ncplane* inventory_plane_;
+    struct ncplane* world_plane_;            // [Layer 0] Terrain/Base
+    struct ncplane* range_ring_plane_;       // [Layer 1] Interaction Rings [E.2]
+    struct ncplane* entity_plane_;           // [Layer 2] Agents, Items, and Dynamic Entities
+    struct ncplane* hud_plane_;              // UI Layer
+    struct ncplane* inventory_plane_;        // Modal Layer
+    struct ncplane* interior_overlay_plane_; // Modal Layer
+    struct ncplane* minimap_plane_;          // HUD/Overlay Layer
+    struct ncplane* cursor_plane_;           // Top Layer
+    struct ncplane* context_menu_plane_;     // Top Layer
 
     bool inventory_visible_ = false;
 
@@ -36,6 +42,7 @@ private:
     void handleHUDNotificationEvent(const HUDNotificationEvent& event);
     void handleToggleControlsHelpEvent(const ToggleControlsHelpEvent& event);
     uint32_t parse_hex_color(const std::string& hex);
+    std::string room_tag_to_string(NeonOubliette::RoomTag tag);
 
     std::unordered_map<std::string, uint32_t> color_cache_;
 };

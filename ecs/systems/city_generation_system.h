@@ -285,9 +285,9 @@ private:
         }
         int tw = 12, th = 10, tx = start_x + (cell_size - tw) / 2, ty = start_y + (cell_size - th) / 2;
         std::vector<DoorInfo> t_doors = {{tx + tw/2, ty + th - 1, true}};
-        createBuildingShell("Terminal", tx, ty, tw, th, 3, "#FFFF55", ZoneType::AIRPORT, 0, t_doors, tx * 10000 + ty, chunk_ent);
+        createBuildingShell("Terminal", tx, ty, tw, th, 3, "#FFFF55", ZoneType::AIRPORT, 0, 0, 0, t_doors, tx * 10000 + ty, chunk_ent);
         generateAccessPath(tx + (tw/2), ty + th - 1, arterials);
-        createBuildingShell("Control Tower", start_x + 2, start_y + 2, 4, 4, 10, "#AAAAFF", ZoneType::AIRPORT, 0, {{start_x + 4, start_y + 5, true}}, (start_x+2)*10000+(start_y+2), chunk_ent);
+        createBuildingShell("Control Tower", start_x + 2, start_y + 2, 4, 4, 10, "#AAAAFF", ZoneType::AIRPORT, 0, 0, 0, {{start_x + 4, start_y + 5, true}}, (start_x+2)*10000+(start_y+2), chunk_ent);
     }
     void generateParkInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint) {
         int start_x = zone.macro_x * cell_size, start_y = zone.macro_y * cell_size;
@@ -323,7 +323,7 @@ private:
             else if (dist < arena_radius + 6) createTile(x, y, 0, TerrainType::ARENA_SEATING, '=', "#555555", MaterialType::CONCRETE);
             else createTile(x, y, 0, TerrainType::CONCRETE_FLOOR, '.', "#222222", MaterialType::CONCRETE);
         }
-        createBuildingShell("Colosseum Grand Entrance", center_x - 4, start_y + 2, 8, 6, 2, "#FFCC00", ZoneType::COLOSSEUM, 0, {{center_x, start_y + 7, true}}, (center_x-4)*10000+(start_y+2), chunk_ent);
+        createBuildingShell("Colosseum Grand Entrance", center_x - 4, start_y + 2, 8, 6, 2, "#FFCC00", ZoneType::COLOSSEUM, 0, 0, 0, {{center_x, start_y + 7, true}}, (center_x-4)*10000+(start_y+2), chunk_ent);
         generateAccessPath(center_x, start_y + 7, arterials);
     }
     void generateMixedCommercialInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint, entt::entity chunk_ent) {
@@ -336,7 +336,7 @@ private:
                     if (bw >= 3 && bh >= 3) {
                         uint8_t shared_sides = calculateSharedSides(lot, block); auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
                         uint32_t stable_id = bx * 10000 + by;
-                        createBuildingShell("Shop", bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#FF00FF", ZoneType::MIXED_COMMERCIAL, shared_sides, doors, stable_id, chunk_ent);
+                        createBuildingShell("Shop", bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#FF00FF", ZoneType::MIXED_COMMERCIAL, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent);
                         for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) footprint.insert({fx, fy});
                         spawnVendor(bx + (bw/2), by + (bh/2), 0, "Vendor " + std::to_string(bx));
                         for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
@@ -371,6 +371,7 @@ private:
     void createSkyscraperShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
         m_registry.emplace<BuildingComponent>(building, floors, ztype, 0, stable_id); m_registry.emplace<SizeComponent>(building, w, h); m_registry.emplace<PropertyComponent>(building);
+        m_registry.emplace<ObstacleComponent>(building); // [B.1] Add ObstacleComponent to the entire footprint
         if (chunk_ent != entt::null) {
             auto& chunk = m_registry.get<ChunkComponent>(chunk_ent); auto it = chunk.building_interiors.find({x, y});
             if (it != chunk.building_interiors.end()) m_registry.emplace<BuildingInteriorComponent>(building, it->second);
@@ -381,7 +382,17 @@ private:
             if (is_edge) {
                 if (is_door) {
                     auto door = m_registry.create(); m_registry.emplace<PositionComponent>(door, cur_x, cur_y, 0); m_registry.emplace<RenderableComponent>(door, '+', "#FFFF00", 0);
-                    m_registry.emplace<BuildingEntranceComponent>(door, building, 0); createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#111111", MaterialType::CONCRETE);
+                    m_registry.emplace<BuildingEntranceComponent>(door, building, 0);
+                    
+                    // [B.1] Store Door Metadata
+                    auto& meta = m_registry.emplace<DoorMetadataComponent>(door);
+                    meta.building_entity = building;
+                    if (cur_y == y) { meta.wall_side = StreetFacingSide::NORTH; meta.wall_offset = cur_x - x; }
+                    else if (cur_y == y + h - 1) { meta.wall_side = StreetFacingSide::SOUTH; meta.wall_offset = cur_x - x; }
+                    else if (cur_x == x) { meta.wall_side = StreetFacingSide::WEST; meta.wall_offset = cur_y - y; }
+                    else if (cur_x == x + w - 1) { meta.wall_side = StreetFacingSide::EAST; meta.wall_offset = cur_y - y; }
+
+                    createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#111111", MaterialType::CONCRETE);
                 } else {
                     char glyph = (floors > 80) ? '^' : (floors > 50) ? 'A' : '#';
                     bool is_shared = false; 
@@ -414,7 +425,7 @@ private:
             std::uniform_real_distribution<> dis(0.0, 1.0);
             if (dis(gen) < 0.2) {
                 int tw = 10, th = 10, tx = pos.first - 5, ty = pos.second - 5; std::vector<DoorInfo> h_doors = {{pos.first, ty + th - 1, true}, {pos.first, ty, true}, {tx, pos.second, true}, {tx + tw - 1, pos.second, true}};
-                createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, true, h_doors, tx * 10000 + ty, chunk_ent);
+                createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, (uint8_t)StreetFacingSide::ALL, 0, 0, h_doors, tx * 10000 + ty, chunk_ent);
                 auto hub = m_registry.create(); m_registry.emplace<PositionComponent>(hub, pos.first, pos.second, 0); m_registry.emplace<CommerceHubComponent>(hub, 20.0f, 1.6f);
                 for (int fx = tx; fx < tx + tw; ++fx) for (int fy = ty; fy < ty + th; ++fy) footprint.insert({fx, fy});
             }
@@ -482,6 +493,7 @@ private:
     void createBuildingShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
         m_registry.emplace<BuildingComponent>(building, floors, ztype, 0, stable_id); m_registry.emplace<SizeComponent>(building, w, h);
+        m_registry.emplace<ObstacleComponent>(building); // [B.1] Add ObstacleComponent to the entire footprint
         auto& b_phys = m_registry.emplace<Layer0PhysicsComponent>(building); b_phys.material = MaterialType::STEEL; m_registry.emplace<PropertyComponent>(building);
         if (chunk_ent != entt::null) {
             auto& chunk = m_registry.get<ChunkComponent>(chunk_ent); auto it = chunk.building_interiors.find({x, y});
@@ -494,7 +506,17 @@ private:
             if (is_edge) {
                 if (is_door) {
                     auto door = m_registry.create(); m_registry.emplace<PositionComponent>(door, cur_x, cur_y, 0); m_registry.emplace<RenderableComponent>(door, '+', "#FFFF00", 0);
-                    m_registry.emplace<BuildingEntranceComponent>(door, building, 0); createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#111111", MaterialType::CONCRETE);
+                    m_registry.emplace<BuildingEntranceComponent>(door, building, 0);
+                    
+                    // [B.1] Store Door Metadata
+                    auto& meta = m_registry.emplace<DoorMetadataComponent>(door);
+                    meta.building_entity = building;
+                    if (cur_y == y) { meta.wall_side = StreetFacingSide::NORTH; meta.wall_offset = cur_x - x; }
+                    else if (cur_y == y + h - 1) { meta.wall_side = StreetFacingSide::SOUTH; meta.wall_offset = cur_x - x; }
+                    else if (cur_x == x) { meta.wall_side = StreetFacingSide::WEST; meta.wall_offset = cur_y - y; }
+                    else if (cur_x == x + w - 1) { meta.wall_side = StreetFacingSide::EAST; meta.wall_offset = cur_y - y; }
+
+                    createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#111111", MaterialType::CONCRETE);
                 } else {
                     bool is_shared = false; if (cur_x == x && (shared_sides & (uint8_t)StreetFacingSide::WEST)) is_shared = true; if (cur_x == x + w - 1 && (shared_sides & (uint8_t)StreetFacingSide::EAST)) is_shared = true;
                     if (cur_y == y && (shared_sides & (uint8_t)StreetFacingSide::NORTH)) is_shared = true; if (cur_y == y + h - 1 && (shared_sides & (uint8_t)StreetFacingSide::SOUTH)) is_shared = true;

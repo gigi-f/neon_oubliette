@@ -1,6 +1,7 @@
 #include "pathfinding_system.h"
 #include "macro_navigation_system.h"
 #include "../components/infrastructure_components.h"
+#include "../components/simulation_layers.h"
 #include <algorithm>
 #include <map>
 #include <queue>
@@ -39,19 +40,50 @@ bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity reques
         if (!found_floor) return false;
     }
 
-    // 2. Check for Dynamic Obstacles in Registry
-    bool is_obstacle = false;
-    auto view = registry.view<PositionComponent, ObstacleComponent>();
-    for (auto entity : view) {
-        if (entity != requester_entity) {
-            const auto& p_pos = view.get<PositionComponent>(entity);
-            if (p_pos == pos) {
-                is_obstacle = true;
-                break;
+    // 2. Check Volumetric Obstacles (SizeComponent) - e.g. Buildings [B.1]
+    auto size_view = registry.view<PositionComponent, ObstacleComponent, SizeComponent>();
+    for (auto entity : size_view) {
+        if (entity == requester_entity) continue;
+        const auto& o_pos = size_view.get<PositionComponent>(entity);
+        const auto& o_size = size_view.get<SizeComponent>(entity);
+        
+        if (pos.layer_id == o_pos.layer_id &&
+            pos.x >= o_pos.x && pos.x < o_pos.x + o_size.width &&
+            pos.y >= o_pos.y && pos.y < o_pos.y + o_size.height) {
+            
+            // [B.1] Exception: Doors in buildings are traversable for pathfinding
+            if (registry.all_of<BuildingComponent>(entity)) {
+                auto door_view = registry.view<PositionComponent, BuildingEntranceComponent>();
+                for (auto door_ent : door_view) {
+                    const auto& d_pos = door_view.get<PositionComponent>(door_ent);
+                    if (d_pos.x == pos.x && d_pos.y == pos.y && d_pos.layer_id == pos.layer_id) {
+                        return true; 
+                    }
+                }
             }
+            return false;
         }
     }
-    return !is_obstacle;
+
+    // 3. Check Single-Tile Obstacles
+    auto single_view = registry.view<PositionComponent, ObstacleComponent>(entt::exclude<SizeComponent>);
+    for (auto entity : single_view) {
+        if (entity == requester_entity) continue;
+        const auto& p_pos = single_view.get<PositionComponent>(entity);
+        if (p_pos == pos) {
+            // [NEW] Broken windows are passable (matching MovementSystem)
+            if (registry.all_of<TerrainComponent>(entity)) {
+                if (registry.get<TerrainComponent>(entity).type == TerrainType::WINDOW) {
+                    if (auto* phys = registry.try_get<Layer0PhysicsComponent>(entity)) {
+                        if (phys->structural_integrity < 0.5f) return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+    return true;
 }
 
 // Heuristic function (Manhattan distance for grid-based movement)

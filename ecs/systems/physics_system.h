@@ -4,6 +4,7 @@
 #include "simulation_coordinator.h"
 #include "../components/components.h"
 #include "../components/simulation_layers.h"
+#include <unordered_map>
 #include <map>
 #include <vector>
 
@@ -51,7 +52,7 @@ public:
         }
 
         // 2. Build Spatial Map for Tile-based Conduction & Cooling Fields
-        std::map<PositionComponent, entt::entity> tile_map;
+        std::unordered_map<PositionComponent, entt::entity> tile_map;
         std::vector<PositionComponent> water_tiles;
         auto tile_view = m_registry.view<PositionComponent, TerrainComponent, Layer0PhysicsComponent>();
         for (auto entity : tile_view) {
@@ -64,7 +65,7 @@ public:
         }
 
         // 3. Adjacent Heat Transfer (Grid Conduction)
-        std::map<entt::entity, float> temp_deltas;
+        std::unordered_map<entt::entity, float> temp_deltas;
         
         for (auto entity : tile_view) {
             const auto& pos = tile_view.get<PositionComponent>(entity);
@@ -103,7 +104,7 @@ public:
         // 4. Update All Physics Entities (Equalization with Tile and Ambient, and Damage)
         // Pre-compute a grid of nearest water distance to avoid O(water_tiles) per entity
         struct WaterInfluence { float dist; };
-        std::map<PositionComponent, WaterInfluence> water_influence;
+        std::unordered_map<PositionComponent, WaterInfluence> water_influence;
         for (const auto& w_pos : water_tiles) {
             for (int wdx = -4; wdx <= 4; ++wdx) {
                 for (int wdy = -4; wdy <= 4; ++wdy) {

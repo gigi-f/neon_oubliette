@@ -39,6 +39,14 @@ void ConsumptionSystem::handleConsumeItemEvent(const ConsumeItemEvent& event) {
         dispatcher.trigger(LogEvent{log_msg, LogSeverity::INFO, "ConsumptionSystem"});
         dispatcher.trigger(HUDNotificationEvent{log_msg, 2.0f, "#00FF00"}); // Green for positive feedback
 
+        // Update HUD held item if it was consumed
+        if (registry.all_of<HUDComponent>(event.consumer_entity)) {
+            auto& hud = registry.get<HUDComponent>(event.consumer_entity);
+            if (hud.held_item == event.item_to_consume_entity) {
+                hud.held_item = entt::null;
+            }
+        }
+
         // Remove from inventory first
         if (registry.all_of<InventoryComponent>(event.consumer_entity)) {
             auto& inv = registry.get<InventoryComponent>(event.consumer_entity);

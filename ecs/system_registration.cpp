@@ -9,6 +9,8 @@
 #include "systems/input_system.h"
 #include "systems/inspection_system.h"
 #include "systems/interaction_system.h"
+#include "systems/dialogue_system.h"
+#include "systems/god_mode_system.h"
 #include "systems/item_usage_system.h"
 #include "systems/logging_system.h"
 #include "systems/movement_system.h"
@@ -21,6 +23,7 @@
 #include "systems/building_generation_system.h"
 #include "systems/population_system.h"
 #include "systems/visibility_system.h"
+#include "systems/sound_system.h"
 #include "systems/activity_system.h"
 #include "systems/barter_system.h"
 #include "systems/faction_system.h"
@@ -71,12 +74,17 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BuildingGenerationSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<PopulationSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<VisibilitySystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::SoundSystem>(registry, event_dispatcher));
 
     // Interaction/Inspection systems
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<Systems::InteractionSystem>(registry, nc_context, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<Systems::InspectionSystem>(registry, nc_context, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro,
+                         std::make_unique<Systems::DialogueSystem>(registry, nc_context, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro,
+                         std::make_unique<Systems::GodModeSystem>(registry, event_dispatcher));
 
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ActivitySystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BarterSystem>(registry, event_dispatcher));

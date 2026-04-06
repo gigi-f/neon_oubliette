@@ -68,22 +68,41 @@ void InspectionSystem::handleCloseInspectionWindowEvent(const CloseInspectionWin
 }
 
 void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
-    // Proximity Targeting (Radius 1)
+    // Better Targeting: Check exact hit first, then proximity
     auto view = registry_.view<PositionComponent>();
     entt::entity target = entt::null;
-    float best_dist = 999.0f;
 
+    // 1. Exact Hit (considering SizeComponent)
     for (auto entity : view) {
         if (entity == event.player_entity) continue;
         const auto& pos = view.get<PositionComponent>(entity);
         if (pos.layer_id == event.layer_id) {
-            int dx = pos.x - event.x;
-            int dy = pos.y - event.y;
-            float dist_sq = (float)(dx * dx + dy * dy);
-            
-            // Allow targeting entities within radius 1 (including diagonals)
-            if (dist_sq <= 2.0f) {
-                if (dist_sq < best_dist) {
+            int width = 1, height = 1;
+            if (registry_.all_of<SizeComponent>(entity)) {
+                const auto& size = registry_.get<SizeComponent>(entity);
+                width = size.width;
+                height = size.height;
+            }
+
+            if (event.x >= pos.x && event.x < pos.x + width &&
+                event.y >= pos.y && event.y < pos.y + height) {
+                target = entity;
+                break; // Found direct hit
+            }
+        }
+    }
+
+    // 2. Proximity Fallback (if no exact hit)
+    if (target == entt::null) {
+        float best_dist = 999.0f;
+        for (auto entity : view) {
+            if (entity == event.player_entity) continue;
+            const auto& pos = view.get<PositionComponent>(entity);
+            if (pos.layer_id == event.layer_id) {
+                int dx = pos.x - event.x;
+                int dy = pos.y - event.y;
+                float dist_sq = (float)(dx * dx + dy * dy);
+                if (dist_sq <= 2.0f && dist_sq < best_dist) {
                     best_dist = dist_sq;
                     target = entity;
                 }

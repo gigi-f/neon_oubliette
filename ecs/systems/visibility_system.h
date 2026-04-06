@@ -12,18 +12,6 @@
 
 namespace NeonOubliette {
 
-namespace detail {
-    struct PosHash {
-        size_t operator()(const PositionComponent& p) const {
-            // Combine x, y, layer_id into a single hash
-            size_t h = std::hash<int>()(p.x);
-            h ^= std::hash<int>()(p.y) + 0x9e3779b9 + (h << 6) + (h >> 2);
-            h ^= std::hash<int>()(p.layer_id) + 0x9e3779b9 + (h << 6) + (h >> 2);
-            return h;
-        }
-    };
-}
-
 /**
  * @brief Manages line-of-sight (FOV) and vertical visibility.
  *        Updates VisibilityComponent and MemoryComponent for entities.
@@ -33,17 +21,30 @@ public:
     VisibilitySystem(entt::registry& registry, entt::dispatcher& dispatcher)
         : m_registry(registry), m_dispatcher(dispatcher) {}
 
-    void initialize() override {}
+    void initialize() override {
+        // Start dirty so first frame builds caches
+        m_blocking_dirty = true;
+        m_terrain_render_dirty = true;
+        m_dispatcher.sink<ChunkChangedEvent>().connect<&VisibilitySystem::on_chunk_changed>(this);
+    }
+
+    void invalidate_caches() {
+        m_blocking_dirty = true;
+        m_terrain_render_dirty = true;
+    }
+
+    void on_chunk_changed(const ChunkChangedEvent&) {
+        invalidate_caches();
+    }
 
     void update(double delta_time) override {
         (void)delta_time;
 
-        // Mark spatial caches as needing rebuild this frame
-        m_blocking_dirty = true;
-        m_terrain_render_dirty = true;
+        // Spatial caches are only rebuilt when explicitly invalidated
+        // (e.g., chunk load/unload calls invalidate_caches())
 
-        // 1. Process Horizontal FOV for all entities with VisibilityComponent
-        auto view = m_registry.view<PositionComponent, VisibilityComponent>();
+        // Only compute FOV for the player (agents don't need visual FOV)
+        auto view = m_registry.view<PlayerComponent, PositionComponent, VisibilityComponent>();
         for (auto entity : view) {
             auto& pos = view.get<PositionComponent>(entity);
             auto& vis = view.get<VisibilityComponent>(entity);
@@ -51,14 +52,12 @@ public:
             vis.visible_tiles.clear();
             calculate_fov(entity, pos, vis);
 
-            // 2. If it's a player, update MemoryComponent
-            if (m_registry.all_of<PlayerComponent>(entity)) {
-                if (m_registry.all_of<MemoryComponent>(entity)) {
-                    update_memory(entity, vis);
-                } else {
-                    m_registry.emplace<MemoryComponent>(entity);
-                    update_memory(entity, vis);
-                }
+            // Update MemoryComponent
+            if (m_registry.all_of<MemoryComponent>(entity)) {
+                update_memory(entity, vis);
+            } else {
+                m_registry.emplace<MemoryComponent>(entity);
+                update_memory(entity, vis);
             }
         }
 
@@ -171,9 +170,9 @@ private:
 
     // Spatial caches rebuilt per frame to avoid O(n) scans in inner loops
     bool m_blocking_dirty = true;
-    std::unordered_set<PositionComponent, detail::PosHash> m_blocking_set;
+    std::unordered_set<PositionComponent> m_blocking_set;
     bool m_terrain_render_dirty = true;
-    std::map<PositionComponent, MemoryComponent::RememberedTile> m_terrain_render_map;
+    std::unordered_map<PositionComponent, MemoryComponent::RememberedTile> m_terrain_render_map;
 };
 
 } // namespace NeonOubliette

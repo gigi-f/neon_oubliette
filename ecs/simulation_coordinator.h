@@ -57,8 +57,12 @@ private:
     void on_toggle_god_mode(const ToggleGodModeEvent& event);
     void on_toggle_pause(const TogglePauseEvent& event);
     void on_adjust_speed(const AdjustGodModeSpeedEvent& event);
+    void on_focus_building(const GodModeFocusBuildingEvent& event);
+    void on_exit_focus(const GodModeExitFocusEvent& event);
+    void on_advance_turn_request(const AdvanceTurnRequestEvent& event);
 
     uint64_t m_turn_counter = 0;
+    bool m_turn_requested = false;
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;
     SystemScheduler& m_scheduler;

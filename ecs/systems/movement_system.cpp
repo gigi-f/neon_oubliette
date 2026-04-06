@@ -79,6 +79,25 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 if (target_layer == o_pos.layer_id &&
                     target_x >= o_pos.x && target_x < o_pos.x + o_size.width &&
                     target_y >= o_pos.y && target_y < o_pos.y + o_size.height) {
+                    
+                    // [B.1] Check if this is a building and if we are hitting a door
+                    if (m_registry.all_of<BuildingComponent>(obstacle)) {
+                        bool found_door = false;
+                        auto door_view = m_registry.view<PositionComponent, BuildingEntranceComponent>();
+                        for (auto door_ent : door_view) {
+                            const auto& d_pos = door_view.get<PositionComponent>(door_ent);
+                            if (d_pos.x == target_x && d_pos.y == target_y && d_pos.layer_id == target_layer) {
+                                found_door = true;
+                                m_dispatcher.trigger(BuildingEntranceEvent{event.entity, obstacle, door_ent, target_x, target_y, target_layer});
+                                break;
+                            }
+                        }
+                        if (found_door) {
+                            // Door allows entry; we stop processing move here as layer transition is handled by BuildingEntranceSystem
+                            return;
+                        }
+                    }
+
                     blocked = true;
                     break;
                 }
@@ -92,6 +111,17 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 if (obstacle == event.entity) continue;
                 const auto& o_pos = single_obs.get<PositionComponent>(obstacle);
                 if (o_pos.x == target_x && o_pos.y == target_y && o_pos.layer_id == target_layer) {
+                    // [NEW] Broken windows are passable (crawl point)
+                    if (m_registry.all_of<TerrainComponent>(obstacle)) {
+                        if (m_registry.get<TerrainComponent>(obstacle).type == TerrainType::WINDOW) {
+                            if (auto* phys = m_registry.try_get<Layer0PhysicsComponent>(obstacle)) {
+                                if (phys->structural_integrity < 0.5f) {
+                                    // Passable!
+                                    continue;
+                                }
+                            }
+                        }
+                    }
                     blocked = true;
                     break;
                 }
@@ -108,6 +138,48 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
         pos.x = target_x;
         pos.y = target_y;
         pos.layer_id = target_layer;
+
+        // [B.5] Update Room Index
+        if (m_registry.all_of<InteriorStateComponent>(event.entity)) {
+            auto& interior_state = m_registry.get<InteriorStateComponent>(event.entity);
+            if (m_registry.valid(interior_state.building_entity) && m_registry.all_of<BuildingInteriorComponent>(interior_state.building_entity)) {
+                const auto& interior = m_registry.get<BuildingInteriorComponent>(interior_state.building_entity);
+                interior_state.current_room_index = -1;
+                for (size_t i = 0; i < interior.rooms.size(); ++i) {
+                    const auto& room = interior.rooms[i];
+                    if (pos.x >= room.x && pos.x < room.x + room.width &&
+                        pos.y >= room.y && pos.y < room.y + room.height) {
+                        interior_state.current_room_index = (int)i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // [B.2] Portal Handling (Consistent Exits)
+        auto portal_view = m_registry.view<PositionComponent, PortalComponent>();
+        for (auto portal_ent : portal_view) {
+            const auto& p_pos = portal_view.get<PositionComponent>(portal_ent);
+            if (p_pos.x == pos.x && p_pos.y == pos.y && p_pos.layer_id == pos.layer_id) {
+                const auto& portal = portal_view.get<PortalComponent>(portal_ent);
+                pos.x = portal.target_x;
+                pos.y = portal.target_y;
+                pos.layer_id = portal.target_layer;
+                
+                if (m_registry.all_of<PlayerCurrentLayerComponent>(event.entity)) {
+                    m_registry.get<PlayerCurrentLayerComponent>(event.entity).current_z = pos.layer_id;
+                }
+                
+                if (m_registry.all_of<PlayerComponent>(event.entity)) {
+                    m_dispatcher.trigger(HUDNotificationEvent{"Exited to city level.", 2.0f, "#FFFF00"});
+                    // Remove interior state if we are back in overworld (layer 0)
+                    if (pos.layer_id == 0 && m_registry.all_of<InteriorStateComponent>(event.entity)) {
+                        m_registry.remove<InteriorStateComponent>(event.entity);
+                    }
+                }
+                break;
+            }
+        }
 
         // [NEW] Carry all occupants with the vehicle
         if (m_registry.all_of<TransitOccupantsComponent>(event.entity)) {

@@ -23,6 +23,14 @@ void ItemUsageSystem::handleUseItemEvent(const UseItemEvent& event) {
 
     // 2. Check for Usable Tools/Items
     if (registry.all_of<UsableComponent>(event.item_in_inventory_entity)) {
+        // [C.2] Flash the HUD slot if it's the player's held item
+        if (registry.all_of<HUDComponent>(event.user_entity)) {
+            auto& hud = registry.get<HUDComponent>(event.user_entity);
+            if (hud.held_item == event.item_in_inventory_entity) {
+                hud.held_item_flash_timer = 0.3f;
+            }
+        }
+
         const auto& usable = registry.get<UsableComponent>(event.item_in_inventory_entity);
         std::string item_name = "item";
         if (registry.all_of<NameComponent>(event.item_in_inventory_entity)) {

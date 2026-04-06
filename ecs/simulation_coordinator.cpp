@@ -1,5 +1,6 @@
 #include "simulation_coordinator.h"
 #include <iostream>
+#include <chrono>
 
 namespace NeonOubliette {
 
@@ -10,6 +11,9 @@ SimulationCoordinator::SimulationCoordinator(entt::registry& registry, entt::dis
     m_dispatcher.sink<ToggleGodModeEvent>().connect<&SimulationCoordinator::on_toggle_god_mode>(this);
     m_dispatcher.sink<TogglePauseEvent>().connect<&SimulationCoordinator::on_toggle_pause>(this);
     m_dispatcher.sink<AdjustGodModeSpeedEvent>().connect<&SimulationCoordinator::on_adjust_speed>(this);
+    m_dispatcher.sink<GodModeFocusBuildingEvent>().connect<&SimulationCoordinator::on_focus_building>(this);
+    m_dispatcher.sink<GodModeExitFocusEvent>().connect<&SimulationCoordinator::on_exit_focus>(this);
+    m_dispatcher.sink<AdvanceTurnRequestEvent>().connect<&SimulationCoordinator::on_advance_turn_request>(this);
 }
 
 void SimulationCoordinator::advance_turn(double delta_time) {
@@ -25,7 +29,8 @@ void SimulationCoordinator::advance_turn(double delta_time) {
         auto& state = view.get<SimulationStateComponent>(entity);
 
         if (state.mode == SimulationMode::STANDARD) {
-            if (!state.is_paused) {
+            if (!state.is_paused && m_turn_requested) {
+                m_turn_requested = false;
                 run_simulation_tick(delta_time);
             }
         } else if (state.mode == SimulationMode::GOD_MODE) {
@@ -49,25 +54,34 @@ void SimulationCoordinator::advance_turn(double delta_time) {
 
 void SimulationCoordinator::run_simulation_tick(double delta_time) {
     m_turn_counter++;
+    fprintf(stderr, "[TICK %lu] Starting simulation tick\n", (unsigned long)m_turn_counter);
 
     // 2. Process Simulation Layers (Phase-Locked)
     for (uint8_t i = 0; i < static_cast<uint8_t>(SimulationLayer::Count); ++i) {
         SimulationLayer layer = static_cast<SimulationLayer>(i);
         
         if (should_layer_tick(layer, m_turn_counter)) {
-            // Update all systems for this layer
+            int sys_idx = 0;
             for (auto& system : m_layer_systems[layer]) {
+                auto t0 = std::chrono::steady_clock::now();
                 system->update(delta_time);
+                auto t1 = std::chrono::steady_clock::now();
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+                fprintf(stderr, "  L%d sys#%d: %lldms\n", i, sys_idx, (long long)ms);
+                sys_idx++;
             }
         }
     }
+    fprintf(stderr, "  Layers done\n");
 
     // 3. Process Macro Phase (Every Turn for non-simulation systems)
     m_scheduler.run_phase(SystemScheduler::Phase::Macro, m_registry, m_dispatcher, delta_time);
+    fprintf(stderr, "  Macro done\n");
 
     // 4. Process Micro/PostMicro Phases (Every Turn)
     m_scheduler.run_phase(SystemScheduler::Phase::Micro, m_registry, m_dispatcher, delta_time);
     m_scheduler.run_phase(SystemScheduler::Phase::PostMicro, m_registry, m_dispatcher, delta_time);
+    fprintf(stderr, "  Micro/PostMicro done\n");
 }
 
 void SimulationCoordinator::on_toggle_god_mode(const ToggleGodModeEvent& event) {
@@ -158,6 +172,39 @@ bool SimulationCoordinator::should_layer_tick(SimulationLayer layer, uint64_t tu
         default:
             return false;
     }
+}
+
+void SimulationCoordinator::on_focus_building(const GodModeFocusBuildingEvent& event) {
+    auto view = m_registry.view<SimulationStateComponent>();
+    if (view.empty()) return;
+    auto& state = view.get<SimulationStateComponent>(*view.begin());
+
+    if (state.mode != SimulationMode::GOD_MODE) return;
+
+    state.focused_building = event.building_entity;
+    state.is_inside_view = true;
+    state.focus_floor = 0;
+
+    // Trigger interior generation if needed
+    m_dispatcher.trigger(BuildingEntranceEvent{entt::null, event.building_entity, entt::null, 0, 0, 0});
+
+    m_dispatcher.trigger(HUDNotificationEvent{"Inspecting Interior...", 2.0f, "#00FF00"});
+}
+
+void SimulationCoordinator::on_exit_focus(const GodModeExitFocusEvent& event) {
+    auto view = m_registry.view<SimulationStateComponent>();
+    if (view.empty()) return;
+    auto& state = view.get<SimulationStateComponent>(*view.begin());
+
+    state.is_inside_view = false;
+    state.focused_building = entt::null;
+
+    m_dispatcher.trigger(HUDNotificationEvent{"Returning to Overworld", 1.5f, "#AAAAAA"});
+}
+
+void SimulationCoordinator::on_advance_turn_request(const AdvanceTurnRequestEvent& event) {
+    (void)event;
+    m_turn_requested = true;
 }
 
 } // namespace NeonOubliette

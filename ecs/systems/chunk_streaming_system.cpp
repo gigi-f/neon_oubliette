@@ -61,16 +61,22 @@ void ChunkStreamingSystem::update(double delta_time) {
     if (p_chunk_x != m_last_player_chunk_x || p_chunk_y != m_last_player_chunk_y) {
         update_chunk_states(p_chunk_x, p_chunk_y);
         m_last_player_chunk_x = p_chunk_x; m_last_player_chunk_y = p_chunk_y;
+        m_dispatcher.trigger(ChunkChangedEvent{});
     }
 
     TimeOfDay current_time = TimeOfDay::DAY;
     auto weather_view = m_registry.view<WeatherComponent>();
     if (!weather_view.empty()) current_time = m_registry.get<WeatherComponent>(*weather_view.begin()).time_of_day;
 
-    auto chunk_view = m_registry.view<ChunkComponent>();
-    for (auto entity : chunk_view) {
-        auto& chunk = chunk_view.get<ChunkComponent>(entity);
-        if (!chunk.is_hot) simulate_macro_agents(chunk, current_time);
+    // Only simulate cold-chunk agents every 10 frames to reduce per-frame cost
+    m_macro_sim_counter++;
+    if (m_macro_sim_counter >= 10) {
+        m_macro_sim_counter = 0;
+        auto chunk_view = m_registry.view<ChunkComponent>();
+        for (auto entity : chunk_view) {
+            auto& chunk = chunk_view.get<ChunkComponent>(entity);
+            if (!chunk.is_hot) simulate_macro_agents(chunk, current_time);
+        }
     }
 }
 

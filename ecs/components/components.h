@@ -8,6 +8,7 @@
 #include <cereal/types/set.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/unordered_map.hpp>
+#include <cereal/types/unordered_set.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
 #include <entt/entt.hpp>
@@ -15,6 +16,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "../command_buffer.h"
@@ -100,6 +102,18 @@ enum class RoomTag : uint8_t {
     VOID
 };
 
+enum class AudibilityLevel : uint8_t {
+    CLEAR,      // 0 walls
+    MUFFLED,    // 1-2 walls
+    INAUDIBLE   // 3+ walls
+};
+
+enum class InteractionMode : uint8_t {
+    SPEAK,
+    OBSERVE,
+    TRADE
+};
+
 // =====================================================================
 // Core Components
 // =====================================================================
@@ -109,8 +123,16 @@ struct SimulationStateComponent {
     bool is_paused = false;
     float god_mode_tps = 2.0f; // Ticks per second in God Mode
     float accumulator = 0.0f;
+    
+    // God Mode Building Focus [B.3]
+    entt::entity focused_building = entt::null;
+    bool is_inside_view = false;
+    int focus_floor = 0;
+
     template <class Archive> void serialize(Archive& ar) { 
-        ar(CEREAL_NVP(mode), CEREAL_NVP(is_paused), CEREAL_NVP(god_mode_tps), CEREAL_NVP(accumulator)); 
+        ar(CEREAL_NVP(mode), CEREAL_NVP(is_paused), CEREAL_NVP(god_mode_tps), 
+           CEREAL_NVP(accumulator), CEREAL_NVP(focused_building), 
+           CEREAL_NVP(is_inside_view), CEREAL_NVP(focus_floor)); 
     }
 };
 
@@ -121,6 +143,61 @@ struct GodCursorComponent {
     bool active = false;
     template <class Archive> void serialize(Archive& ar) { 
         ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer_id), CEREAL_NVP(active)); 
+    }
+};
+
+/**
+ * @brief [D.3] Tracks which entity the God Mode camera is currently locked onto.
+ */
+struct GodModeFollowComponent {
+    entt::entity target = entt::null;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(target)); }
+};
+
+/**
+ * @brief [D.3] Allows God Mode to tag entities with metadata labels.
+ */
+struct TaggedComponent {
+    std::string tag_label = "TAG";
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(tag_label)); }
+};
+
+/**
+ * @brief [D.3] Context Menu state for God Mode interactions.
+ */
+struct ContextMenuComponent {
+    bool open = false;
+    int world_x = 0;
+    int world_y = 0;
+    int layer_id = 0;
+    std::vector<std::string> options;
+    int selected_index = 0;
+    entt::entity target_entity = entt::null;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(open), CEREAL_NVP(world_x), CEREAL_NVP(world_y), CEREAL_NVP(layer_id), 
+           CEREAL_NVP(options), CEREAL_NVP(selected_index), CEREAL_NVP(target_entity));
+    }
+};
+
+struct StandardCursorComponent {
+    int x = 0;
+    int y = 0;
+    int layer_id = 0;
+    bool active = false;
+    bool mouse_driven = false;
+    template <class Archive> void serialize(Archive& ar) { 
+        ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer_id), CEREAL_NVP(active), CEREAL_NVP(mouse_driven)); 
+    }
+};
+
+struct SpeechComponent {
+    std::string text;
+    uint32_t ticks_remaining = 0;
+    entt::entity speaker = entt::null;
+    AudibilityLevel audibility = AudibilityLevel::CLEAR;
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(text), CEREAL_NVP(ticks_remaining), CEREAL_NVP(speaker), CEREAL_NVP(audibility));
     }
 };
 
@@ -154,6 +231,22 @@ struct PositionComponent {
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer_id)); }
 };
 
+} // namespace NeonOubliette
+
+// std::hash specialization for PositionComponent (must be in namespace std)
+template<>
+struct std::hash<NeonOubliette::PositionComponent> {
+    size_t operator()(const NeonOubliette::PositionComponent& p) const noexcept {
+        // Combine x, y, layer_id into a single hash
+        size_t h = std::hash<int>()(p.x);
+        h ^= std::hash<int>()(p.y) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<int>()(p.layer_id) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        return h;
+    }
+};
+
+namespace NeonOubliette {
+
 /**
  * @brief Defines the physical footprint of an entity in tiles.
  */
@@ -175,6 +268,11 @@ struct RenderableComponent {
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(glyph), CEREAL_NVP(color), CEREAL_NVP(layer_id)); }
 };
 
+struct PlayerInteractionComponent {
+    InteractionMode current_mode = InteractionMode::OBSERVE;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(current_mode)); }
+};
+
 struct PlayerComponent { template <class Archive> void serialize(Archive&) {} };
 
 struct HUDComponent {
@@ -183,8 +281,14 @@ struct HUDComponent {
     bool show_controls_help = true;
     bool inventory_open = false;
     int selected_inventory_index = 0;
+    entt::entity held_item = entt::null; // [C.1]
+    float held_item_flash_timer = 0.0f; // [C.2]
+
     template <class Archive> void serialize(Archive& ar) {
-        ar(CEREAL_NVP(health), CEREAL_NVP(credits), CEREAL_NVP(current_layer_display), CEREAL_NVP(notifications), CEREAL_NVP(show_controls_help), CEREAL_NVP(inventory_open), CEREAL_NVP(selected_inventory_index));
+        ar(CEREAL_NVP(health), CEREAL_NVP(credits), CEREAL_NVP(current_layer_display), 
+           CEREAL_NVP(notifications), CEREAL_NVP(show_controls_help), 
+           CEREAL_NVP(inventory_open), CEREAL_NVP(selected_inventory_index),
+           CEREAL_NVP(held_item), CEREAL_NVP(held_item_flash_timer));
     }
 };
 
@@ -334,10 +438,71 @@ struct BuildingInteriorComponent {
     }
 };
 
+/**
+ * @brief [B.5] Adjacency graph for sound propagation.
+ */
+struct AcousticsEdge {
+    size_t target_room_index;
+    entt::entity door_entity = entt::null; // if null, it's a solid wall
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(target_room_index), CEREAL_NVP(door_entity));
+    }
+};
+
+struct RoomAcoustics {
+    std::vector<AcousticsEdge> neighbors;
+    bool has_window = false;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(neighbors), CEREAL_NVP(has_window));
+    }
+};
+
+struct BuildingAcousticsComponent {
+    std::vector<RoomAcoustics> nodes;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(nodes));
+    }
+};
+
 struct BuildingEntranceComponent {
     entt::entity macro_building_id = entt::null; int entry_layer_id = 0;
     BuildingEntranceComponent() = default; BuildingEntranceComponent(entt::entity b, int l) : macro_building_id(b), entry_layer_id(l) {}
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(macro_building_id), CEREAL_NVP(entry_layer_id)); }
+};
+
+/**
+ * @brief [NEW CLASS] Metadata for exterior doors to support spatially consistent exits.
+ */
+struct DoorMetadataComponent {
+    StreetFacingSide wall_side = StreetFacingSide::NORTH;
+    int wall_offset = 0; // Tiles from the left/top edge of the building wall
+    entt::entity building_entity = entt::null;
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(wall_side), CEREAL_NVP(wall_offset), CEREAL_NVP(building_entity));
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Tracks the visitor's state relative to the building they are currently in.
+ *        Enables spatially consistent exits.
+ */
+struct InteriorStateComponent {
+    entt::entity building_entity = entt::null;
+    StreetFacingSide entry_wall = StreetFacingSide::NORTH;
+    int entry_offset = 0;
+    int entry_x = 0; // World-space coordinates of the door
+    int entry_y = 0;
+    int entry_layer = 0;
+    int current_room_index = -1; // [B.5]
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(building_entity), CEREAL_NVP(entry_wall), CEREAL_NVP(entry_offset), 
+           CEREAL_NVP(entry_x), CEREAL_NVP(entry_y), CEREAL_NVP(entry_layer), CEREAL_NVP(current_room_index));
+    }
 };
 
 /**
@@ -491,7 +656,7 @@ struct VerticalViewComponent { int view_distance = 1; template <class Archive> v
 
 struct VisibilityComponent {
     int view_range = 15;
-    std::set<PositionComponent> visible_tiles;
+    std::unordered_set<PositionComponent> visible_tiles;
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(view_range), CEREAL_NVP(visible_tiles)); }
 };
 
@@ -501,7 +666,7 @@ struct MemoryComponent {
         std::string color;
         template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(glyph), CEREAL_NVP(color)); }
     };
-    std::map<PositionComponent, RememberedTile> remembered_tiles;
+    std::unordered_map<PositionComponent, RememberedTile> remembered_tiles;
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(remembered_tiles)); }
 };
 
@@ -520,6 +685,18 @@ struct DoorComponent {
 struct ConsumableComponent {
     int restores_hunger = 0; int restores_thirst = 0;
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(restores_hunger), CEREAL_NVP(restores_thirst)); }
+};
+struct WeaponComponent {
+    int damage = 10;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(damage)); }
+};
+struct KeyComponent {
+    std::string key_id;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(key_id)); }
+};
+struct DurabilityComponent {
+    float current = 100.0f; float max = 100.0f;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(current), CEREAL_NVP(max)); }
 };
 struct ContainerComponent {
     std::vector<entt::entity> contained_items; bool is_open = false; bool is_locked = false;
@@ -570,7 +747,54 @@ struct VehicleComponent {
 };
 struct ElevatorControlComponent { template <class Archive> void serialize(Archive&) {} };
 struct InteractionQueue { template <class Archive> void serialize(Archive&) {} };
-struct RelationshipComponent { template <class Archive> void serialize(Archive&) {} };
+enum class RelationshipTier : uint8_t {
+    STRANGER,
+    ACQUAINTANCE,
+    COWORKER,
+    FRIEND,
+    FAMILY
+};
+
+struct RelationshipRecord {
+    RelationshipTier tier = RelationshipTier::STRANGER;
+    float affinity = 0.0f; // -100 to 100
+    uint64_t last_interaction_tick = 0;
+    bool shared_home = false;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(tier), CEREAL_NVP(affinity), CEREAL_NVP(last_interaction_tick), CEREAL_NVP(shared_home));
+    }
+};
+
+struct RelationshipComponent {
+    std::unordered_map<entt::entity, RelationshipRecord> records;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(records));
+    }
+};
+
+/**
+ * @brief [F.1] Tracks the current conversation state for an agent.
+ */
+struct ConversationComponent {
+    entt::entity partner = entt::null;
+    std::vector<std::string> topic_stack;
+    uint32_t step_counter = 0;
+    uint32_t duration_ticks = 0;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(partner), CEREAL_NVP(topic_stack), CEREAL_NVP(step_counter), CEREAL_NVP(duration_ticks));
+    }
+};
+
+struct DialogueStateComponent {
+    bool is_open = false;
+    entt::entity target_agent = entt::null;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(is_open), CEREAL_NVP(target_agent));
+    }
+};
+
 struct InfluenceComponent { template <class Archive> void serialize(Archive&) {} };
 struct BeliefComponent { template <class Archive> void serialize(Archive&) {} };
 struct VoterComponent { template <class Archive> void serialize(Archive&) {} };
@@ -672,6 +896,8 @@ namespace ECS {
     using PositionComponent = NeonOubliette::PositionComponent;
     using SizeComponent = NeonOubliette::SizeComponent;
     using RenderableComponent = NeonOubliette::RenderableComponent;
+    using PlayerInteractionComponent = NeonOubliette::PlayerInteractionComponent;
+    using InteractionMode = NeonOubliette::InteractionMode;
     using PlayerComponent = NeonOubliette::PlayerComponent;
     using HUDComponent = NeonOubliette::HUDComponent;
     using PlayerCurrentLayerComponent = NeonOubliette::PlayerCurrentLayerComponent;
@@ -688,6 +914,7 @@ namespace ECS {
     using RoomTag = NeonOubliette::RoomTag;
     using RoomData = NeonOubliette::RoomData;
     using BuildingEntranceComponent = NeonOubliette::BuildingEntranceComponent;
+    using DoorMetadataComponent = NeonOubliette::DoorMetadataComponent;
     using AgentComponent = NeonOubliette::AgentComponent;
     using NPCComponent = NeonOubliette::NPCComponent;
     using CitizenComponent = NeonOubliette::CitizenComponent;
@@ -758,6 +985,7 @@ namespace ECS {
     using HarvestableComponent = NeonOubliette::HarvestableComponent;
     using TerrainComponent = NeonOubliette::TerrainComponent;
     using PortalComponent = NeonOubliette::PortalComponent;
+    using InteriorStateComponent = NeonOubliette::InteriorStateComponent;
     using TransitVehicleComponent = NeonOubliette::TransitVehicleComponent;
     using TransitRouteComponent = NeonOubliette::TransitRouteComponent;
     using TransitStationComponent = NeonOubliette::TransitStationComponent;
@@ -768,6 +996,10 @@ namespace ECS {
     using XenoInfluenceComponent = NeonOubliette::XenoInfluenceComponent;
     using SimulationStateComponent = NeonOubliette::SimulationStateComponent;
     using GodCursorComponent = NeonOubliette::GodCursorComponent;
+    using StandardCursorComponent = NeonOubliette::StandardCursorComponent;
+    using SpeechComponent = NeonOubliette::SpeechComponent;
+    using AudibilityLevel = NeonOubliette::AudibilityLevel;
+    using BuildingAcousticsComponent = NeonOubliette::BuildingAcousticsComponent;
 }
 
 } // namespace NeonOubliette

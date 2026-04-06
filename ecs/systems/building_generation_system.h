@@ -54,6 +54,8 @@ struct BSPRoomNode {
 
 class BuildingGenerationSystem : public ISystem {
 public:
+    struct ExtDoor { int x, y, layer; StreetFacingSide wall; int offset; };
+
     BuildingGenerationSystem(entt::registry& registry, entt::dispatcher& dispatcher)
         : m_registry(registry), m_dispatcher(dispatcher), m_gen(m_rd()) {}
 
@@ -65,6 +67,20 @@ public:
 
     void handleEntrance(const BuildingEntranceEvent& event) {
         if (!m_registry.valid(event.building)) return;
+
+        // [B.2] Record Interior State on Visitor
+        auto& state = m_registry.get_or_emplace<InteriorStateComponent>(event.visitor);
+        state.building_entity = event.building;
+        state.entry_x = event.entry_x;
+        state.entry_y = event.entry_y;
+        state.entry_layer = event.entry_layer;
+
+        if (m_registry.valid(event.door_entity) && m_registry.all_of<DoorMetadataComponent>(event.door_entity)) {
+            const auto& meta = m_registry.get<DoorMetadataComponent>(event.door_entity);
+            state.entry_wall = meta.wall_side;
+            state.entry_offset = meta.wall_offset;
+        }
+
         auto& interior = m_registry.get_or_emplace<BuildingInteriorComponent>(event.building);
         auto const& b_comp = m_registry.get<BuildingComponent>(event.building);
         
@@ -72,27 +88,56 @@ public:
         int base_layer_id = 1000 + b_comp.building_id * 10;
 
         if (!interior.is_generated || interior.floor_entities.empty()) {
-            generateInterior(event.building, interior, event.entry_x, event.entry_y, event.entry_layer, base_layer_id);
+            generateInterior(event.building, interior, base_layer_id);
         }
 
         if (m_registry.all_of<PositionComponent>(event.visitor) && !interior.floor_entities.empty()) {
             auto& pos = m_registry.get<PositionComponent>(event.visitor);
             auto& player_layer = m_registry.get_or_emplace<PlayerCurrentLayerComponent>(event.visitor);
             pos.layer_id = base_layer_id; 
-            if (!interior.internal_doors.empty()) { pos.x = interior.internal_doors[0].x; pos.y = interior.internal_doors[0].y; }
-            else { pos.x = 2; pos.y = 2; }
+            
+            // [B.2] Find the interior exit door that corresponds to this entry door's world position
+            bool found_spawn = false;
+            auto portal_view = m_registry.view<PositionComponent, PortalComponent>();
+            for (auto portal_ent : portal_view) {
+                const auto& p_pos = portal_view.get<PositionComponent>(portal_ent);
+                const auto& portal = portal_view.get<PortalComponent>(portal_ent);
+                if (p_pos.layer_id == base_layer_id && portal.target_x == state.entry_x && portal.target_y == state.entry_y) {
+                    pos.x = p_pos.x;
+                    pos.y = p_pos.y;
+                    found_spawn = true;
+                    break;
+                }
+            }
+
+            if (!found_spawn) {
+                if (!interior.internal_doors.empty()) { pos.x = interior.internal_doors[0].x; pos.y = interior.internal_doors[0].y; }
+                else { pos.x = 2; pos.y = 2; }
+            }
+
+            // [B.5] Initial Room Lookup
+            state.current_room_index = -1;
+            for (size_t i = 0; i < interior.rooms.size(); ++i) {
+                const auto& r = interior.rooms[i];
+                if (pos.x >= r.x && pos.x < r.x + r.width && pos.y >= r.y && pos.y < r.y + r.height) {
+                    state.current_room_index = (int)i;
+                    break;
+                }
+            }
+
             player_layer.current_z = pos.layer_id;
             m_dispatcher.enqueue<HUDNotificationEvent>("Entered Building", 2.0f, "#AAAAFF");
         }
     }
 
 private:
-    void createTile(int x, int y, int layer, TerrainType type, char glyph, std::string color, bool is_obstacle = false) {
+    entt::entity createTile(int x, int y, int layer, TerrainType type, char glyph, std::string color, bool is_obstacle = false) {
         auto entity = m_registry.create();
         m_registry.emplace<PositionComponent>(entity, x, y, layer);
         m_registry.emplace<TerrainComponent>(entity, type);
         m_registry.emplace<RenderableComponent>(entity, glyph, color, layer);
         if (is_obstacle) m_registry.emplace<ObstacleComponent>(entity);
+        return entity;
     }
 
     RoomTag pickTag(ZoneType zone, size_t room_idx, size_t total_rooms) {
@@ -113,10 +158,19 @@ private:
         return pool[dist(m_gen)];
     }
 
-    bool validateConnectivity(int width, int height, const std::vector<RoomData>& rooms, const std::vector<PositionComponent>& doors) {
-        if (rooms.empty() || doors.empty()) return false;
+    bool validateConnectivity(int width, int height, const std::vector<RoomData>& rooms, const std::vector<PositionComponent>& doors, const std::vector<std::pair<int, int>>& interior_exits) {
+        if (rooms.empty()) return false;
         std::vector<bool> reachable(width * height, false); std::queue<std::pair<int, int>> q;
-        q.push({doors[0].x, doors[0].y}); reachable[doors[0].y * width + doors[0].x] = true;
+        
+        if (interior_exits.empty()) {
+            if (doors.empty()) return false;
+            q.push({doors[0].x, doors[0].y}); reachable[doors[0].y * width + doors[0].x] = true;
+        } else {
+            for (auto const& ie : interior_exits) {
+                q.push({ie.first, ie.second}); reachable[ie.second * width + ie.first] = true;
+            }
+        }
+
         while (!q.empty()) {
             auto [cx, cy] = q.front(); q.pop();
             int dx[] = {0,0,1,-1}, dy[] = {1,-1,0,0};
@@ -126,6 +180,11 @@ private:
                 bool passable = false;
                 for (auto const& d : doors) if (d.x == nx && d.y == ny) { passable = true; break; }
                 if (!passable) for (auto const& r : rooms) if (nx >= r.x && nx < r.x + r.width && ny >= r.y && ny < r.y + r.height) { passable = true; break; }
+                
+                if (!passable) {
+                    for (auto const& ie : interior_exits) if (ie.first == nx && ie.second == ny) { passable = true; break; }
+                }
+
                 if (passable) { reachable[ny * width + nx] = true; q.push({nx, ny}); }
             }
         }
@@ -137,8 +196,8 @@ private:
         return true;
     }
 
-    void generateInterior(entt::entity building, BuildingInteriorComponent& interior, int ex, int ey, int el, int base_layer_id) {
-        if (interior.is_generated) { materializeInterior(building, interior, ex, ey, el, base_layer_id); return; }
+    void generateInterior(entt::entity building, BuildingInteriorComponent& interior, int base_layer_id) {
+        if (interior.is_generated) { materializeInterior(building, interior, base_layer_id); return; }
         
         auto const& b_data = m_registry.get<BuildingComponent>(building);
         auto const* b_size = m_registry.try_get<SizeComponent>(building);
@@ -146,6 +205,16 @@ private:
         int height = b_size ? b_size->height + 6 : 15;
         width = std::max(width, 8); height = std::max(height, 8);
         interior.interior_width = width; interior.interior_height = height;
+
+        std::vector<ExtDoor> ext_doors;
+        auto door_view = m_registry.view<PositionComponent, DoorMetadataComponent>();
+        for (auto door_ent : door_view) {
+            const auto& meta = door_view.get<DoorMetadataComponent>(door_ent);
+            if (meta.building_entity == building) {
+                const auto& d_pos = door_view.get<PositionComponent>(door_ent);
+                ext_doors.push_back({d_pos.x, d_pos.y, d_pos.layer_id, meta.wall_side, meta.wall_offset});
+            }
+        }
 
         int target_rooms = 2;
         if (width >= 11 || height >= 11) target_rooms = 6 + (std::max(width, height) / 5);
@@ -160,6 +229,20 @@ private:
 
             std::vector<RoomData> floor_rooms; std::vector<PositionComponent> floor_doors;
             int gen_attempts = 0; bool success = false;
+            
+            std::vector<std::pair<int, int>> interior_exits;
+            if (i == 0) {
+                for (auto const& ed : ext_doors) {
+                    int ex = 1, ey = 1;
+                    if (ed.wall == StreetFacingSide::NORTH) { ex = 1 + ed.offset; ey = 0; }
+                    else if (ed.wall == StreetFacingSide::SOUTH) { ex = 1 + ed.offset; ey = height - 1; }
+                    else if (ed.wall == StreetFacingSide::WEST) { ex = 0; ey = 1 + ed.offset; }
+                    else if (ed.wall == StreetFacingSide::EAST) { ex = width - 1; ey = 1 + ed.offset; }
+                    ex = std::clamp(ex, 0, width - 1); ey = std::clamp(ey, 0, height - 1);
+                    interior_exits.push_back({ex, ey});
+                }
+            }
+
             while (!success && gen_attempts < 10) {
                 floor_rooms.clear(); floor_doors.clear();
                 BSPRoomNode* root = new BSPRoomNode(1, 1, width - 2, height - 2);
@@ -171,8 +254,25 @@ private:
                     split_attempts++;
                 }
                 root->getLeaves(floor_rooms); root->placeDoors(floor_doors, layer_id, m_gen);
-                if (i == 0) floor_doors.insert(floor_doors.begin(), {floor_rooms[0].x, floor_rooms[0].y, layer_id});
-                if (validateConnectivity(width, height, floor_rooms, floor_doors)) success = true;
+                
+                if (i == 0 && !interior_exits.empty()) {
+                    for (auto const& ie : interior_exits) {
+                        int min_dist = 9999; size_t best_room = 0;
+                        for (size_t r = 0; r < floor_rooms.size(); ++r) {
+                            int dx = std::max(0, std::max(floor_rooms[r].x - ie.first, ie.first - (floor_rooms[r].x + floor_rooms[r].width - 1)));
+                            int dy = std::max(0, std::max(floor_rooms[r].y - ie.second, ie.second - (floor_rooms[r].y + floor_rooms[r].height - 1)));
+                            if (dx + dy < min_dist) { min_dist = dx + dy; best_room = r; }
+                        }
+                        int dx = ie.first, dy = ie.second;
+                        if (dx == 0) dx++; else if (dx == width - 1) dx--;
+                        if (dy == 0) dy++; else if (dy == height - 1) dy--;
+                        floor_doors.push_back({dx, dy, layer_id});
+                    }
+                } else if (i == 0) {
+                    floor_doors.insert(floor_doors.begin(), {floor_rooms[0].x, floor_rooms[0].y, layer_id});
+                }
+
+                if (validateConnectivity(width, height, floor_rooms, floor_doors, interior_exits)) success = true;
                 delete root; gen_attempts++;
             }
 
@@ -181,7 +281,13 @@ private:
                 if (i == 0) interior.rooms.push_back(floor_rooms[r]);
             }
 
-            buildFloorStructure(width, height, layer_id, floor_rooms, floor_doors, i, ex, ey, el, interior, floor_comp);
+            buildFloorStructure(width, height, layer_id, floor_rooms, floor_doors, i, ext_doors, interior, floor_comp);
+            
+            // [B.5] Build acoustics graph for the first floor (or all floors?)
+            if (i == 0) {
+                buildAcousticsGraph(building, floor_rooms, floor_doors, layer_id);
+            }
+
             for (auto const& room : floor_rooms) {
                 spawnRoomFurniture(room, layer_id, floor_comp.nav_grid);
                 spawnRoomItems(room, layer_id);
@@ -194,9 +300,19 @@ private:
         interior.is_generated = true; m_dispatcher.enqueue<LogEvent>("Generated Interior", LogSeverity::INFO, "BuildingGen");
     }
 
-    void materializeInterior(entt::entity building, BuildingInteriorComponent& interior, int ex, int ey, int el, int base_layer_id) {
+    void materializeInterior(entt::entity building, BuildingInteriorComponent& interior, int base_layer_id) {
         auto const& b_data = m_registry.get<BuildingComponent>(building);
         int width = interior.interior_width, height = interior.interior_height;
+
+        std::vector<ExtDoor> ext_doors;
+        auto door_view = m_registry.view<PositionComponent, DoorMetadataComponent>();
+        for (auto door_ent : door_view) {
+            const auto& meta = door_view.get<DoorMetadataComponent>(door_ent);
+            if (meta.building_entity == building) {
+                const auto& d_pos = door_view.get<PositionComponent>(door_ent);
+                ext_doors.push_back({d_pos.x, d_pos.y, d_pos.layer_id, meta.wall_side, meta.wall_offset});
+            }
+        }
 
         for (int i = 0; i < b_data.height; ++i) {
             int layer_id = base_layer_id + i;
@@ -205,10 +321,8 @@ private:
             m_registry.emplace<NameComponent>(floor_ent, "Floor " + std::to_string(i));
             floor_comp.nav_grid.width = width; floor_comp.nav_grid.height = height; floor_comp.nav_grid.grid.assign(width * height, 0);
 
-            // Rebuild walls and floors from cached room data
-            buildFloorStructure(width, height, layer_id, interior.rooms, interior.internal_doors, i, ex, ey, el, interior, floor_comp);
+            buildFloorStructure(width, height, layer_id, interior.rooms, interior.internal_doors, i, ext_doors, interior, floor_comp);
             
-            // Re-materialize specific objects (furniture, items)
             for (auto const& obj : interior.stored_objects) {
                 if (obj.layer_id == layer_id) {
                     auto ent = m_registry.create();
@@ -226,11 +340,14 @@ private:
             if (i > 0) spawnStairs(sx, sy, layer_id, layer_id - 1, false);
             interior.floor_entities.push_back(floor_ent);
         }
-        interior.stored_objects.clear(); // Flush cache after materialization
+        interior.stored_objects.clear();
         m_dispatcher.enqueue<LogEvent>("Materialized Interior from Cache", LogSeverity::INFO, "BuildingGen");
     }
 
-    void buildFloorStructure(int width, int height, int layer_id, const std::vector<RoomData>& rooms, const std::vector<PositionComponent>& doors, int floor_idx, int ex, int ey, int el, BuildingInteriorComponent& interior, FloorComponent& floor_comp) {
+    void buildFloorStructure(int width, int height, int layer_id, const std::vector<RoomData>& rooms, const std::vector<PositionComponent>& doors, int floor_idx, const std::vector<ExtDoor>& ext_doors, BuildingInteriorComponent& interior, FloorComponent& floor_comp) {
+        // [B.5] Return map of door coordinates to door entity (can be added to interior for later use)
+        std::map<std::pair<int, int>, entt::entity> door_entity_map;
+        
         for (int x = 0; x < width; ++x) for (int y = 0; y < height; ++y) {
             if (x == 0 || x == width - 1 || y == 0 || y == height - 1) { floor_comp.nav_grid.set_passable(x, y, false); createTile(x, y, layer_id, TerrainType::WALL, '#', "#444444", true); }
             else createTile(x, y, layer_id, TerrainType::CONCRETE_FLOOR, '.', "#222222", false);
@@ -242,14 +359,32 @@ private:
                 }
             }
         }
+        
+        if (floor_idx == 0) {
+            for (auto const& ed : ext_doors) {
+                int ex = 1, ey = 1;
+                if (ed.wall == StreetFacingSide::NORTH) { ex = 1 + ed.offset; ey = 0; }
+                else if (ed.wall == StreetFacingSide::SOUTH) { ex = 1 + ed.offset; ey = height - 1; }
+                else if (ed.wall == StreetFacingSide::WEST) { ex = 0; ey = 1 + ed.offset; }
+                else if (ed.wall == StreetFacingSide::EAST) { ex = width - 1; ey = 1 + ed.offset; }
+                ex = std::clamp(ex, 0, width - 1); ey = std::clamp(ey, 0, height - 1);
+
+                auto door_ent = m_registry.create(); 
+                m_registry.emplace<PositionComponent>(door_ent, ex, ey, layer_id);
+                m_registry.emplace<RenderableComponent>(door_ent, 'E', "#FF00FF", layer_id); 
+                m_registry.emplace<NameComponent>(door_ent, "Exit to City");
+                m_registry.emplace<PortalComponent>(door_ent, ed.x, ed.y, ed.layer, true);
+                floor_comp.nav_grid.set_passable(ex, ey, true);
+                // Also add a DoorComponent for acoustics consistency
+                m_registry.emplace<DoorComponent>(door_ent, false, true); 
+            }
+        }
+
         for (size_t d_idx = 0; d_idx < doors.size(); ++d_idx) {
             auto const& d = doors[d_idx]; if (d.layer_id != layer_id) continue;
             floor_comp.nav_grid.set_passable(d.x, d.y, true);
-            if (floor_idx == 0 && d_idx == 0) {
-                auto door_ent = m_registry.create(); m_registry.emplace<PositionComponent>(door_ent, d.x, d.y, layer_id);
-                m_registry.emplace<RenderableComponent>(door_ent, 'E', "#FF00FF", layer_id); m_registry.emplace<NameComponent>(door_ent, "Exit to City");
-                m_registry.emplace<PortalComponent>(door_ent, ex, ey, el, true);
-            } else createTile(d.x, d.y, layer_id, TerrainType::CONCRETE_FLOOR, 'D', "#FFFFCC", false);
+            auto door_ent = createTile(d.x, d.y, layer_id, TerrainType::CONCRETE_FLOOR, 'D', "#FFFFCC", false);
+            m_registry.emplace<DoorComponent>(door_ent, false, false); // closed by default
         }
     }
 
@@ -257,6 +392,91 @@ private:
         auto s = m_registry.create(); m_registry.emplace<PositionComponent>(s, x, y, layer);
         m_registry.emplace<RenderableComponent>(s, up ? '>' : '<', "#FFFFFF", layer);
         m_registry.emplace<StairsComponent>(s, target);
+    }
+
+    void buildAcousticsGraph(entt::entity building, const std::vector<RoomData>& rooms, const std::vector<PositionComponent>& doors, int layer_id) {
+        auto& acoustics = m_registry.emplace<BuildingAcousticsComponent>(building);
+        acoustics.nodes.resize(rooms.size());
+
+        auto const* b_pos = m_registry.try_get<PositionComponent>(building);
+        auto const* b_size = m_registry.try_get<SizeComponent>(building);
+
+        for (size_t i = 0; i < rooms.size(); ++i) {
+            const auto& ri = rooms[i];
+            
+            // [B.5] Check for windows in this room
+            if (layer_id == 1000 + m_registry.get<BuildingComponent>(building).building_id * 10) { // Ground floor
+                // Simplification: room has window if it touches the floor boundary
+                // In generateInterior, interior_width = b_size->width + 6
+                int width = b_size ? b_size->width + 6 : 15;
+                int height = b_size ? b_size->height + 6 : 15;
+                if (ri.x <= 1 || ri.x + ri.width >= width - 1 || ri.y <= 1 || ri.y + ri.height >= height - 1) {
+                    acoustics.nodes[i].has_window = true;
+                }
+            }
+
+            for (size_t j = i + 1; j < rooms.size(); ++j) {
+                const auto& ri = rooms[i];
+                const auto& rj = rooms[j];
+                
+                bool adjacent = false;
+                int ax = -1, ay = -1;
+
+                // Vertical shared wall
+                if (ri.x + ri.width == rj.x - 1 || rj.x + rj.width == ri.x - 1) {
+                    if (std::max(ri.y, rj.y) < std::min(ri.y + ri.height, rj.y + rj.height)) {
+                        adjacent = true;
+                        ax = (ri.x + ri.width == rj.x - 1) ? ri.x + ri.width : rj.x + rj.width;
+                        ay = std::max(ri.y, rj.y);
+                    }
+                }
+                // Horizontal shared wall
+                else if (ri.y + ri.height == rj.y - 1 || rj.y + rj.height == ri.y - 1) {
+                    if (std::max(ri.x, rj.x) < std::min(ri.x + ri.width, rj.x + rj.width)) {
+                        adjacent = true;
+                        ax = std::max(ri.x, rj.x);
+                        ay = (ri.y + ri.height == rj.y - 1) ? ri.y + ri.height : rj.y + rj.height;
+                    }
+                }
+
+                if (adjacent) {
+                    // Check if there is a door on this boundary
+                    entt::entity door_ent = entt::null;
+                    
+                    // Look for door in m_registry at this boundary? 
+                    // Actually, let's check the door coordinates from 'doors' vector.
+                    for (const auto& d : doors) {
+                        if (d.layer_id == layer_id) {
+                            // Boundary wall can have multiple tiles, check if door is anywhere on it
+                            bool on_wall = false;
+                            if (ri.x + ri.width == rj.x - 1 || rj.x + rj.width == ri.x - 1) {
+                                int wall_x = (ri.x + ri.width == rj.x - 1) ? ri.x + ri.width : rj.x + rj.width;
+                                if (d.x == wall_x && d.y >= std::max(ri.y, rj.y) && d.y < std::min(ri.y + ri.height, rj.y + rj.height)) on_wall = true;
+                            } else {
+                                int wall_y = (ri.y + ri.height == rj.y - 1) ? ri.y + ri.height : rj.y + rj.height;
+                                if (d.y == wall_y && d.x >= std::max(ri.x, rj.x) && d.x < std::min(ri.x + ri.width, rj.x + rj.width)) on_wall = true;
+                            }
+
+                            if (on_wall) {
+                                // Find the door entity at this position
+                                auto d_view = m_registry.view<PositionComponent, DoorComponent>();
+                                for (auto ent : d_view) {
+                                    const auto& dp = d_view.get<PositionComponent>(ent);
+                                    if (dp.x == d.x && dp.y == d.y && dp.layer_id == d.layer_id) {
+                                        door_ent = ent;
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    acoustics.nodes[i].neighbors.push_back({j, door_ent});
+                    acoustics.nodes[j].neighbors.push_back({i, door_ent});
+                }
+            }
+        }
     }
 
     void spawnRoomFurniture(const RoomData& room, int layer_id, NavGrid& grid) {

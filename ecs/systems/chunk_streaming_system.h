@@ -50,6 +50,7 @@ private:
     
     int m_last_player_chunk_x = -999;
     int m_last_player_chunk_y = -999;
+    int m_macro_sim_counter = 0;
     
     std::map<std::pair<int, int>, entt::entity> m_chunk_map;
     std::set<entt::entity> m_hot_chunks;

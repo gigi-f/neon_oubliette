@@ -48,6 +48,8 @@ set(PROJECT_SOURCES
     ecs/systems/pathfinding_system.cpp
     ecs/systems/movement_system.cpp
     ecs/systems/interaction_system.cpp
+    ecs/systems/dialogue_system.cpp
+    ecs/systems/god_mode_system.cpp
     ecs/systems/inspection_system.cpp
     ecs/systems/crafting_system.cpp
     ecs/systems/consumption_system.cpp
@@ -73,6 +75,7 @@ set(PROJECT_SOURCES
     ecs/systems/transit_system.cpp
     ecs/systems/social_interaction_system.cpp
     ecs/systems/xeno_system.cpp
+    ecs/systems/sound_system.cpp
 )
 
 # --- Executable ---

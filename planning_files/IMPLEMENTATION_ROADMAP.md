@@ -63,7 +63,7 @@ not for driving it.
 - [x] Airports (Phase 2.3): Procedural airport zones with terminals, runways, and cargo logistics.
 - [x] Colosseums (Phase 2.3): Procedural sports arenas with central arenas, seating, and Syndicate gladiators.
 - [x] FOV / line of sight
-- [x] Drivable personal vehicles (scooters, bikes, cars, sci-fi vehicles)
+- [x] Drivable personal vehicles (scooters, bikes, cars, xci-fi vehicles)
 - [x] Ridable trains, buses, sci-fi vehicles (by both player and agents) (Phase 4.2)
 - [x] Item and tool usage
 - [x] Nature spaces (parks)
@@ -91,9 +91,53 @@ not for driving it.
     - [x] Rooms are connected by internal door tiles in shared walls; at least one path must exist from the entrance door to every room (BFS-validated at gen time)
     - [x] Staircase tiles generated for multi-floor buildings; each floor is an independent BSP layout with matching staircase positions
     - [x] Interior room data stored in `BuildingInteriorComponent` (room list, door positions, stair positions) so it can be serialized per-chunk and restored on re-entry without regeneration
+- [x] **A.10 — Window Tiles**
+    - [x] Building generator places window tiles on exterior walls facing streets (not shared walls or alley walls) at a frequency set by building archetype: residential = many windows, server room = none, executive suite = floor-to-ceiling
+    - [x] Window tiles are impassable but **FOV-transparent**: the existing FOV system treats them as see-through in both directions, allowing partial sight from sidewalk into ground-floor rooms and vice versa
+    - [x] Window tiles do not allow entry; attempting to interact with a window from outside emits a HUD note ("You peer through the glass.") and opens a limited inspect panel for anything visible on the other side
+    - [x] Broken windows (integrity < 50 per Phase K decay) become passable as a squeeze crawl point — treat as a 1-tile door with a movement speed penalty and a noise event that may trigger guards
+- [x] **B.1 — Enforce Door-Only Entry in Standard Mode**
+    - [x] Remove all code paths that allow walking directly into a building footprint tile
+    - [x] Movement system: collide with all non-door building tiles; only process entry event on `DOOR` tiles
+    - [x] Interior generation triggered exclusively by door-entry event (already partially working — harden the contract)
+    - [x] Each exterior `DOOR` tile stores a `DoorMetadata` record: which wall it sits on (NORTH / SOUTH / EAST / WEST), its offset from the wall's left edge in tiles, and the building entity it belongs to
+- [x] Spatially Consistent Exit Doors: interior exits match exterior entry wall/offset; BFS-validated connectivity
+- [x] **C.1 — Held-Item Slot in HUD**
+    - [x] Reserve a fixed HUD region (lower-left, adjacent to health bar) for the held item
+    - [x] Render item glyph (ASCII) + short name (truncated to ~12 chars) in the slot
+    - [x] If no item held, display `[empty]` in dim color
+- [x] **C.2 — Item Status Indicators**
+    - [x] Show charge count or durability bar beneath the glyph for tools/weapons
+    - [x] Flash the slot briefly when the item is used or swapped
+    - [x] Color-code by item category (consumable = green, weapon = red, tool = cyan, key = yellow)
+- [x] **D.1 — Cursor Rendering**
+    - [x] Render a highlight glyph over the tile currently under the mouse cursor using a dedicated notcurses plane
+    - [x] Highlight color changes based on what is under the cursor: agent (yellow), item (cyan), door (green), empty (dim white)
+    - [x] Keyboard cursor: arrow keys move the cursor tile-by-tile when mouse is not available; cursor snaps back to player on movement
+- [x] **D.2 — Standard Mode Range Enforcement**
+    - [x] Each interaction type carries a max range (tiles): Speak = 3, Observe = 6, Trade = 1
+    - [x] Cursor highlight turns red when the target tile exceeds the active interaction's range
+    - [x] Attempting to interact outside range emits a HUD notification ("Too far to trade")
+    - [x] Range is measured as Chebyshev distance to match 8-directional movement
+- [x] **D.3 — God Mode Click Interaction**
+    - [x] Left-click on any visible tile opens the inspection panel for that entity (same data as `I` key inspect, no range limit)
+    - [x] Right-click opens a context menu: Inspect / Follow / Teleport Cursor / Tag
+    - [x] Middle-click (or `F` key) locks the camera onto the clicked agent and tracks them until dismissed
+- [x] **E.1 — Interaction Mode Enum & State**
+    - [x] Add `InteractionMode { SPEAK, OBSERVE, TRADE }` to the player state component
+    - [x] Cycle through modes with `Tab` (or a dedicated bind); default is `OBSERVE`
+    - [x] HUD shows the active interaction mode icon and label at all times (e.g., `[MODE: SPEAK]`)
+- [x] **E.2 — Range Ring Rendering**
+    - [x] Render a colored border (blue/white/gold) around the player matching active interaction range
+    - [x] Real-time redraw on movement; plane-based z-ordering below entities
+- [x] Dialogue system: modal panel, ASCII portraits, contextual NPC utterances (Phase F.4)
+- [x] SPEAK interaction: triggers dialogue with agents within range (Phase E.3)
 
 ### Partially Done
 - [x] Physics (Layer 0): temperature dissipation, weather effects, river cooling fields; pressure unused
+- [x] **E.3 — Interaction Dispatch**
+    - [x] Pressing `Space` or left-clicking (or `E` key) while the cursor is on a valid target fires the active interaction type
+    - [x] Interaction events now include target coordinates for Standard Mode range checking and specific object targeting
 
 ### Not Started
 
@@ -148,101 +192,96 @@ not for driving it.
     - [x] Layout is regenerated only if the building undergoes structural change: demolition + rebuild (Phase K), a Raid event that destroys interior partitions, or a fire/explosion event
     - [x] Dirty flag on `BuildingInteriorComponent` marks the layout as needing re-save; flushed when the owning chunk is serialized to disk
 
-- [ ] **A.10 — Window Tiles**
-    - [ ] Building generator places window tiles on exterior walls facing streets (not shared walls or alley walls) at a frequency set by building archetype: residential = many windows, server room = none, executive suite = floor-to-ceiling
-    - [ ] Window tiles are impassable but **FOV-transparent**: the existing FOV system treats them as see-through in both directions, allowing partial sight from sidewalk into ground-floor rooms and vice versa
-    - [ ] Window tiles do not allow entry; attempting to interact with a window from outside emits a HUD note ("You peer through the glass.") and opens a limited inspect panel for anything visible on the other side
-    - [ ] Broken windows (integrity < 50 per Phase K decay) become passable as a squeeze crawl point — treat as a 1-tile door with a movement speed penalty and a noise event that may trigger guards
-
 ---
 
 #### Phase B — Building Entry Rules (Standard vs. God Mode)
 
-- [ ] **B.1 — Enforce Door-Only Entry in Standard Mode**
-    - [ ] Remove all code paths that allow walking directly into a building footprint tile
-    - [ ] Movement system: collide with all non-door building tiles; only process entry event on `DOOR` tiles
-    - [ ] Interior generation triggered exclusively by door-entry event (already partially working — harden the contract)
-    - [ ] Each exterior `DOOR` tile stores a `DoorMetadata` record: which wall it sits on (NORTH / SOUTH / EAST / WEST), its offset from the wall's left edge in tiles, and the building entity it belongs to
+- [x] **B.1 — Enforce Door-Only Entry in Standard Mode**
+    - [x] Remove all code paths that allow walking directly into a building footprint tile
+    - [x] Movement system: collide with all non-door building tiles; only process entry event on `DOOR` tiles
+    - [x] Interior generation triggered exclusively by door-entry event (already partially working — harden the contract)
+    - [x] Each exterior `DOOR` tile stores a `DoorMetadata` record: which wall it sits on (NORTH / SOUTH / EAST / WEST), its offset from the wall's left edge in tiles, and the building entity it belongs to
 
-- [ ] **B.2 — Spatially Consistent Exit Door**
-    - [ ] When the player enters through an exterior door, the entry door's wall and offset are recorded on the player's `InteriorStateComponent`
-    - [ ] The interior map generated for that building places the exit door on the **same wall** and at the **same relative offset** as the entry door in world space — so walking out of the building deposits the player on the correct sidewalk tile
-    - [ ] For multi-floor buildings, the ground-floor interior always has its exit door matching the exterior entry; upper floors exit via staircases only, not exterior doors
-    - [ ] If the building has multiple exterior doors (e.g., a train station), each door generates its own corresponding interior exit tile at the matching position in the interior map
-    - [ ] Consistency validated at gen time: a BFS from the interior exit tile must reach all rooms; if blocked, the BSP room layout is re-partitioned until the path is valid
+- [x] **B.2 — Spatially Consistent Exit Door**
+    - [x] When the player enters through an exterior door, the entry door's wall and offset are recorded on the player's `InteriorStateComponent`
+    - [x] The interior map generated for that building places the exit door on the **same wall** and at the **same relative offset** as the entry door in world space — so walking out of the building deposits the player on the correct sidewalk tile
+    - [x] For multi-floor buildings, the ground-floor interior always has its exit door matching the exterior entry; upper floors exit via staircases only, not exterior doors
+    - [x] If the building has multiple exterior doors (e.g., a train station), each door generates its own corresponding interior exit tile at the matching position in the interior map
+    - [x] Consistency validated at gen time: a BFS from the interior exit tile must reach all rooms; if blocked, the BSP room layout is re-partitioned until the path is valid
 
-- [ ] **B.3 — God Mode Direct Inspection / Entry**
-    - [ ] In God Mode, cursor hover over any building footprint tile opens an inline info panel (floor plan outline, occupants, room list)
-    - [ ] `G` key (or configurable bind) while cursor is over a building teleports the God-Mode viewport into that building's interior
-    - [ ] Interior view rendered as an overlay with a clear visual border distinguishing "you are inside X building" from the overworld
-    - [ ] God Mode interior view shows all rooms simultaneously on one plane (no door-to-door navigation required)
-    - [ ] Navigating back out via ESC or clicking outside the building footprint returns the viewport to the overworld
+- [x] **B.3 — God Mode Direct Inspection / Entry**
+    - [x] In God Mode, cursor hover over any building footprint tile opens an inline info panel (floor plan outline, occupants, room list)
+    - [x] `G` key (or configurable bind) while cursor is over a building teleports the God-Mode viewport into that building's interior
+    - [x] Interior view rendered as an overlay with a clear visual border distinguishing "you are inside X building" from the overworld
+    - [x] God Mode interior view shows all rooms simultaneously on one plane (no door-to-door navigation required)
+    - [x] Navigating back out via ESC or clicking outside the building footprint returns the viewport to the overworld
 
-- [ ] **B.4 — HUD Contextual Indicators**
-    - [ ] HUD always shows current entry context: `[OVERWORLD]`, `[INTERIOR: Reza Tower L3]`, `[GOD: Reza Tower]`
-    - [ ] While inside a building, HUD additionally shows current room tag (e.g., `[ROOM: KITCHEN]`) based on the player's tile position
-    - [ ] Minimap thumbnail updates to show interior floor plan when inside a building, with the player's current room highlighted
+- [x] **B.4 — HUD Contextual Indicators**
+    - [x] HUD always shows current entry context: `[OVERWORLD]`, `[INTERIOR: Reza Tower L3]`, `[GOD: Reza Tower]`
+    - [x] While inside a building, HUD additionally shows current room tag (e.g., `[ROOM: KITCHEN]`) based on the player's tile position
+    - [x] Minimap thumbnail updates to show interior floor plan when inside a building, with the player's current room highlighted
 
-- [ ] **B.5 — Sound Propagation Through Walls**
-    - [ ] Overhead speech (Phase F.2) and overheard conversations (Phase F.3) use an open-air range model on the overworld, but inside buildings sound is attenuated per wall crossed
-    - [ ] Build a room adjacency graph from the BSP layout: each node is a room, each edge is an internal door; edge weight = 0 for open doors, 1 for closed doors, 2 for solid walls with no door
-    - [ ] Flood the room graph from the speaking agent's current room; sound audibility drops by one tier per edge crossed — CLEAR (0 walls), MUFFLED (1–2), INAUDIBLE (3+)
-    - [ ] CLEAR speech renders at full opacity with normal color; MUFFLED speech renders in italic dim style (same as overheard in F.3); INAUDIBLE speech is not rendered at all
-    - [ ] Player outside a building hears speech from ground-floor rooms adjacent to window tiles as MUFFLED, providing atmospheric flavor without full eavesdropping ability
-    - [ ] Sound attenuation data recalculated lazily when room doors open/close; cached per room pair until topology changes
+- [x] **B.5 — Sound Propagation Through Walls**
+    - [x] Overhead speech (Phase F.2) and overheard conversations (Phase F.3) use an open-air range model on the overworld, but inside buildings sound is attenuated per wall crossed
+    - [x] Build a room adjacency graph from the BSP layout: each node is a room, each edge is an internal door; edge weight = 0 for open doors, 1 for closed doors, 2 for solid walls with no door
+    - [x] Flood the room graph from the speaking agent's current room; sound audibility drops by one tier per edge crossed — CLEAR (0 walls), MUFFLED (1–2), INAUDIBLE (3+)
+    - [x] CLEAR speech renders at full opacity with normal color; MUFFLED speech renders in italic dim style (same as overheard in F.3); INAUDIBLE speech is not rendered at all
+    - [x] Player outside a building hears speech from ground-floor rooms adjacent to window tiles as MUFFLED, providing atmospheric flavor without full eavesdropping ability
+    - [x] Sound attenuation data recalculated lazily when room doors open/close; cached per room pair until topology changes
 
 ---
 
 #### Phase C — HUD Held-Item Display
 
-- [ ] **C.1 — Held-Item Slot in HUD**
-    - [ ] Reserve a fixed HUD region (lower-left, adjacent to health bar) for the held item
-    - [ ] Render item glyph (ASCII) + short name (truncated to ~12 chars) in the slot
-    - [ ] If no item held, display `[empty]` in dim color
-- [ ] **C.2 — Item Status Indicators**
-    - [ ] Show charge count or durability bar beneath the glyph for tools/weapons
-    - [ ] Flash the slot briefly when the item is used or swapped
-    - [ ] Color-code by item category (consumable = green, weapon = red, tool = cyan, key = yellow)
+- [x] **C.1 — Held-Item Slot in HUD**
+    - [x] Reserve a fixed HUD region (lower-left, adjacent to health bar) for the held item
+    - [x] Render item glyph (ASCII) + short name (truncated to ~12 chars) in the slot
+    - [x] If no item held, display `[empty]` in dim color
+- [x] **C.2 — Item Status Indicators**
+    - [x] Show charge count or durability bar beneath the glyph for tools/weapons
+    - [x] Flash the slot briefly when the item is used or swapped
+    - [x] Color-code by item category (consumable = green, weapon = red, tool = cyan, key = yellow)
 
 ---
 
 #### Phase D — Cursor Interaction System
 
-- [ ] **D.1 — Cursor Rendering**
-    - [ ] Render a highlight glyph over the tile currently under the mouse cursor using a dedicated notcurses plane
-    - [ ] Highlight color changes based on what is under the cursor: agent (yellow), item (cyan), door (green), empty (dim white)
-    - [ ] Keyboard cursor: arrow keys move the cursor tile-by-tile when mouse is not available; cursor snaps back to player on movement
+- [x] **D.1 — Cursor Rendering**
+    - [x] Render a highlight glyph over the tile currently under the mouse cursor using a dedicated notcurses plane
+    - [x] Highlight color changes based on what is under the cursor: agent (yellow), item (cyan), door (green), empty (dim white)
+    - [x] Keyboard cursor: arrow keys move the cursor tile-by-tile when mouse is not available; cursor snaps back to player on movement
 
-- [ ] **D.2 — Standard Mode Range Enforcement**
-    - [ ] Each interaction type carries a max range (tiles): Speak = 3, Observe = 6, Trade = 1
-    - [ ] Cursor highlight turns red when the target tile exceeds the active interaction's range
-    - [ ] Attempting to interact outside range emits a HUD notification ("Too far to trade")
-    - [ ] Range is measured as Chebyshev distance to match 8-directional movement
+- [x] **D.2 — Standard Mode Range Enforcement**
+    - [x] Each interaction type carries a max range (tiles): Speak = 3, Observe = 6, Trade = 1
+    - [x] Cursor highlight turns red when the target tile exceeds the active interaction's range
+    - [x] Attempting to interact outside range emits a HUD notification ("Too far to trade")
+    - [x] Range is measured as Chebyshev distance to match 8-directional movement
 
-- [ ] **D.3 — God Mode Click Interaction**
-    - [ ] Left-click on any visible tile opens the inspection panel for that entity (same data as `I` key inspect, no range limit)
-    - [ ] Right-click opens a context menu: Inspect / Follow / Teleport Cursor / Tag
-    - [ ] Middle-click (or `F` key) locks the camera onto the clicked agent and tracks them until dismissed
+- [x] **D.3 — God Mode Click Interaction**
+    - [x] Left-click on any visible tile opens the inspection panel for that entity (same data as `I` key inspect, no range limit)
+    - [x] Right-click opens a context menu: Inspect / Follow / Teleport Cursor / Tag
+    - [x] Middle-click (or `F` key) locks the camera onto the clicked agent and tracks them until dismissed
 
 ---
 
 #### Phase E — Typed Interaction System
 
-- [ ] **E.1 — Interaction Mode Enum & State**
-    - [ ] Add `InteractionMode { SPEAK, OBSERVE, TRADE }` to the player state component
-    - [ ] Cycle through modes with `Tab` (or a dedicated bind); default is `OBSERVE`
-    - [ ] HUD shows the active interaction mode icon and label at all times (e.g., `[MODE: SPEAK]`)
+- [x] **E.1 — Interaction Mode Enum & State**
+    - [x] Add `InteractionMode { SPEAK, OBSERVE, TRADE }` to the player state component
+    - [x] Cycle through modes with `Tab` (or a dedicated bind); default is `OBSERVE`
+    - [x] HUD shows the active interaction mode icon and label at all times (e.g., `[MODE: SPEAK]`)
 
-- [ ] **E.2 — Range Ring Rendering**
-    - [ ] When an interaction mode is active, render a border of colored tiles around the player showing max range
-    - [ ] SPEAK ring = blue outline; OBSERVE ring = white outline; TRADE ring = gold outline
-    - [ ] Ring redraws each tick in case the player moves; rendered on its own notcurses plane below entities
+- [x] **E.2 — Range Ring Rendering**
+    - [x] When an interaction mode is active, render a border of colored tiles around the player showing max range
+    - [x] SPEAK ring = blue outline; OBSERVE ring = white outline; TRADE ring = gold outline
+    - [x] Ring redraws each tick in case the player moves; rendered on its own notcurses plane below entities
 
-- [ ] **E.3 — Interaction Dispatch**
-    - [ ] Pressing `Space` or left-clicking while the cursor is on a valid target fires the active interaction type
-    - [ ] SPEAK: opens dialogue system (see Phase F)
-    - [ ] OBSERVE: opens inspection panel for target (same as inspect key, no additional privacy masking)
-    - [ ] TRADE: opens barter panel between player and target agent if within range and target is willing
+- [x] **E.3 — Interaction Dispatch**
+    - [x] Pressing `Space` or left-clicking while the cursor is on a valid target fires the active interaction type
+    - [x] Interaction events now include target coordinates for Standard Mode range checking and specific object targeting
+    - [x] SPEAK: opens dialogue system (see Phase F)
+    - [x] OBSERVE: opens inspection panel for target (same as inspect key, no additional privacy masking)
+    - [ ] TRADE: opens the split-screen Barter Panel (see Phase T)
 
 ---
 
@@ -269,10 +308,10 @@ not for driving it.
     - [ ] Overheard speech shown in italic / dim style to distinguish from addressed speech
     - [ ] Optional: conversation log panel (toggled with `L`) records last N overheard utterances with speaker name
 
-- [ ] **F.4 — Player Dialogue System**
-    - [ ] SPEAK interaction on an agent opens a full-screen modal dialogue panel
-    - [ ] Panel shows: speaker portrait (ASCII block), agent name/title, current utterance text, and response options
-    - [ ] Response options labeled `[a]`, `[b]`, `[c]`… generated contextually from the topic and relationship tier
+- [x] **F.4 — Player Dialogue System**
+    - [x] SPEAK interaction on an agent opens a full-screen modal dialogue panel
+    - [x] Panel shows: speaker portrait (ASCII block), agent name/title, current utterance text, and response options
+    - [x] Response options labeled `[a]`, `[b]`, `[c]`… generated contextually from the topic and relationship tier
     - [ ] Dialogue outcomes feed back into the simulation: selecting "buy info" transfers credits, selecting "threaten" lowers relationship score, etc.
     - [ ] Agents remember recent dialogue with the player (stored in `RelationshipComponent`); repeat visits unlock new topic branches
 
@@ -285,7 +324,7 @@ not for driving it.
 #### Phase G — Social Graph & Relationship System
 
 - [ ] **G.1 — RelationshipComponent**
-    - [ ] Add `RelationshipComponent` to all human agents: map of `{ entity → RelationshipRecord }` where record holds tier (FAMILY / FRIEND / COWORKER / ACQUAINTANCE / STRANGER), affinity score (-100 to 100), last-interaction tick, and shared-home flag
+    - [x] Add `RelationshipComponent` to all human agents: map of `{ entity → RelationshipRecord }` where record holds tier (FAMILY / FRIEND / COWORKER / ACQUAINTANCE / STRANGER), affinity score (-100 to 100), last-interaction tick, and shared-home flag
     - [ ] Limit stored records per agent to ~50 to cap memory; LRU eviction for aging acquaintances
 
 - [ ] **G.2 — Family Trees**
@@ -386,7 +425,7 @@ not for driving it.
 
 - [ ] **I.6 — Guard Response System**
     - [ ] `GuardResponseSystem` listens for `CrimeReportEvent` and `WantedAlert` events; assigns nearby off-duty guards a PURSUE or INVESTIGATE goal
-    - [ ] Chase behavior: guard maintains line-of-sight pursuit; player can break chase by entering a building, hiding in a crowd, or reaching an out-of-faction chunk
+    - [ ] Chadse behavior: guard maintains line-of-sight pursuit; player can break chase by entering a building, hiding in a crowd, or reaching an out-of-faction chunk
     - [ ] Arrested player: if a guard closes to 0 range, player is detained — credits confiscated, contraband removed, teleported to faction holding cell building
 
 ---
@@ -421,7 +460,7 @@ not for driving it.
 - [ ] **J.5 — Generational Faction & Religion Drift**
     - [ ] Children inherit parents' faction affinity and religion with slight random drift (±10 affinity)
     - [ ] Over generations, dominant faction/religion in a chunk can shift without any direct intervention
-    - [ ] `HistorySystem` logs major demographic turning points (first generation to majority-shift a chunk) as simulation milestones
+    - [ ] `HistorySystem` log major demographic turning points (first generation to majority-shift a chunk) as simulation milestones
 
 ---
 
@@ -591,6 +630,30 @@ not for driving it.
     - [ ] Notoriety decays only when the player avoids dense chunks for an extended period (lying low)
 
 - [ ] **P.5 — HUD & Inspection Integration**
-    - [ ] HUD displays a compact reputation bar for the one or two factions with the most extreme current scores
+    - [ ] HUD displays a compact reputation bar for the one or her factions with the most extreme current scores
     - [ ] Inspecting any agent (Phase E OBSERVE) shows that agent's known reputation estimate of the player (adds narrative flavor)
     - [ ] God Mode reputation overlay: per-chunk color heat map showing net player standing across all factions weighted by local faction dominance
+
+---
+
+#### Phase T — Advanced Trading & Barter System
+
+*Goal: a full-featured, high-stakes bartering interface with visual inventory management and dynamic agent negotiation.*
+
+- [ ] **T.1 — Split-Screen Barter UI**
+    - [ ] TRADE interaction opens a dedicated notcurses modal covering 80% of the screen
+    - [ ] **LHS (Shopkeeper)**: Vertical list of the agent's inventory with glyphs, names, and current market value in credits ($)
+    - [ ] **RHS (Player)**: Vertical list of the player's inventory items and current credit balance
+    - [ ] Navigation: `Up/Down` to browse items; `Tab` to switch sides; `Enter` to select/deselect items for the 'Offer Bundle'
+- [ ] **T.2 — Dynamic Valuation & Bartering**
+    - [ ] Real-time 'Trade Balance' indicator at the bottom: sum of player offer values minus sum of shopkeeper offer values
+    - [ ] Shopkeeper evaluation: agents calculate 'Desire Score' for player items based on their `NeedsComponent` (e.g. food is worth 200% to a starving agent) and `FactionComponent`
+    - [ ] **Counter-Offers**: If the player's offer is slightly below the agent's threshold, the agent may automatically select a small 'filler' item from the player's inventory or ask for more credits
+- [ ] **T.3 — Negotiation Mechanics**
+    - [ ] **Seller Requests**: Shopkeepers may lock certain items in their inventory behind specific requests ("I only trade this for high-tier tech loot")
+    - [ ] Haggling Skill: Player's `notoriety` and `reputation` (Phase P) directly affect the starting price multiplier (Reputation 100 = 80% cost; Reputation -100 = 200% cost)
+    - [ ] Rejection Feedback: Agents provide overhead speech (Phase F.2) explaining why a trade was rejected ("This is an insult," "I have no use for this junk")
+- [ ] **T.4 — Trade Finalization & Memory**
+    - [ ] Pressing `S` (Submit) validates the trade balance; items are swapped and credits transferred atomically
+    - [ ] Agents remember bad trades: several consecutive low-ball offers from the player may cause the agent to temporarily block the TRADE interaction with a HUD note ("This person is a timewaster")
+    - [ ] Bulk trading: `Ctrl+Enter` to quickly add all items of a specific category to the offer

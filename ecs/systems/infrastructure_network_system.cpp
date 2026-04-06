@@ -16,6 +16,21 @@ void InfrastructureNetworkSystem::initialize() {
         const auto& zone = zone_view.get<MacroZoneComponent>(entity);
         m_zone_cache[{zone.macro_x, zone.macro_y}] = entity;
     }
+
+    // Re-link all existing arterial segments to their zones.
+    // generate_skeleton() ran before zones existed, so arterials were never linked.
+    auto arterial_view = m_registry.view<PositionComponent, InfrastructureArterialComponent>();
+    for (auto entity : arterial_view) {
+        const auto& pos = arterial_view.get<PositionComponent>(entity);
+        link_arterial_to_zone(entity, pos.x, pos.y);
+    }
+    // Also link junction nodes (they have InfrastructureNodeComponent but may not have ArterialComponent)
+    auto node_view = m_registry.view<PositionComponent, InfrastructureNodeComponent>();
+    for (auto entity : node_view) {
+        if (m_registry.all_of<InfrastructureArterialComponent>(entity)) continue; // already linked above
+        const auto& pos = node_view.get<PositionComponent>(entity);
+        link_arterial_to_zone(entity, pos.x, pos.y);
+    }
 }
 
 void InfrastructureNetworkSystem::link_arterial_to_zone(entt::entity arterial, int x, int y) {
