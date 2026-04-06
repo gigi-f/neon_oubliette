@@ -90,10 +90,12 @@ not for driving it.
 *Goal: replace the current scatter-placement with a Chicago-style rectilinear grid where every building occupies a surveyed lot.*
 
 - [ ] **A.1 — Lot & Parcel System**
-    - [ ] Define a `LotComponent` (world-space AABB, zone class, ownership entity)
+    - [ ] Define a `LotComponent` (world-space AABB, zone class, ownership entity, street-facing side enum)
     - [ ] Introduce a `CityPlannerSystem` that runs once at world-gen and subdivides each macro-zone into rectangular city blocks separated by streets
     - [ ] Block sizes vary by zone: Urban Core (large, 40–80 tiles), Residential (medium, 20–40), Industrial/Port (irregular but aligned)
     - [ ] Each block is further divided into individual lots; lot width/depth driven by zone density tables
+    - [ ] Each lot records which of its four edges is the **street-facing side** (the edge immediately adjacent to a street or alley tile); this drives door placement for every building on that lot
+    - [ ] Corner lots may have two street-facing sides; pick the higher-hierarchy road as the primary and the secondary as the service/alley entrance
     - [ ] Store the full lot grid in a spatial index for fast lookup (used by building placement and pathfinding)
 
 - [ ] **A.2 — Urban Core & Skyscrapers**
@@ -119,6 +121,41 @@ not for driving it.
     - [ ] Sidewalk tiles auto-generated along all street edges; agents prefer sidewalks over road tiles when not in vehicles
     - [ ] Alleys carved between back-to-back building rows for service access
 
+- [ ] **A.6 — Street-Facing Door Placement**
+    - [ ] Building generator reads the lot's `street-facing side`; places the primary door on that wall, horizontally centered (or offset for narrow lots)
+    - [ ] Buildings on alleys get a secondary service door on the alley-facing wall in addition to the primary street door
+    - [ ] Door tiles are never placed on a shared-wall edge (the edge touching an adjacent building on the same block)
+    - [ ] Train stations and large commercial buildings may have multiple primary doors evenly distributed along the street-facing wall
+    - [ ] Door placement validated post-generation: if no adjacent passable street tile exists within 1 tile of the door, the door is relocated to the nearest valid wall position
+
+- [ ] **A.7 — Multi-Room Interior Generation**
+    - [ ] All buildings regardless of size must generate at least 2 interior rooms; minimum room count scales with footprint: small (2–4 tiles wide) = 2 rooms, medium (5–10) = 3–5 rooms, large (11+) = 6+ rooms
+    - [ ] Room layout generated via a BSP (binary space partition) split of the building footprint; minimum room dimension is 2×2 tiles to ensure navigability
+    - [ ] Each room assigned a functional tag based on building type: e.g., apartment → BEDROOM / KITCHEN / BATHROOM / LIVING; office tower → LOBBY / OFFICE / SERVER_ROOM / EXECUTIVE_SUITE; factory → FLOOR / STORAGE / SUPERVISOR_OFFICE
+    - [ ] Room tags drive furniture/item spawning: KITCHEN spawns food items, SERVER_ROOM spawns tech loot, BEDROOM spawns personal items and a BED tile
+    - [ ] Rooms are connected by internal door tiles in shared walls; at least one path must exist from the entrance door to every room (BFS-validated at gen time)
+    - [ ] Staircase tiles generated for multi-floor buildings; each floor is an independent BSP layout with matching staircase positions
+    - [ ] Interior room data stored in `BuildingInteriorComponent` (room list, door positions, stair positions) so it can be serialized per-chunk and restored on re-entry without regeneration
+
+- [ ] **A.8 — Interior Pathfinding Grid**
+    - [ ] Each building maintains its own independent 2D nav grid built from the BSP room layout; wall tiles are obstacles, door tiles are passable, furniture tiles are obstacles
+    - [ ] Interior nav grid stored inside `BuildingInteriorComponent` alongside the room data; rebuilt only when the interior layout changes (not on every entry)
+    - [ ] `MovementSystem` switches the active nav grid to the building-local grid whenever an agent or the player is in interior state; switches back to world grid on exit
+    - [ ] Agents with interior goals (resident returning home, shopkeeper restocking) pathfind on the building nav grid to navigate between rooms
+    - [ ] Staircase tiles are edge connections between per-floor nav grids; hierarchical pathfinding treats them the same as street-to-alley transitions
+
+- [ ] **A.9 — Interior Map Caching & Stability Contract**
+    - [ ] A building's interior layout is generated exactly **once** per building lifetime; the result is serialized into `BuildingInteriorComponent` via cereal and committed to chunk save data
+    - [ ] On every subsequent entry (player or agent), the saved layout is loaded — **never re-randomized** — so items looted in a previous visit stay gone and furniture remains in the same position
+    - [ ] Layout is regenerated only if the building undergoes structural change: demolition + rebuild (Phase K), a Raid event that destroys interior partitions, or a fire/explosion event
+    - [ ] Dirty flag on `BuildingInteriorComponent` marks the layout as needing re-save; flushed when the owning chunk is serialized to disk
+
+- [ ] **A.10 — Window Tiles**
+    - [ ] Building generator places window tiles on exterior walls facing streets (not shared walls or alley walls) at a frequency set by building archetype: residential = many windows, server room = none, executive suite = floor-to-ceiling
+    - [ ] Window tiles are impassable but **FOV-transparent**: the existing FOV system treats them as see-through in both directions, allowing partial sight from sidewalk into ground-floor rooms and vice versa
+    - [ ] Window tiles do not allow entry; attempting to interact with a window from outside emits a HUD note ("You peer through the glass.") and opens a limited inspect panel for anything visible on the other side
+    - [ ] Broken windows (integrity < 50 per Phase K decay) become passable as a squeeze crawl point — treat as a 1-tile door with a movement speed penalty and a noise event that may trigger guards
+
 ---
 
 #### Phase B — Building Entry Rules (Standard vs. God Mode)
@@ -127,16 +164,34 @@ not for driving it.
     - [ ] Remove all code paths that allow walking directly into a building footprint tile
     - [ ] Movement system: collide with all non-door building tiles; only process entry event on `DOOR` tiles
     - [ ] Interior generation triggered exclusively by door-entry event (already partially working — harden the contract)
+    - [ ] Each exterior `DOOR` tile stores a `DoorMetadata` record: which wall it sits on (NORTH / SOUTH / EAST / WEST), its offset from the wall's left edge in tiles, and the building entity it belongs to
 
-- [ ] **B.2 — God Mode Direct Inspection / Entry**
+- [ ] **B.2 — Spatially Consistent Exit Door**
+    - [ ] When the player enters through an exterior door, the entry door's wall and offset are recorded on the player's `InteriorStateComponent`
+    - [ ] The interior map generated for that building places the exit door on the **same wall** and at the **same relative offset** as the entry door in world space — so walking out of the building deposits the player on the correct sidewalk tile
+    - [ ] For multi-floor buildings, the ground-floor interior always has its exit door matching the exterior entry; upper floors exit via staircases only, not exterior doors
+    - [ ] If the building has multiple exterior doors (e.g., a train station), each door generates its own corresponding interior exit tile at the matching position in the interior map
+    - [ ] Consistency validated at gen time: a BFS from the interior exit tile must reach all rooms; if blocked, the BSP room layout is re-partitioned until the path is valid
+
+- [ ] **B.3 — God Mode Direct Inspection / Entry**
     - [ ] In God Mode, cursor hover over any building footprint tile opens an inline info panel (floor plan outline, occupants, room list)
     - [ ] `G` key (or configurable bind) while cursor is over a building teleports the God-Mode viewport into that building's interior
     - [ ] Interior view rendered as an overlay with a clear visual border distinguishing "you are inside X building" from the overworld
+    - [ ] God Mode interior view shows all rooms simultaneously on one plane (no door-to-door navigation required)
     - [ ] Navigating back out via ESC or clicking outside the building footprint returns the viewport to the overworld
 
-- [ ] **B.3 — HUD Contextual Indicators**
+- [ ] **B.4 — HUD Contextual Indicators**
     - [ ] HUD always shows current entry context: `[OVERWORLD]`, `[INTERIOR: Reza Tower L3]`, `[GOD: Reza Tower]`
-    - [ ] Minimap thumbnail updates to show interior floor plan when inside a building
+    - [ ] While inside a building, HUD additionally shows current room tag (e.g., `[ROOM: KITCHEN]`) based on the player's tile position
+    - [ ] Minimap thumbnail updates to show interior floor plan when inside a building, with the player's current room highlighted
+
+- [ ] **B.5 — Sound Propagation Through Walls**
+    - [ ] Overhead speech (Phase F.2) and overheard conversations (Phase F.3) use an open-air range model on the overworld, but inside buildings sound is attenuated per wall crossed
+    - [ ] Build a room adjacency graph from the BSP layout: each node is a room, each edge is an internal door; edge weight = 0 for open doors, 1 for closed doors, 2 for solid walls with no door
+    - [ ] Flood the room graph from the speaking agent's current room; sound audibility drops by one tier per edge crossed — CLEAR (0 walls), MUFFLED (1–2), INAUDIBLE (3+)
+    - [ ] CLEAR speech renders at full opacity with normal color; MUFFLED speech renders in italic dim style (same as overheard in F.3); INAUDIBLE speech is not rendered at all
+    - [ ] Player outside a building hears speech from ground-floor rooms adjacent to window tiles as MUFFLED, providing atmospheric flavor without full eavesdropping ability
+    - [ ] Sound attenuation data recalculated lazily when room doors open/close; cached per room pair until topology changes
 
 ---
 
@@ -297,3 +352,247 @@ not for driving it.
     - [ ] High-devotion agents have a chance to initiate a SPEAK-type conversation with STRANGER/ACQUAINTANCE agents with no religion or low devotion
     - [ ] Successful proselytizing (affinity > threshold, no rival religion) assigns the target agent to the religion with minimal starting devotion
     - [ ] Failed proselytizing lowers the affinity between the two agents
+
+---
+
+#### Phase I — Crime & Underground Economy
+
+*Goal: activate the existing guard, economics, and social graph systems through emergent criminal behavior.*
+
+- [ ] **I.1 — Crime Behavior Archetypes**
+    - [ ] Add `PICKPOCKET`, `MUGGER`, `DEALER`, and `FENCE` agent archetypes to spawn tables; weighted heavily toward Slum and Industrial zones
+    - [ ] Criminal agents have a `CrimeRiskComponent`: boldness score (0–100) that rises with hunger/debt and falls after successful guards response
+    - [ ] Criminal actions dispatched as typed goal states: STEAL_FROM_AGENT, MULE_GOODS, SELL_CONTRABAND
+
+- [ ] **I.2 — Theft & Mugging**
+    - [ ] PICKPOCKET behavior: agent moves within 1 tile of a target with high credits or visible inventory, rolls vs. target awareness score; success silently transfers a random item or credit amount
+    - [ ] MUGGING behavior: low-light tiles only (night cycle or unlit alleys); agent blocks target path and issues a demand; target can comply (transfer credits) or attempt to flee
+    - [ ] Awareness of theft feeds into `GuardAlertSystem`: witnesses generate a `CrimeReportEvent`; nearby guards may respond depending on faction allegiance to the victim
+
+- [ ] **I.3 — Black Market & Fencing**
+    - [ ] FENCE building type placed in back-alley lots of Slum zones; not visible on the lot grid (off-registry)
+    - [ ] Stolen items flagged with a `StolenFlag` component; cannot be sold at regular vendors until fenced
+    - [ ] Fencing transfers stolen flag and revalues the item at 40–60% of market price; FENCE agent takes a cut
+    - [ ] DEALER agents sell contraband items (narcotics, illegal tech) with no `StolenFlag` but flagged `Contraband`; possession triggers guard search if player or agent is stopped
+
+- [ ] **I.4 — Drug Manufacturing**
+    - [ ] Certain Industrial zone buildings can be designated `CLANDESTINE_LAB` during world-gen or through faction investment
+    - [ ] Labs consume raw chemical inputs (spawned at docks/cargo) and produce contraband output on a tick cycle
+    - [ ] Guards assigned to a faction that controls the lab may ignore it; rival faction guards can raid it (generates `RaidEvent` already used by Phase H)
+
+- [ ] **I.5 — Player Wanted Level**
+    - [ ] Add `WantedComponent` to player: per-faction wanted score (0–5 stars equivalent) and a global notoriety value
+    - [ ] Wanted score rises on: witnessed theft, fleeing a guard, carrying flagged contraband, trespassing in faction territory
+    - [ ] Wanted score decays over time if player avoids triggering faction sensors; paying a bribe to a corrupt guard resets one faction's score to 0
+    - [ ] HUD displays wanted level as a row of glyph indicators color-coded by faction; guards on that faction's patrol begin actively seeking player above threshold 3
+
+- [ ] **I.6 — Guard Response System**
+    - [ ] `GuardResponseSystem` listens for `CrimeReportEvent` and `WantedAlert` events; assigns nearby off-duty guards a PURSUE or INVESTIGATE goal
+    - [ ] Chase behavior: guard maintains line-of-sight pursuit; player can break chase by entering a building, hiding in a crowd, or reaching an out-of-faction chunk
+    - [ ] Arrested player: if a guard closes to 0 range, player is detained — credits confiscated, contraband removed, teleported to faction holding cell building
+
+---
+
+#### Phase J — Population Lifecycle & Demographics
+
+*Goal: agents are born, age, and die — the city's composition shifts over simulation time.*
+
+- [ ] **J.1 — Age & Life Stage Component**
+    - [ ] Add `AgeComponent`: current age in sim-days, life stage enum (CHILD / YOUNG_ADULT / ADULT / ELDER), and generation index
+    - [ ] Sim-day to real-tick conversion configurable; default ~1 sim-year per ~10 real minutes at normal speed
+    - [ ] Life stage transitions trigger goal and archetype changes: CHILD cannot work; ELDER has reduced movement speed and increased medical need
+
+- [ ] **J.2 — Birth System**
+    - [ ] Coupled ADULT agents with high affinity and stable housing have a probability each sim-year of producing a CHILD entity
+    - [ ] Child spawned as a new agent with FAMILY-tier relationships to both parents and any existing siblings
+    - [ ] Children placed in the parents' home tile; gain independent pathfinding when transitioning to YOUNG_ADULT
+    - [ ] Birth rate modulated by chunk living conditions: high crowding/low food suppresses it; high commerce/low stress boosts it
+
+- [ ] **J.3 — Death & Inheritance**
+    - [ ] Natural death probability rises steeply past ELDER stage; also triggered by sustained critical needs, violence, or disease
+    - [ ] On death: entity emits `AgentDeathEvent`, family notified (G.2 grief behavior fires), home tile becomes vacant
+    - [ ] Owned property (home lot, business) transferred to highest-affinity FAMILY member; if none, reverts to faction or becomes derelict
+    - [ ] Macro-Agent death simulated statistically per chunk; materialized correctly when the chunk loads
+
+- [ ] **J.4 — Demographic Pressure**
+    - [ ] `DemographicsSystem` (L3) tracks per-chunk age distribution, birth rate, and death rate
+    - [ ] Overpopulated chunks (density > threshold) push excess agents toward adjacent lower-density chunks via a migration goal
+    - [ ] Declining chunks (net death rate > birth rate) see building dereliction accelerate (Phase K) and faction influence weaken
+    - [ ] God Mode "Demographics" overlay shows per-chunk population pyramid rendered as a small ASCII bar chart
+
+- [ ] **J.5 — Generational Faction & Religion Drift**
+    - [ ] Children inherit parents' faction affinity and religion with slight random drift (±10 affinity)
+    - [ ] Over generations, dominant faction/religion in a chunk can shift without any direct intervention
+    - [ ] `HistorySystem` logs major demographic turning points (first generation to majority-shift a chunk) as simulation milestones
+
+---
+
+#### Phase K — Environmental Decay & Urban Renewal
+
+*Goal: buildings age, deteriorate, and can be demolished and rebuilt, making zoning a living contest.*
+
+- [ ] **K.1 — Building Health & Decay**
+    - [ ] Add `BuildingHealthComponent`: integrity (0–100), last-maintenance tick, and decay rate
+    - [ ] Decay rate driven by zone economic health (chunk Supply/Demand index) and weather exposure (acid rain in Industrial zones decays faster)
+    - [ ] Visual decay tiers: 100–75 = normal glyphs; 74–50 = dim color; 49–25 = broken-window glyph variants; 24–0 = derelict (roof collapsed, no interior access)
+
+- [ ] **K.2 — Maintenance & Squatting**
+    - [ ] Buildings owned by solvent agents or factions receive periodic maintenance ticks that restore integrity
+    - [ ] Derelict buildings (integrity < 20) become squat candidates: homeless agents and CHILD-stage agents with no home register the derelict tile as their home
+    - [ ] Squats generate a `SquatEvent`; faction owner can issue an eviction (assigns a guard squad to clear the building)
+
+- [ ] **K.3 — Demolition & Rebuilding**
+    - [ ] Corporate and Civic faction AGIs may invest influence to demolish a derelict or low-value building on a prime lot
+    - [ ] Demolition is a timed process (N ticks); renders the lot as rubble tiles during that period
+    - [ ] Rebuilding assigns a new building type per current zoning rules; displaces any squatters to the nearest available housing in the same chunk
+    - [ ] Newly built buildings spawn at integrity 100 with faction-appropriate glyph style
+
+- [ ] **K.4 — Graffiti & Environmental Texture**
+    - [ ] Low-integrity tiles have a chance each tick to gain a graffiti overlay glyph from a per-faction or per-religion tag palette
+    - [ ] Graffiti is a mild faction influence signal: high-density tagging in a chunk nudges faction influence fields
+    - [ ] Guard NPCs assigned a CLEAN_GRAFFITI behavior by corporate factions; removing tags is a visible patrol action
+
+---
+
+#### Phase L — Dynamic Crises & World Events
+
+*Goal: periodic macro-scale perturbations that create distinct narrative chapters in each playthrough.*
+
+- [ ] **L.1 — Crisis System Core**
+    - [ ] Add `CrisisSystem` (L4) that runs on the longest tick interval; maintains a global crisis queue and cooldown timer
+    - [ ] Each crisis type is a data record: name, trigger conditions, affected layers, duration in ticks, and resolution conditions
+    - [ ] Active crises broadcast a persistent `CrisisActiveEvent` that downstream systems subscribe to
+
+- [ ] **L.2 — Economic Crises**
+    - [ ] **Stock Market Crash**: triggered when aggregate stock volatility exceeds threshold; sets all chunk demand indices to 20% of normal for N ticks; agents reduce spending, unemployment spikes, crime rises
+    - [ ] **Supply Shortage**: a specific item category becomes globally scarce (e.g., all food supply drops 80%); agents prioritize survival needs over work goals; black market price for that item spikes
+
+- [ ] **L.3 — Biological / Environmental Crises**
+    - [ ] **Plague**: `BiologySystem` gains a contagion channel; infected agents spread disease within FOV range; symptoms degrade consciousness scores; high-density chunks are hotspots; factions respond differently (quarantine vs. denial)
+    - [ ] **Flood**: heavy rain over multiple ticks causes river tiles to expand by 1–3 tiles; low-elevation chunks become impassable until weather clears; infrastructure influence of flooded roads zeroed out
+
+- [ ] **L.4 — Political / Faction Crises**
+    - [ ] **AGI Broadcast**: a faction leader AGI transmits a city-wide message; all agents within range of a broadcast tower receive an immediate ±20 affinity bump toward that faction; rival factions attempt counter-broadcasts the following tick
+    - [ ] **Coup Attempt**: a faction's influence field crosses a dominance threshold in the Urban Core macro-zone; triggers a multi-tick military occupation sequence where guard squads from the ascending faction occupy key buildings
+    - [ ] **Xeno Incursion**: Cacogen/Hierodule entities mass-spawn in a chunk and expand their influence aura; human factions temporarily form a coalition response
+
+- [ ] **L.5 — Power Grid Failure**
+    - [ ] Add a `PowerGridComponent` to Industrial zone generator buildings; grid health driven by maintenance (K.2) and economic activity
+    - [ ] Grid failure darkens affected chunks: no artificial light tiles, commerce buildings close, faction surveillance systems offline
+    - [ ] Criminal activity surges in dark chunks; repair crews (faction-assigned agents) work to restore grid over N ticks
+
+- [ ] **L.6 — God Mode Crisis Dashboard**
+    - [ ] Crisis overlay panel in God Mode lists all active crises with name, affected chunks, severity bar, and estimated resolution tick
+    - [ ] Player can "seed" a crisis manually from a God Mode menu (sandbox/observer tool — no gameplay advantage)
+
+---
+
+#### Phase M — Sewer & Underground Network Layer
+
+*Goal: a hidden traversal layer beneath the grid used by criminals, resistance factions, and alien entities.*
+
+- [ ] **M.1 — Sewer Map Generation**
+    - [ ] `SewerGenerationSystem` runs after lot placement (Phase A); carves a sewer network aligned to the street grid directly beneath arterials and primary capillaries
+    - [ ] Sewer tunnels are 1–2 tiles wide; junctions occur at street intersections; major collector tunnels radiate from the Industrial zone toward the river outfall
+    - [ ] Maintenance shafts: vertical connections between the overworld and sewer layer placed beneath manhole-cover tiles; rendered with a distinct glyph in the overworld
+
+- [ ] **M.2 — Sewer as a Traversal Layer**
+    - [ ] Player can enter the sewer via manhole tiles (interact with `E`); exits at any other manhole cover
+    - [ ] Sewer layer rendered as a separate vertical level using existing z-order system; dimly lit (torch/bioluminescent glyph sources)
+    - [ ] Pathfinding extended to sewer layer; agents with CRIMINAL or XENO archetypes use it by preference when aboveground guard density is high
+
+- [ ] **M.3 — Sewer Inhabitants & Items**
+    - [ ] Cacogen/Hierodule entities spawn preferentially in deep sewer junctions; their influence auras affect the bio layer even from underground
+    - [ ] Resistance faction agents use sewers to move between chunks without crossing faction checkpoints
+    - [ ] Abandoned caches of contraband and scavenged items spawn at dead-end sewer branches
+
+- [ ] **M.4 — Environmental Hazards**
+    - [ ] Flood crises (L.3) cause sewer water level to rise; traversal blocked in lowest-elevation segments
+    - [ ] Toxic runoff tiles in Industrial zone sewers deal slow health damage without protective gear
+    - [ ] Sewer ambush: CRIMINAL agents patrolling sewers can initiate a mugging (I.2) at higher success rate than overworld due to no witnesses
+
+---
+
+#### Phase N — News & Information Propagation
+
+*Goal: make the political simulation legible and manipulable through a formal information layer.*
+
+- [ ] **N.1 — Information Item Types**
+    - [ ] Define `InformationRecord`: content tag (RUMOR / PROPAGANDA / INTELLIGENCE / PRICE_TIP), source faction, origin tick, veracity score (0–100), and propagation radius
+    - [ ] Information records are attached to agents as inventory-like items that spread during conversations (F.1)
+
+- [ ] **N.2 — Broadcast Towers**
+    - [ ] Faction-controlled broadcast towers (already placed by faction influence system) emit propaganda `InformationRecord`s each L2 tick to all agents within range
+    - [ ] Propaganda content shifts agent opinion scores by a small amount per exposure; repeated exposure has diminishing returns
+    - [ ] Tower range and power determined by the faction's current influence score in that chunk
+
+- [ ] **N.3 — Underground Media**
+    - [ ] Pirate Radio building type (small, hidden in Slum zone back-lots) emits counter-propaganda for resistance factions
+    - [ ] Pamphlet item: player or rebel agents can craft/carry pamphlets; dropping one in a tile deposits a low-radius propaganda source that slowly propagates to passersby
+    - [ ] Broadcast towers emit `JamSignal` events that suppress pirate radio within range; destroying the jammer (item interaction) restores pirate signal
+
+- [ ] **N.4 — Player Information Interaction**
+    - [ ] Player can OBSERVE a broadcast tower (Phase E) to read current propaganda content in an inspection panel
+    - [ ] Player can intercept a conversation (Phase F.3) and receive the `InformationRecord` being exchanged, adding it to a personal "intel log"
+    - [ ] Player can plant false information by crafting a forged rumor item and passing it to an agent via TRADE interaction; the veracity score is low but the content spreads normally
+
+- [ ] **N.5 — Information Decay & Verification**
+    - [ ] InformationRecords age each tick; veracity decreases as the record propagates more than N hops from its source
+    - [ ] Agents with high intelligence stats occasionally "verify" a rumor by cross-referencing with another agent's record; if discrepancy found, both records flagged as DISPUTED
+    - [ ] DISPUTED information causes recipient agents to ignore the opinion-shift effect
+
+---
+
+#### Phase O — Supply Chains & Manufacturing
+
+*Goal: close the economic loop — goods are produced, not just traded.*
+
+- [ ] **O.1 — Raw Material Layer**
+    - [ ] Define raw material types: Metal Ore, Chemicals, Bio-Fiber, Rare Earth (xeno-adjacent), Energy Cells
+    - [ ] Raw materials spawn at world edges (port/dockland buildings, mining zones in non-urban macro-cells) and are transported inward by cargo vehicles (existing Phase 4.2 logistics)
+    - [ ] Each raw material has a chunk-level stockpile counter; cargo vehicles replenish it on a schedule
+
+- [ ] **O.2 — Factory Buildings & Production Cycles**
+    - [ ] Industrial zone buildings can be tagged `FACTORY` with a recipe: N units of input material → M units of output item per production tick
+    - [ ] Factory output goes directly into the chunk `SupplyComponent` for that item type, feeding the existing Supply/Demand system
+    - [ ] Factory workers are ADULT agents assigned to the building; production rate scales with staffing level and worker satisfaction (needs component)
+
+- [ ] **O.3 — Supply Chain Disruption**
+    - [ ] If raw material stockpile in a chunk drops to zero, all factories consuming it pause production that tick and workers receive a forced idle goal
+    - [ ] Disruption propagates: downstream chunks that relied on this factory's output also see supply drop next tick
+    - [ ] Disruptions can be caused by: flood events blocking cargo routes, strike behavior (workers with low satisfaction refuse work), faction raids on competing supply lines
+
+- [ ] **O.4 — Player & Agent Interaction with Manufacturing**
+    - [ ] Player can sabotage a factory (requires contraband item + TRADE/USE at machine tile) to trigger a production halt for N ticks
+    - [ ] Agents with entrepreneurial archetype can invest credits to start a small workshop in a vacant lot (scaled-down factory with lower throughput)
+    - [ ] Supply chain status visible in God Mode economics overlay: per-chunk production rate, input stockpile bars, and bottleneck indicators
+
+---
+
+#### Phase P — Player Reputation System
+
+*Goal: the world's stance toward the player shifts based purely on simulated observed behavior — no explicit leveling.*
+
+- [ ] **P.1 — ReputationComponent (Player)**
+    - [ ] Add per-faction reputation score (-100 to 100) as a map on the player entity; initialized to 0 (neutral) for all factions
+    - [ ] Global notoriety value (0–100): a faction-agnostic measure of how widely the player's actions are known; rises faster in dense chunks
+
+- [ ] **P.2 — Reputation Event Sources**
+    - [ ] Witnessing agents generate `ObservationEvent` on notable player actions: entering restricted territory, trading with a faction rival, picking up a faction-flagged item, fleeing guards
+    - [ ] Positive reputation events: completing a TRADE with a faction member at fair value, defending an agent from a mugging, delivering intelligence to a faction contact
+    - [ ] Reputation changes are proportional to the witness's own faction affinity and their level of certainty (FOV clarity, range)
+
+- [ ] **P.3 — Faction Response to Reputation**
+    - [ ] High positive reputation (> 60) with a faction: guards ignore minor infractions, vendors offer discount pricing, faction AGI may attempt to initiate dialogue via a courier agent
+    - [ ] High negative reputation (< -60) with a faction: guards assigned surveillance goal on player, vendors refuse trade, faction posts a bounty (adds a permanent `BountyHunter` agent archetype targeting player)
+    - [ ] Conflicting reputations: high positive with one faction and high negative with its rival causes neutral third-party agents to treat the player with suspicion
+
+- [ ] **P.4 — Reputation Decay & Recovery**
+    - [ ] All reputation scores drift slowly toward 0 each sim-day if no new events reinforce them — past deeds are forgotten
+    - [ ] Players can accelerate recovery with a specific faction by paying a tribute (credits transfer at their headquarters building) or completing an observed service act near their territory
+    - [ ] Notoriety decays only when the player avoids dense chunks for an extended period (lying low)
+
+- [ ] **P.5 — HUD & Inspection Integration**
+    - [ ] HUD displays a compact reputation bar for the one or two factions with the most extreme current scores
+    - [ ] Inspecting any agent (Phase E OBSERVE) shows that agent's known reputation estimate of the player (adds narrative flavor)
+    - [ ] God Mode reputation overlay: per-chunk color heat map showing net player standing across all factions weighted by local faction dominance
