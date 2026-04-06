@@ -15,14 +15,31 @@ PathfindingSystem::PathfindingSystem(entt::registry& registry, entt::dispatcher&
 
 // Helper to check if a position is traversable (no solid entities)
 bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity requester_entity) const {
-    auto config_view = registry.view<WorldConfigComponent>();
-    if (config_view.empty()) return false;
-    const auto& config = config_view.get<WorldConfigComponent>(config_view.front());
+    // 1. Check World Bounds or Interior Nav Grid (Static Layout)
+    if (pos.layer_id == 0) {
+        auto config_view = registry.view<WorldConfigComponent>();
+        if (config_view.empty()) return false;
+        const auto& config = config_view.get<WorldConfigComponent>(config_view.front());
 
-    if (pos.x < 0 || pos.x >= config.width || pos.y < 0 || pos.y >= config.height || pos.layer_id != 0) {
-        return false;
+        if (pos.x < 0 || pos.x >= config.width || pos.y < 0 || pos.y >= config.height) {
+            return false;
+        }
+    } else {
+        // [A.8] Interior Nav Grid Check
+        auto floor_view = registry.view<FloorComponent>();
+        bool found_floor = false;
+        for (auto floor_ent : floor_view) {
+            const auto& floor = floor_view.get<FloorComponent>(floor_ent);
+            if (floor.layer_id == pos.layer_id) {
+                found_floor = true;
+                if (!floor.nav_grid.is_passable(pos.x, pos.y)) return false;
+                break;
+            }
+        }
+        if (!found_floor) return false;
     }
 
+    // 2. Check for Dynamic Obstacles in Registry
     bool is_obstacle = false;
     auto view = registry.view<PositionComponent, ObstacleComponent>();
     for (auto entity : view) {
@@ -40,6 +57,45 @@ bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity reques
 // Heuristic function (Manhattan distance for grid-based movement)
 int PathfindingSystem::getHeuristic(PositionComponent a, PositionComponent b) const {
     return std::abs(a.x - b.x) + std::abs(a.y - b.y);
+}
+
+// Helper to get movement cost at a position
+int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity requester_entity) const {
+    int cost = 10; // Default base cost
+
+    auto arterial_view = registry.view<PositionComponent, InfrastructureArterialComponent>();
+    for (auto entity : arterial_view) {
+        const auto& a_pos = arterial_view.get<PositionComponent>(entity);
+        if (a_pos.x == pos.x && a_pos.y == pos.y) {
+            const auto& art = arterial_view.get<InfrastructureArterialComponent>(entity);
+            switch (art.type) {
+                case ArterialType::SIDEWALK: return 5;
+                case ArterialType::ROAD_ALLEY: return 8;
+                case ArterialType::ROAD_PRIMARY:
+                case ArterialType::ROAD_SECONDARY: return 15; // Prefer sidewalk over road
+                case ArterialType::RAIL_ELEVATED: return 50;
+                case ArterialType::WATERWAY_RIVER: return 200;
+                default: break;
+            }
+        }
+    }
+
+    auto terrain_view = registry.view<PositionComponent, TerrainComponent>();
+    for (auto entity : terrain_view) {
+        const auto& t_pos = terrain_view.get<PositionComponent>(entity);
+        if (t_pos.x == pos.x && t_pos.y == pos.y) {
+            const auto& terrain = terrain_view.get<TerrainComponent>(entity);
+            switch (terrain.type) {
+                case TerrainType::SIDEWALK: return 5;
+                case TerrainType::STREET: return 15;
+                case TerrainType::GRASS: return 12;
+                case TerrainType::DIRT: return 10;
+                default: break;
+            }
+        }
+    }
+
+    return cost;
 }
 
 // Reconstruct path from end node
@@ -180,13 +236,37 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
             neighbor_pos.y += dy[i];
 
             if (isTraversable(neighbor_pos, event.entity)) {
-                int new_g_cost = current_node->g_cost + 1;
+                int move_cost = getMovementCost(neighbor_pos, event.entity);
+                int new_g_cost = current_node->g_cost + move_cost;
                 auto it = nodes_in_open_or_closed.find(neighbor_pos);
                 if (it == nodes_in_open_or_closed.end() || new_g_cost < it->second->g_cost) {
                     Node* neighbor_node = new Node(neighbor_pos, new_g_cost, getHeuristic(neighbor_pos, target), current_node);
                     open_set.push(neighbor_node);
                     all_nodes.push_back(neighbor_node);
                     nodes_in_open_or_closed[neighbor_pos] = neighbor_node;
+                }
+            }
+        }
+
+        // [A.8] Layer Transitions (Stairs)
+        auto stair_view = registry.view<PositionComponent, StairsComponent>();
+        for (auto stair_ent : stair_view) {
+            const auto& s_pos = stair_view.get<PositionComponent>(stair_ent);
+            if (s_pos.x == current_node->pos.x && s_pos.y == current_node->pos.y && s_pos.layer_id == current_node->pos.layer_id) {
+                const auto& stairs = stair_view.get<StairsComponent>(stair_ent);
+                PositionComponent next_layer_pos = s_pos;
+                next_layer_pos.layer_id = stairs.connects_to_layer;
+                
+                if (isTraversable(next_layer_pos, event.entity)) {
+                    int move_cost = 10; // Fixed cost for switching floors
+                    int new_g_cost = current_node->g_cost + move_cost;
+                    auto it = nodes_in_open_or_closed.find(next_layer_pos);
+                    if (it == nodes_in_open_or_closed.end() || new_g_cost < it->second->g_cost) {
+                        Node* neighbor_node = new Node(next_layer_pos, new_g_cost, getHeuristic(next_layer_pos, target), current_node);
+                        open_set.push(neighbor_node);
+                        all_nodes.push_back(neighbor_node);
+                        nodes_in_open_or_closed[next_layer_pos] = neighbor_node;
+                    }
                 }
             }
         }

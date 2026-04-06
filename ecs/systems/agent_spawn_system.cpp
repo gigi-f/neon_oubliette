@@ -171,6 +171,18 @@ void AgentSpawnSystem::spawnAgents(int count, int layer) {
             }
         }
 
+        auto config_view = m_registry.view<WorldConfigComponent>();
+        int macro_size = 20;
+        if (!config_view.empty()) macro_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+
+        // Map positions to zone types for density weighting
+        std::map<std::pair<int, int>, ZoneType> zone_map;
+        auto zone_view = m_registry.view<MacroZoneComponent>();
+        for (auto e : zone_view) {
+            const auto& z = zone_view.get<MacroZoneComponent>(e);
+            zone_map[{z.macro_x, z.macro_y}] = z.type;
+        }
+
         auto terrain_view = m_registry.view<PositionComponent, TerrainComponent>();
         for (auto e : terrain_view) {
             const auto& pos = terrain_view.get<PositionComponent>(e);
@@ -181,6 +193,13 @@ void AgentSpawnSystem::spawnAgents(int count, int layer) {
             uint64_t key = (static_cast<uint64_t>(pos.x) << 32) | static_cast<uint32_t>(pos.y);
             if (obstacle_set.count(key) == 0) {
                 walkable.emplace_back(pos.x, pos.y);
+                
+                // Extra weight for Urban Core
+                int mx = pos.x / macro_size;
+                int my = pos.y / macro_size;
+                if (zone_map[{mx, my}] == ZoneType::URBAN_CORE) {
+                    for(int w=0; w<4; ++w) walkable.emplace_back(pos.x, pos.y);
+                }
             }
         }
     }

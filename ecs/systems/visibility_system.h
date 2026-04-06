@@ -101,6 +101,10 @@ private:
             m_blocking_set.clear();
             auto obstacle_view = m_registry.view<PositionComponent, ObstacleComponent>();
             for (auto obs : obstacle_view) {
+                // Windows are obstacles (impassable) but NOT FOV-blocking
+                if (m_registry.all_of<TerrainComponent>(obs)) {
+                    if (m_registry.get<TerrainComponent>(obs).type == TerrainType::WINDOW) continue;
+                }
                 const auto& o_pos = obstacle_view.get<PositionComponent>(obs);
                 m_blocking_set.insert(o_pos);
             }

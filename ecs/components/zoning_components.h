@@ -19,7 +19,71 @@ enum class ZoneType : uint8_t {
     TRANSIT,
     AIRPORT,
     COLOSSEUM,
+    URBAN_CORE,
+    MIXED_COMMERCIAL,
     Count
+};
+
+/**
+ * @brief [NEW ENUM] Defines which edges of a lot face a street.
+ */
+enum class StreetFacingSide : uint8_t {
+    NONE  = 0,
+    NORTH = 1 << 0,
+    SOUTH = 1 << 1,
+    EAST  = 1 << 2,
+    WEST  = 1 << 3,
+    ALL   = 0x0F
+};
+
+/**
+ * @brief [NEW CLASS] Defines a surveyed lot within a city block.
+ */
+struct LotComponent {
+    int x = 0; // World-space AABB
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    ZoneType zone_class = ZoneType::VOID;
+    entt::entity ownership_entity = entt::null;
+    StreetFacingSide facing = StreetFacingSide::NONE;
+    StreetFacingSide alley_facing = StreetFacingSide::NONE;
+    entt::entity parent_block = entt::null;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("x", x),
+           cereal::make_nvp("y", y),
+           cereal::make_nvp("width", width),
+           cereal::make_nvp("height", height),
+           cereal::make_nvp("zone_class", zone_class),
+           cereal::make_nvp("ownership_entity", ownership_entity),
+           cereal::make_nvp("facing", facing),
+           cereal::make_nvp("alley_facing", alley_facing),
+           cereal::make_nvp("parent_block", parent_block));
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Defines a rectangular city block composed of multiple lots.
+ */
+struct BlockComponent {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    std::vector<entt::entity> lots;
+    entt::entity zone_entity = entt::null;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("x", x),
+           cereal::make_nvp("y", y),
+           cereal::make_nvp("width", width),
+           cereal::make_nvp("height", height),
+           cereal::make_nvp("lots", lots),
+           cereal::make_nvp("zone_entity", zone_entity));
+    }
 };
 
 /**
@@ -34,6 +98,7 @@ struct MacroZoneComponent {
     float density = 0.5f; // 0.0 to 1.0 (building vs open space)
     std::string district_name;
     std::vector<entt::entity> arterial_entities; // Links to global skeleton entities in this zone
+    std::vector<entt::entity> block_entities; // [NEW] Link to city blocks in this zone
     
     template <class Archive>
     void serialize(Archive& ar) {
@@ -42,7 +107,8 @@ struct MacroZoneComponent {
            cereal::make_nvp("macro_y", macro_y),
            cereal::make_nvp("density", density),
            cereal::make_nvp("district_name", district_name),
-           cereal::make_nvp("arterial_entities", arterial_entities));
+           cereal::make_nvp("arterial_entities", arterial_entities),
+           cereal::make_nvp("block_entities", block_entities));
     }
 };
 
@@ -74,6 +140,20 @@ struct HeatIslandComponent {
     template <class Archive> void serialize(Archive& ar) {
         ar(cereal::make_nvp("heat_retention_multiplier", heat_retention_multiplier),
            cereal::make_nvp("ambient_temp_offset", ambient_temp_offset));
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Marks a location as a commerce anchor (e.g. train station).
+ */
+struct CommerceHubComponent {
+    float influence_radius = 10.0f;
+    float economic_boost = 1.5f;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("influence_radius", influence_radius),
+           cereal::make_nvp("economic_boost", economic_boost));
     }
 };
 

@@ -9,6 +9,7 @@
 #include "../components/zoning_components.h"
 #include "../components/infrastructure_components.h"
 #include "../components/transit_components.h"
+#include "../components/lod_components.h"
 
 namespace NeonOubliette {
 
@@ -97,7 +98,7 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::ContainerComponent>(archive)
         .get<NeonOubliette::CurrentPathComponent>(archive)
         .get<NeonOubliette::BuildingEntranceComponent>(archive)
-        .get<NeonOubliette::InteriorGeneratedComponent>(archive)
+        .get<NeonOubliette::BuildingInteriorComponent>(archive)
         .get<NeonOubliette::Layer0PhysicsComponent>(archive)
         .get<NeonOubliette::Layer1BiologyComponent>(archive)
         .get<NeonOubliette::Layer2CognitiveComponent>(archive)
@@ -116,7 +117,8 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::RidingComponent>(archive)
         .get<NeonOubliette::TransitVehicleComponent>(archive)
         .get<NeonOubliette::TransitRouteComponent>(archive)
-        .get<NeonOubliette::TransitStationComponent>(archive);
+        .get<NeonOubliette::TransitStationComponent>(archive)
+        .get<NeonOubliette::ChunkComponent>(archive);
 }
 
 void SerializationSystem::load_game(const std::string& filename) {
@@ -201,7 +203,7 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::ContainerComponent>(archive)
         .get<NeonOubliette::CurrentPathComponent>(archive)
         .get<NeonOubliette::BuildingEntranceComponent>(archive)
-        .get<NeonOubliette::InteriorGeneratedComponent>(archive)
+        .get<NeonOubliette::BuildingInteriorComponent>(archive)
         .get<NeonOubliette::Layer0PhysicsComponent>(archive)
         .get<NeonOubliette::Layer1BiologyComponent>(archive)
         .get<NeonOubliette::Layer2CognitiveComponent>(archive)
@@ -221,6 +223,7 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::TransitVehicleComponent>(archive)
         .get<NeonOubliette::TransitRouteComponent>(archive)
         .get<NeonOubliette::TransitStationComponent>(archive)
+        .get<NeonOubliette::ChunkComponent>(archive)
         .orphans();
 }
 

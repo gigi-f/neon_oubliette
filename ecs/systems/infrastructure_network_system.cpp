@@ -94,17 +94,18 @@ void InfrastructureNetworkSystem::carve_primary_roads(int width, int height) {
 }
 
 void InfrastructureNetworkSystem::carve_rail_line(int width, int height) {
-    for (int i = 0; i < std::min(width, height); ++i) {
-        create_arterial_segment(i, i, ArterialType::RAIL_ELEVATED);
-        
-        // Create nodes at intervals for stations
-        if (i % 30 == 0) {
-            auto junction = m_registry.create();
-            m_registry.emplace<PositionComponent>(junction, i, i, 0);
-            auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
-            node.node_name = "Rail Station Node";
-            m_registry.emplace<RenderableComponent>(junction, '=', "#00FFFF", 1);
-            link_arterial_to_zone(junction, i, i);
+    for (int y = 0; y < height; y += 80) {
+        for (int x = 0; x < width; ++x) {
+            create_arterial_segment(x, y, ArterialType::RAIL_ELEVATED);
+            if (x % 40 == 0) {
+                auto junction = m_registry.create();
+                m_registry.emplace<PositionComponent>(junction, x, y, 0);
+                auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
+                node.node_name = "Rail Station Node";
+                m_registry.emplace<CommerceHubComponent>(junction, 15.0f, 1.8f);
+                m_registry.emplace<RenderableComponent>(junction, '=', "#00FFFF", 1);
+                link_arterial_to_zone(junction, x, y);
+            }
         }
     }
 }
@@ -188,9 +189,11 @@ void InfrastructureNetworkSystem::subdivide_block_residential(int sx, int sy, in
 }
 
 void InfrastructureNetworkSystem::subdivide_block_park(int sx, int sy, int ex, int ey) {
-    for (int i = 0; i < (ex - sx); ++i) {
-        create_arterial_segment(sx + i, sy + i, ArterialType::ROAD_SECONDARY);
-    }
+    // Rectilinear paths for parks
+    int mid_x = sx + (ex - sx) / 2;
+    int mid_y = sy + (ey - sy) / 2;
+    for (int x = sx; x <= ex; ++x) create_arterial_segment(x, mid_y, ArterialType::ROAD_SECONDARY);
+    for (int y = sy; y <= ey; ++y) create_arterial_segment(mid_x, y, ArterialType::ROAD_SECONDARY);
 }
 
 void InfrastructureNetworkSystem::subdivide_block_slum(int sx, int sy, int ex, int ey) {
@@ -283,6 +286,15 @@ void InfrastructureNetworkSystem::create_arterial_segment(int x, int y, Arterial
             field.radius = 1.0f;
             field.economic_multiplier = 1.05f;
             glyph = '.'; color = "#555555";
+            break;
+        case ArterialType::ROAD_ALLEY:
+            field.radius = 0.5f;
+            field.crime_modifier = 0.2f;
+            glyph = '.'; color = "#333333";
+            break;
+        case ArterialType::SIDEWALK:
+            field.radius = 0.5f;
+            glyph = ','; color = "#888888";
             break;
         case ArterialType::RAIL_ELEVATED:
             field.radius = 3.0f;

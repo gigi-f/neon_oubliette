@@ -2,12 +2,14 @@
 #define NEON_OUBLIETTE_ECS_COMPONENTS_LOD_COMPONENTS_H
 
 #include "simulation_layers.h"
+#include "components.h"
 #include <string>
 #include <vector>
 #include <map>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 #include <cereal/types/map.hpp>
+#include <cereal/types/utility.hpp>
 
 namespace NeonOubliette {
 
@@ -91,6 +93,11 @@ struct ChunkComponent {
     bool is_warm = false; // Statistical (only MacroAgentRecords exist)
     std::vector<MacroAgentRecord> stored_agents;
     std::vector<entt::entity> macro_zones; // Macro-zones belonging to this 40x40 chunk
+    
+    /**
+     * @brief [NEW] Interior map caching. Maps building stable (x,y) to its interior state.
+     */
+    std::map<std::pair<int, int>, BuildingInteriorComponent> building_interiors;
 
     ChunkComponent() = default;
     ChunkComponent(int x, int y, bool hot, bool warm) 
@@ -103,7 +110,8 @@ struct ChunkComponent {
            cereal::make_nvp("is_hot", is_hot),
            cereal::make_nvp("is_warm", is_warm),
            cereal::make_nvp("stored_agents", stored_agents),
-           cereal::make_nvp("macro_zones", macro_zones));
+           cereal::make_nvp("macro_zones", macro_zones),
+           cereal::make_nvp("building_interiors", building_interiors));
     }
 };
 

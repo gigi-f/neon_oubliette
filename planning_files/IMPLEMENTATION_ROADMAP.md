@@ -77,6 +77,20 @@ not for driving it.
     - [x] Unique ASCII portraits and Inspection insights
     - [x] Integration with Chunk Streaming and Macro-Agent Record
 - [x] God mode, alternative gameplay style in which the game runs at a steady clip (say 2fps default with ability to change) but the player can pause time, and then use a cursor (highlighted square on the map) to investigate items, agents, buildings, etc. "God overview" that shows running actions or developments across all agents, economy, politics, etc. Ensure easy way to switch gameplay modes. Break into sub steps as possible.
+- [x] **A.2 — Urban Core & Skyscrapers**
+    - [x] Tag the central macro-zone cluster as `URBAN_CORE`; apply a density multiplier to lot occupancy
+    - [x] Skyscraper buildings: footprints 6–20 tiles wide, rendered with vertical ASCII metaphors (height encoded in glyph brightness / color tier)
+    - [x] Ground-floor commercial mandatory on Urban Core lots facing arterial roads
+    - [x] High pedestrian and vehicle traffic volume spawned proportionally to lot density
+    - [x] Multiple train terminals placed at key arterial intersections; terminals are designated `COMMERCE_HUB` anchor points
+- [x] **A.7 — Multi-Room Interior Generation**
+    - [x] All buildings regardless of size must generate at least 2 interior rooms; minimum room count scales with footprint: small (2–4 tiles wide) = 2 rooms, medium (5–10) = 3–5 rooms, large (11+) = 6+ rooms
+    - [x] Room layout generated via a BSP (binary space partition) split of the building footprint; minimum room dimension is 2×2 tiles to ensure navigability
+    - [x] Each room assigned a functional tag based on building type: e.g., apartment → BEDROOM / KITCHEN / BATHROOM / LIVING; office tower → LOBBY / OFFICE / SERVER_ROOM / EXECUTIVE_SUITE; factory → FLOOR / STORAGE / SUPERVISOR_OFFICE
+    - [x] Room tags drive furniture/item spawning: KITCHEN spawns food items, SERVER_ROOM spawns tech loot, BEDROOM spawns personal items and a BED tile
+    - [x] Rooms are connected by internal door tiles in shared walls; at least one path must exist from the entrance door to every room (BFS-validated at gen time)
+    - [x] Staircase tiles generated for multi-floor buildings; each floor is an independent BSP layout with matching staircase positions
+    - [x] Interior room data stored in `BuildingInteriorComponent` (room list, door positions, stair positions) so it can be serialized per-chunk and restored on re-entry without regeneration
 
 ### Partially Done
 - [x] Physics (Layer 0): temperature dissipation, weather effects, river cooling fields; pressure unused
@@ -89,66 +103,50 @@ not for driving it.
 
 *Goal: replace the current scatter-placement with a Chicago-style rectilinear grid where every building occupies a surveyed lot.*
 
-- [ ] **A.1 — Lot & Parcel System**
-    - [ ] Define a `LotComponent` (world-space AABB, zone class, ownership entity, street-facing side enum)
-    - [ ] Introduce a `CityPlannerSystem` that runs once at world-gen and subdivides each macro-zone into rectangular city blocks separated by streets
-    - [ ] Block sizes vary by zone: Urban Core (large, 40–80 tiles), Residential (medium, 20–40), Industrial/Port (irregular but aligned)
-    - [ ] Each block is further divided into individual lots; lot width/depth driven by zone density tables
-    - [ ] Each lot records which of its four edges is the **street-facing side** (the edge immediately adjacent to a street or alley tile); this drives door placement for every building on that lot
-    - [ ] Corner lots may have two street-facing sides; pick the higher-hierarchy road as the primary and the secondary as the service/alley entrance
-    - [ ] Store the full lot grid in a spatial index for fast lookup (used by building placement and pathfinding)
+- [x] **A.1 — Lot & Parcel System**
+    - [x] Define a `LotComponent` (world-space AABB, zone class, ownership entity, street-facing side enum)
+    - [x] Introduce a `CityPlannerSystem` that runs once at world-gen and subdivides each macro-zone into rectangular city blocks separated by streets
+    - [x] Block sizes vary by zone: Corporate/Commercial (medium), Residential (narrow), Slums (dense/small)
+    - [x] Each block is further divided into individual lots; lot width/depth driven by zone density tables
+    - [x] Each lot records which of its four edges is the **street-facing side**; this drives door placement for every building on that lot
+    - [x] Corner lots may have two street-facing sides; recorded via bitmask
+    - [x] Store the full lot grid in the ECS registry (entities linked to MacroZones)
 
-- [ ] **A.2 — Urban Core & Skyscrapers**
-    - [ ] Tag the central macro-zone cluster as `URBAN_CORE`; apply a density multiplier to lot occupancy
-    - [ ] Skyscraper buildings: footprints 6–20 tiles wide, rendered with vertical ASCII metaphors (height encoded in glyph brightness / color tier)
-    - [ ] Ground-floor commercial mandatory on Urban Core lots facing arterial roads
-    - [ ] High pedestrian and vehicle traffic volume spawned proportionally to lot density
-    - [ ] Multiple train terminals placed at key arterial intersections; terminals are designated `COMMERCE_HUB` anchor points
+- [x] **A.3 — Residential Streets**
+    - [x] Row-house / apartment packing: buildings fill their lots edge-to-edge with only alley gaps
+    - [x] Shared-wall detection: adjacent buildings on the same block share a wall tile rather than having a gap
+    - [x] Setback rules: arterials require a 1-tile sidewalk; capillary streets require none
+    - [x] Residential density gradient: lots nearest Urban Core are taller apartments; outer lots are 1–2 story row-houses
 
-- [ ] **A.3 — Residential Streets**
-    - [ ] Row-house / apartment packing: buildings fill their lots edge-to-edge with only alley gaps
-    - [ ] Shared-wall detection: adjacent buildings on the same block share a wall tile rather than having a gap
-    - [ ] Setback rules: arterials require a 1-tile sidewalk; capillary streets require none
-    - [ ] Residential density gradient: lots nearest Urban Core are taller apartments; outer lots are 1–2 story row-houses
+- [x] **A.4 — Commerce Hub Around Train Stations**
+    - [x] `COMMERCE_HUB` anchor triggers a radial upzoning: lots within N tiles are zoned `MIXED_COMMERCIAL`
+    - [x] Markets, vendors, and kiosks auto-spawned in the hub radius
+    - [x] Elevated foot-traffic simulation: agents path through hubs when commuting
 
-- [ ] **A.4 — Commerce Hubs Around Train Stations**
-    - [ ] `COMMERCE_HUB` anchor triggers a radial upzoning: lots within N tiles are zoned `MIXED_COMMERCIAL`
-    - [ ] Markets, vendors, and kiosks auto-spawned in the hub radius
-    - [ ] Elevated foot-traffic simulation: agents path through hubs when commuting
+- [x] **A.5 — Street Hierarchy Integration**
+    - [x] Ensure `InfrastructureNetworkSystem` arterials align to grid axes; no diagonal arterials inside city limits
+    - [x] Sidewalk tiles auto-generated along all street edges; agents prefer sidewalks over road tiles when not in vehicles
+    - [x] Alleys carved between back-to-back building rows for service access
 
-- [ ] **A.5 — Street Hierarchy Integration**
-    - [ ] Ensure `InfrastructureNetworkSystem` arterials align to grid axes; no diagonal arterials inside city limits
-    - [ ] Sidewalk tiles auto-generated along all street edges; agents prefer sidewalks over road tiles when not in vehicles
-    - [ ] Alleys carved between back-to-back building rows for service access
+- [x] **A.6 — Street-Facing Door Placement**
+    - [x] Building generator reads the lot's `street-facing side`; places the primary door on that wall, horizontally centered (or offset for narrow lots)
+    - [x] Buildings on alleys get a secondary service door on the alley-facing wall in addition to the primary street door
+    - [x] Door tiles are never placed on a shared-wall edge (the edge touching an adjacent building on the same block)
+    - [x] Train stations and large commercial buildings may have multiple primary doors evenly distributed along the street-facing wall
+    - [x] Door placement validated post-generation: if no adjacent passable street tile exists within 1 tile of the door, the door is relocated to the nearest valid wall position
 
-- [ ] **A.6 — Street-Facing Door Placement**
-    - [ ] Building generator reads the lot's `street-facing side`; places the primary door on that wall, horizontally centered (or offset for narrow lots)
-    - [ ] Buildings on alleys get a secondary service door on the alley-facing wall in addition to the primary street door
-    - [ ] Door tiles are never placed on a shared-wall edge (the edge touching an adjacent building on the same block)
-    - [ ] Train stations and large commercial buildings may have multiple primary doors evenly distributed along the street-facing wall
-    - [ ] Door placement validated post-generation: if no adjacent passable street tile exists within 1 tile of the door, the door is relocated to the nearest valid wall position
+- [x] **A.8 — Interior Pathfinding Grid**
+    - [x] Each building maintains its own independent 2D nav grid built from the BSP room layout; wall tiles are obstacles, door tiles are passable, furniture tiles are obstacles
+    - [x] Interior nav grid stored inside `FloorComponent` (linked to building floors); rebuilt only when the interior layout changes
+    - [x] `MovementSystem` and `PathfindingSystem` switch to the floor-local grid whenever an entity is in interior state (layer_id != 0)
+    - [x] Agents and player can pathfind on the building nav grid to navigate between rooms and across floors
+    - [x] Staircase tiles are edge connections between per-floor nav grids; A* treats them as valid transitions between layers
 
-- [ ] **A.7 — Multi-Room Interior Generation**
-    - [ ] All buildings regardless of size must generate at least 2 interior rooms; minimum room count scales with footprint: small (2–4 tiles wide) = 2 rooms, medium (5–10) = 3–5 rooms, large (11+) = 6+ rooms
-    - [ ] Room layout generated via a BSP (binary space partition) split of the building footprint; minimum room dimension is 2×2 tiles to ensure navigability
-    - [ ] Each room assigned a functional tag based on building type: e.g., apartment → BEDROOM / KITCHEN / BATHROOM / LIVING; office tower → LOBBY / OFFICE / SERVER_ROOM / EXECUTIVE_SUITE; factory → FLOOR / STORAGE / SUPERVISOR_OFFICE
-    - [ ] Room tags drive furniture/item spawning: KITCHEN spawns food items, SERVER_ROOM spawns tech loot, BEDROOM spawns personal items and a BED tile
-    - [ ] Rooms are connected by internal door tiles in shared walls; at least one path must exist from the entrance door to every room (BFS-validated at gen time)
-    - [ ] Staircase tiles generated for multi-floor buildings; each floor is an independent BSP layout with matching staircase positions
-    - [ ] Interior room data stored in `BuildingInteriorComponent` (room list, door positions, stair positions) so it can be serialized per-chunk and restored on re-entry without regeneration
-
-- [ ] **A.8 — Interior Pathfinding Grid**
-    - [ ] Each building maintains its own independent 2D nav grid built from the BSP room layout; wall tiles are obstacles, door tiles are passable, furniture tiles are obstacles
-    - [ ] Interior nav grid stored inside `BuildingInteriorComponent` alongside the room data; rebuilt only when the interior layout changes (not on every entry)
-    - [ ] `MovementSystem` switches the active nav grid to the building-local grid whenever an agent or the player is in interior state; switches back to world grid on exit
-    - [ ] Agents with interior goals (resident returning home, shopkeeper restocking) pathfind on the building nav grid to navigate between rooms
-    - [ ] Staircase tiles are edge connections between per-floor nav grids; hierarchical pathfinding treats them the same as street-to-alley transitions
-
-- [ ] **A.9 — Interior Map Caching & Stability Contract**
-    - [ ] A building's interior layout is generated exactly **once** per building lifetime; the result is serialized into `BuildingInteriorComponent` via cereal and committed to chunk save data
-    - [ ] On every subsequent entry (player or agent), the saved layout is loaded — **never re-randomized** — so items looted in a previous visit stay gone and furniture remains in the same position
-    - [ ] Layout is regenerated only if the building undergoes structural change: demolition + rebuild (Phase K), a Raid event that destroys interior partitions, or a fire/explosion event
-    - [ ] Dirty flag on `BuildingInteriorComponent` marks the layout as needing re-save; flushed when the owning chunk is serialized to disk
+- [x] **A.9 — Interior Map Caching & Stability Contract**
+    - [x] A building's interior layout is generated exactly **once** per building lifetime; the result is serialized into `BuildingInteriorComponent` via cereal and committed to chunk save data
+    - [x] On every subsequent entry (player or agent), the saved layout is loaded — **never re-randomized** — so items looted in a previous visit stay gone and furniture remains in the same position
+    - [x] Layout is regenerated only if the building undergoes structural change: demolition + rebuild (Phase K), a Raid event that destroys interior partitions, or a fire/explosion event
+    - [x] Dirty flag on `BuildingInteriorComponent` marks the layout as needing re-save; flushed when the owning chunk is serialized to disk
 
 - [ ] **A.10 — Window Tiles**
     - [ ] Building generator places window tiles on exterior walls facing streets (not shared walls or alley walls) at a frequency set by building archetype: residential = many windows, server room = none, executive suite = floor-to-ceiling
@@ -241,7 +239,7 @@ not for driving it.
     - [ ] Ring redraws each tick in case the player moves; rendered on its own notcurses plane below entities
 
 - [ ] **E.3 — Interaction Dispatch**
-    - [ ] Pressing `E` while the cursor is on a valid target fires the active interaction type
+    - [ ] Pressing `Space` or left-clicking while the cursor is on a valid target fires the active interaction type
     - [ ] SPEAK: opens dialogue system (see Phase F)
     - [ ] OBSERVE: opens inspection panel for target (same as inspect key, no additional privacy masking)
     - [ ] TRADE: opens barter panel between player and target agent if within range and target is willing

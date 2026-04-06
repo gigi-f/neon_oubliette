@@ -12,6 +12,8 @@ namespace NeonOubliette {
 enum class ArterialType : uint8_t {
     ROAD_PRIMARY,
     ROAD_SECONDARY,
+    ROAD_ALLEY,
+    SIDEWALK,
     RAIL_ELEVATED,
     RAIL_SUBWAY,
     WATERWAY_CANAL,

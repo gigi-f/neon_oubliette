@@ -22,10 +22,10 @@ public:
     void update(double delta_time) override {
         // Migration Logic: Macro to Micro
         // When a building is active (generated), move assigned citizens into it as NPCs
-        auto active_buildings = m_registry.view<InteriorGeneratedComponent, BuildingComponent>();
+        auto active_buildings = m_registry.view<BuildingInteriorComponent, BuildingComponent>();
         
         for (auto building : active_buildings) {
-            auto const& interior = active_buildings.get<InteriorGeneratedComponent>(building);
+            auto const& interior = active_buildings.get<BuildingInteriorComponent>(building);
             if (!interior.is_generated || interior.floor_entities.empty()) continue;
 
             // Find citizens whose home or workplace is this building

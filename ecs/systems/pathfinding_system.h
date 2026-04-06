@@ -46,6 +46,7 @@ private:
     entt::dispatcher& dispatcher;
 
     bool isTraversable(PositionComponent pos, entt::entity requester_entity) const;
+    int getMovementCost(PositionComponent pos, entt::entity requester_entity) const;
     int getHeuristic(PositionComponent a, PositionComponent b) const;
     std::vector<PositionComponent> reconstructPath(Node* endNode) const;
 };

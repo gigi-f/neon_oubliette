@@ -66,6 +66,7 @@ set(PROJECT_SOURCES
     ecs/systems/economic_system.cpp
     ecs/systems/stock_market_system.cpp
     ecs/systems/zoning_solver_system.cpp
+    ecs/systems/city_planner_system.cpp
     ecs/systems/infrastructure_network_system.cpp
     ecs/systems/chunk_streaming_system.cpp
     ecs/systems/macro_navigation_system.cpp

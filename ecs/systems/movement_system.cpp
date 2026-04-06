@@ -51,21 +51,37 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
 
         // --- Volumetric Collision Detection ---
         bool blocked = false;
+
+        // [A.8] Interior Nav Grid Check (Static Obstacles)
+        if (target_layer != 0) {
+            auto floor_view = m_registry.view<FloorComponent>();
+            for (auto floor_ent : floor_view) {
+                const auto& floor = floor_view.get<FloorComponent>(floor_ent);
+                if (floor.layer_id == target_layer) {
+                    if (!floor.nav_grid.is_passable(target_x, target_y)) {
+                        blocked = true;
+                    }
+                    break;
+                }
+            }
+        }
         
-        // We check the destination (target_x, target_y) against all physical volumes
-        auto obs_view = m_registry.view<PositionComponent, ObstacleComponent, SizeComponent>();
-        for (auto obstacle : obs_view) {
-            if (obstacle == event.entity) continue;
+        if (!blocked) {
+            // We check the destination (target_x, target_y) against all physical volumes
+            auto obs_view = m_registry.view<PositionComponent, ObstacleComponent, SizeComponent>();
+            for (auto obstacle : obs_view) {
+                if (obstacle == event.entity) continue;
 
-            const auto& o_pos = obs_view.get<PositionComponent>(obstacle);
-            const auto& o_size = obs_view.get<SizeComponent>(obstacle);
+                const auto& o_pos = obs_view.get<PositionComponent>(obstacle);
+                const auto& o_size = obs_view.get<SizeComponent>(obstacle);
 
-            // Check if target point is inside the obstacle's rectangle
-            if (target_layer == o_pos.layer_id &&
-                target_x >= o_pos.x && target_x < o_pos.x + o_size.width &&
-                target_y >= o_pos.y && target_y < o_pos.y + o_size.height) {
-                blocked = true;
-                break;
+                // Check if target point is inside the obstacle's rectangle
+                if (target_layer == o_pos.layer_id &&
+                    target_x >= o_pos.x && target_x < o_pos.x + o_size.width &&
+                    target_y >= o_pos.y && target_y < o_pos.y + o_size.height) {
+                    blocked = true;
+                    break;
+                }
             }
         }
 

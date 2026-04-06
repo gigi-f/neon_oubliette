@@ -24,12 +24,18 @@ void ZoningSolverSystem::initialize_rules() {
     m_adjacency_rules[ZoneType::TRANSIT] = {ZoneType::CORPORATE, ZoneType::COMMERCIAL, ZoneType::RESIDENTIAL, ZoneType::SLUM, ZoneType::INDUSTRIAL, ZoneType::PARK, ZoneType::TRANSIT, ZoneType::AIRPORT};
     m_adjacency_rules[ZoneType::AIRPORT] = {ZoneType::INDUSTRIAL, ZoneType::TRANSIT, ZoneType::AIRPORT};
     m_adjacency_rules[ZoneType::COLOSSEUM] = {ZoneType::COMMERCIAL, ZoneType::TRANSIT, ZoneType::PARK, ZoneType::CORPORATE, ZoneType::COLOSSEUM};
+    m_adjacency_rules[ZoneType::URBAN_CORE] = {ZoneType::CORPORATE, ZoneType::COMMERCIAL, ZoneType::TRANSIT, ZoneType::URBAN_CORE};
     
     // Add COLOSSEUM to existing rules
     m_adjacency_rules[ZoneType::COMMERCIAL].push_back(ZoneType::COLOSSEUM);
     m_adjacency_rules[ZoneType::TRANSIT].push_back(ZoneType::COLOSSEUM);
     m_adjacency_rules[ZoneType::PARK].push_back(ZoneType::COLOSSEUM);
     m_adjacency_rules[ZoneType::CORPORATE].push_back(ZoneType::COLOSSEUM);
+
+    // Add URBAN_CORE to existing rules
+    m_adjacency_rules[ZoneType::CORPORATE].push_back(ZoneType::URBAN_CORE);
+    m_adjacency_rules[ZoneType::COMMERCIAL].push_back(ZoneType::URBAN_CORE);
+    m_adjacency_rules[ZoneType::TRANSIT].push_back(ZoneType::URBAN_CORE);
 }
 
 void ZoningSolverSystem::solve_zoning(int macro_width, int macro_height) {
@@ -56,6 +62,22 @@ void ZoningSolverSystem::solve_zoning(int macro_width, int macro_height) {
         grid[macro_width-1][macro_height-1].possibilities = {ZoneType::AIRPORT};
         grid[macro_width-1][macro_height-1].collapsed = true;
         propagate_constraints(grid, macro_width-1, macro_height-1);
+    }
+
+    // Seed URBAN_CORE in the center
+    int mid_x = macro_width / 2;
+    int mid_y = macro_height / 2;
+    for (int dx = 0; dx <= 1; ++dx) {
+        for (int dy = 0; dy <= 1; ++dy) {
+            int nx = mid_x + dx;
+            int ny = mid_y + dy;
+            if (nx >= 0 && nx < macro_width && ny >= 0 && ny < macro_height) {
+                grid[nx][ny].final_type = ZoneType::URBAN_CORE;
+                grid[nx][ny].possibilities = {ZoneType::URBAN_CORE};
+                grid[nx][ny].collapsed = true;
+                propagate_constraints(grid, nx, ny);
+            }
+        }
     }
 
     std::random_device rd;
@@ -107,7 +129,9 @@ void ZoningSolverSystem::solve_zoning(int macro_width, int macro_height) {
     for (int x = 0; x < macro_width; ++x) {
         for (int y = 0; y < macro_height; ++y) {
             auto entity = m_registry.create();
-            m_registry.emplace<MacroZoneComponent>(entity, grid[x][y].final_type, x, y, 0.5f, "District " + std::to_string(x) + "-" + std::to_string(y));
+            float density = 0.5f;
+            if (grid[x][y].final_type == ZoneType::URBAN_CORE) density = 0.9f;
+            m_registry.emplace<MacroZoneComponent>(entity, grid[x][y].final_type, x, y, density, "District " + std::to_string(x) + "-" + std::to_string(y));
         }
     }
 }

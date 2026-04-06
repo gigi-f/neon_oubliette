@@ -84,6 +84,22 @@ enum class SimulationMode : uint8_t {
     GOD_MODE    // Observer/Director gameplay
 };
 
+enum class RoomTag : uint8_t {
+    LOBBY,
+    OFFICE,
+    SERVER_ROOM,
+    EXECUTIVE_SUITE,
+    BEDROOM,
+    KITCHEN,
+    BATHROOM,
+    LIVING_ROOM,
+    FACTORY_FLOOR,
+    STORAGE,
+    SUPERVISOR_OFFICE,
+    HALLWAY,
+    VOID
+};
+
 // =====================================================================
 // Core Components
 // =====================================================================
@@ -205,14 +221,44 @@ struct TerrainComponent {
 
 struct BuildingComponent {
     int height = 1; ZoneType zone_type = ZoneType::VOID; int occupant_count = 0;
+    uint32_t building_id = 0; // [NEW] Stable ID for layer generation and caching
     CommandBuffer command_buffer;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(height), CEREAL_NVP(zone_type), CEREAL_NVP(occupant_count)); }
+    template <class Archive> void serialize(Archive& ar) { 
+        ar(CEREAL_NVP(height), CEREAL_NVP(zone_type), CEREAL_NVP(occupant_count), CEREAL_NVP(building_id)); 
+    }
+};
+
+struct NavGrid {
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> grid; // 0 = passable, 1 = obstacle
+
+    bool is_passable(int x, int y) const {
+        if (x < 0 || x >= width || y < 0 || y >= height) return false;
+        return grid[y * width + x] == 0;
+    }
+
+    void set_passable(int x, int y, bool passable) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            grid[y * width + x] = passable ? 0 : 1;
+        }
+    }
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(width), CEREAL_NVP(height), CEREAL_NVP(grid));
+    }
 };
 
 struct FloorComponent {
-    int level = 0; std::vector<entt::entity> rooms;
-    FloorComponent() = default; FloorComponent(int l) : level(l) {}
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(level), CEREAL_NVP(rooms)); }
+    int level = 0;
+    int layer_id = 0;
+    std::vector<entt::entity> rooms;
+    NavGrid nav_grid;
+    FloorComponent() = default;
+    FloorComponent(int l, int lid = 0) : level(l), layer_id(lid) {}
+    template <class Archive> void serialize(Archive& ar) { 
+        ar(CEREAL_NVP(level), CEREAL_NVP(layer_id), CEREAL_NVP(rooms), CEREAL_NVP(nav_grid)); 
+    }
 };
 
 struct RoomComponent {
@@ -238,9 +284,54 @@ struct ElevatorComponent {
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(top_layer), CEREAL_NVP(bottom_layer)); }
 };
 
-struct InteriorGeneratedComponent {
-    bool is_generated = false; std::vector<entt::entity> floor_entities;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(is_generated), CEREAL_NVP(floor_entities)); }
+struct RoomData {
+    int x = 0; int y = 0; int width = 0; int height = 0;
+    RoomTag tag = RoomTag::VOID;
+    template <class Archive> void serialize(Archive& ar) { 
+        ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(width), CEREAL_NVP(height), CEREAL_NVP(tag)); 
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Record for items/furniture in a "cold" interior.
+ */
+struct MacroObjectRecord {
+    std::string name;
+    char glyph = '?';
+    std::string color = "#FFFFFF";
+    int x = 0;
+    int y = 0;
+    int layer_id = 0;
+    bool is_obstacle = false;
+    uint32_t item_type_id = 0;
+    int item_value = 0;
+    int restores_hunger = 0;
+    int restores_thirst = 0;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(CEREAL_NVP(name), CEREAL_NVP(glyph), CEREAL_NVP(color), CEREAL_NVP(x), CEREAL_NVP(y),
+           CEREAL_NVP(layer_id), CEREAL_NVP(is_obstacle), CEREAL_NVP(item_type_id),
+           CEREAL_NVP(item_value), CEREAL_NVP(restores_hunger), CEREAL_NVP(restores_thirst));
+    }
+};
+
+struct BuildingInteriorComponent {
+    std::vector<RoomData> rooms;
+    std::vector<PositionComponent> internal_doors;
+    std::vector<PositionComponent> stairs;
+    bool is_generated = false; 
+    std::vector<entt::entity> floor_entities;
+    std::vector<MacroObjectRecord> stored_objects; // [NEW] Non-agent objects in interior
+    int interior_width = 0; // [NEW] Cache dimensions
+    int interior_height = 0;
+    bool is_dirty = false; // [NEW] Stability contract flag
+
+    template <class Archive> void serialize(Archive& ar) { 
+        ar(CEREAL_NVP(rooms), CEREAL_NVP(internal_doors), CEREAL_NVP(stairs), 
+           CEREAL_NVP(is_generated), CEREAL_NVP(floor_entities), CEREAL_NVP(stored_objects),
+           CEREAL_NVP(interior_width), CEREAL_NVP(interior_height), CEREAL_NVP(is_dirty)); 
+    }
 };
 
 struct BuildingEntranceComponent {
@@ -593,7 +684,9 @@ namespace ECS {
     using ApartmentComponent = NeonOubliette::ApartmentComponent;
     using StairsComponent = NeonOubliette::StairsComponent;
     using ElevatorComponent = NeonOubliette::ElevatorComponent;
-    using InteriorGeneratedComponent = NeonOubliette::InteriorGeneratedComponent;
+    using BuildingInteriorComponent = NeonOubliette::BuildingInteriorComponent;
+    using RoomTag = NeonOubliette::RoomTag;
+    using RoomData = NeonOubliette::RoomData;
     using BuildingEntranceComponent = NeonOubliette::BuildingEntranceComponent;
     using AgentComponent = NeonOubliette::AgentComponent;
     using NPCComponent = NeonOubliette::NPCComponent;

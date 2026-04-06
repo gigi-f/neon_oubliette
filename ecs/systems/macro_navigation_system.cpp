@@ -145,7 +145,11 @@ std::vector<PositionComponent> MacroNavigationSystem::find_macro_path(PositionCo
 
         if (graph_comp->adj_list.count(current.entity)) {
             for (auto const& edge : graph_comp->adj_list.at(current.entity)) {
-                float new_g = current.g_cost + edge.cost;
+                float cost_multiplier = 1.0f;
+                if (m_registry.all_of<CommerceHubComponent>(edge.target_node)) {
+                    cost_multiplier = 0.4f; // Preferred pathing through commerce hubs
+                }
+                float new_g = current.g_cost + (edge.cost * cost_multiplier);
                 if (!g_costs.count(edge.target_node) || new_g < g_costs[edge.target_node]) {
                     g_costs[edge.target_node] = new_g;
                     parents[edge.target_node] = current.entity;

@@ -24,6 +24,7 @@
 #include "ecs/systems/city_generation_system.h"
 #include "ecs/systems/agent_spawn_system.h"
 #include "ecs/systems/zoning_solver_system.h"
+#include "ecs/systems/city_planner_system.h"
 #include "ecs/systems/infrastructure_network_system.h"
 #include "ecs/systems/macro_navigation_system.h"
 #include "ecs/systems/chunk_streaming_system.h"
@@ -85,9 +86,14 @@ int main(int argc, char** argv) {
     NeonOubliette::ZoningSolverSystem zoning_solver(macro_registry, event_dispatcher);
     zoning_solver.solve_zoning(MACRO_COLS, MACRO_ROWS);
 
+    // --- Phase A.1: City Planner (Block & Lot Subdivision) ---
+    NeonOubliette::CityPlannerSystem city_planner(macro_registry, event_dispatcher);
+    city_planner.plan_city_layout();
+
     // --- Phase 2: Capillaries & Junctions ---
     infra_gen.initialize(); // Populate zone cache
-    infra_gen.generate_capillaries();
+    // Phase A.1: CityPlanner now handles block subdivision and secondary roads
+    // infra_gen.generate_capillaries(); 
     infra_gen.resolve_junctions();
 
     // --- Phase 3.3: Hierarchical Pathfinding Graph ---
