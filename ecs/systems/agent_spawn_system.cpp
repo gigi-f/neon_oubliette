@@ -3,6 +3,7 @@
 #include "../components/lod_components.h"
 #include <random>
 #include <iostream>
+#include <unordered_set>
 
 namespace NeonOubliette {
 
@@ -154,32 +155,57 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
 }
 
 void AgentSpawnSystem::spawnAgents(int count, int layer) {
-    auto config_view = m_registry.view<WorldConfigComponent>();
-    if (config_view.begin() == config_view.end()) return;
-    
-    auto config_entity = *config_view.begin();
-    const auto& config = config_view.get<WorldConfigComponent>(config_entity);
+    // Build the candidate list from actual terrain that exists right now.
+    // This avoids the needle-in-a-haystack problem of picking random coords
+    // across the full world when only the hot chunks have generated terrain.
+    std::vector<std::pair<int,int>> walkable;
+    {
+        // Build a set of obstacle positions for fast lookup
+        std::unordered_set<uint64_t> obstacle_set;
+        auto obs_view = m_registry.view<PositionComponent, ObstacleComponent>();
+        for (auto e : obs_view) {
+            const auto& p = obs_view.get<PositionComponent>(e);
+            if (p.layer_id == layer) {
+                uint64_t key = (static_cast<uint64_t>(p.x) << 32) | static_cast<uint32_t>(p.y);
+                obstacle_set.insert(key);
+            }
+        }
+
+        auto terrain_view = m_registry.view<PositionComponent, TerrainComponent>();
+        for (auto e : terrain_view) {
+            const auto& pos = terrain_view.get<PositionComponent>(e);
+            if (pos.layer_id != layer) continue;
+            const auto& terrain = terrain_view.get<TerrainComponent>(e);
+            if (terrain.type != TerrainType::SIDEWALK && terrain.type != TerrainType::STREET &&
+                terrain.type != TerrainType::CONCRETE_FLOOR && terrain.type != TerrainType::GRASS) continue;
+            uint64_t key = (static_cast<uint64_t>(pos.x) << 32) | static_cast<uint32_t>(pos.y);
+            if (obstacle_set.count(key) == 0) {
+                walkable.emplace_back(pos.x, pos.y);
+            }
+        }
+    }
+
+    if (walkable.empty()) {
+        std::cerr << "[AgentSpawnSystem] spawnAgents: no walkable terrain on layer " << layer
+                  << " — agents not spawned. Run after terrain generation." << std::endl;
+        return;
+    }
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> disX(0, config.width - 1);
-    std::uniform_int_distribution<> disY(0, config.height - 1);
-    
+    std::shuffle(walkable.begin(), walkable.end(), gen);
+
     // Weighted selection: Civilians are common, Guards are rarer
-    std::uniform_int_distribution<> disType(0, 10); // 0-8 Civilian, 9-10 Guard
+    std::uniform_int_distribution<> disType(0, 10);
 
     int spawned = 0;
-    int attempts = 0;
-    const int max_attempts = count * 20;
+    int idx = 0;
+    const int available = static_cast<int>(walkable.size());
 
-    while (spawned < count && attempts < max_attempts) {
-        attempts++;
-        int x = disX(gen);
-        int y = disY(gen);
-
-        if (isWalkable(x, y, layer)) {
+    while (spawned < count && idx < available) {
+        auto [x, y] = walkable[idx++];
+        {
             int type = disType(gen);
-            SpeciesType species = (disType(gen) < 1) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN; 
 
             if (type < 4) {
                 createAgent(x, y, layer, "Citizen #" + std::to_string(spawned), "Civilian", 'o', "#AAAAAA", "GOVERNMENT", (disType(gen) < 2) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);

@@ -62,11 +62,6 @@ not for driving it.
 - [x] Faction Influence Fields (Phase 5.4): Layer 4 political simulation with influence diffusion across chunks.
 - [x] Airports (Phase 2.3): Procedural airport zones with terminals, runways, and cargo logistics.
 - [x] Colosseums (Phase 2.3): Procedural sports arenas with central arenas, seating, and Syndicate gladiators.
-
-### Partially Done
-- [x] Physics (Layer 0): temperature dissipation, weather effects, river cooling fields; pressure unused
-
-### Not Started
 - [x] FOV / line of sight
 - [x] Drivable personal vehicles (scooters, bikes, cars, sci-fi vehicles)
 - [x] Ridable trains, buses, sci-fi vehicles (by both player and agents) (Phase 4.2)
@@ -83,87 +78,19 @@ not for driving it.
     - [x] Integration with Chunk Streaming and Macro-Agent Record
 - [x] God mode, alternative gameplay style in which the game runs at a steady clip (say 2fps default with ability to change) but the player can pause time, and then use a cursor (highlighted square on the map) to investigate items, agents, buildings, etc. "God overview" that shows running actions or developments across all agents, economy, politics, etc. Ensure easy way to switch gameplay modes. Break into sub steps as possible.
 
----
+### Partially Done
+- [x] Physics (Layer 0): temperature dissipation, weather effects, river cooling fields; pressure unused
 
-## Phase Overview
+### Not Started
 
-| Phase | Focus | Key Deliverable |
-|-------|-------|-----------------|
-| 1 | Immediate Playability | Agents alive, world feels inhabited |
-| 1.5 | Inspection Overhaul | All 5 modes show distinct, useful simulation data |
-| 2 | Procedural City | Zoned, connected, randomized map |
-| 3 | Massive Scale | Large world (400+ macro tiles) with streaming |
-| 4 | Agent Depth | Schedules, needs, social fabric |
-| 5 | Simulation Layers | Biology, economy, factions tick meaningfully |
-
----
-
-## Phase 1: Immediate Playability (DONE)
-
-Goal: ensure the city feels inhabited and simulation systems are linked.
-
----
-
-## Phase 2: Procedural City with Logical Zoning & Connectivity (DONE)
-
-Goal: replace the hardcoded test maps with a procedurally generated city that follows
-real urban logic and provides physical connectivity between structures.
-
----
-
-## Phase 3: Massive Scale — World Streaming & LOD (DONE)
-
-Goal: support a world of 400×400+ macro-tiles without loading everything into memory.
-
-### 3.1 Chunk Architecture (DONE)
-- [x] Define `ChunkComponent` and `MacroAgentRecord`.
-- [x] Divide the world into 40×40 chunks (align with 2x2 macro-cells).
-- [x] **Hot Region:** 3x3 chunks around player are fully instantiated ECS entities.
-- [x] **Efficient Streaming:** Optimized `ChunkStreamingSystem` with chunk map and state tracking.
-- [x] **Massive World:** Scaled simulation to 8000x8000 tile grid (160,000 macro tiles).
-
-### 3.2 Agent LOD (Level of Detail) (DONE)
-- [x] **MacroAgentRecord:** Components defined for storing agent state during dematerialization.
-- [x] **Seamless Transition:** Statistical agents are "Materialized" into ECS entities when player approaches.
-- [x] **Statistical Simulation:** `simulate_macro_agents` implements survival decay for off-screen agents.
-
-### 3.3 Large Scale Pathfinding (DONE)
-- [x] **Hierarchical A*:** Pathfind across Macro-Cells (Arterial Graph) then Local Tiles.
-- [x] **Spatial Indexing:** Infrastructure Node (Junction) graph for global navigation.
-- [x] **Segmented Pathing:** Agents automatically request new local paths when reaching macro-nodes.
-
----
-
-## Phase 4: Agent Depth (IN PROGRESS)
-
-### 4.1 Daily Schedule System (DONE)
-- [x] Time-of-day cycle.
-- [x] `ScheduleComponent` and `RoutineState` (SLEEPING, WORKING, LEISURE, COMMUTING).
-- [x] Persistent home/work location assignment in `AgentSpawnSystem`.
-- [x] Routine-based goal selection in `AgentDecisionSystem`.
-- [x] Statistical routine movement in `ChunkStreamingSystem` (macro-sim).
-
-### 4.2 Social Hierarchy & Interaction (DONE)
-- [x] `SocialHierarchyComponent` defining status and class titles.
-- [x] `SocialInteractionSystem` implementing status-based yielding and deference.
-- [x] Faction and species-aware status assignment (Synths vs. Humans).
-- [x] Integration with Inspection system for behavioral insights.
-
-### 4.3 Agent Memory
-- `AgentMemoryComponent`: remembers food, danger, allies.
-
-### 4.3 Faction Affiliation
-- Deeper faction reaction logic.
-
----
-
-## Phase 5: Simulation Layer Depth
-
-### 5.1 Biology Ticks (Layer 1)
-- Injury propagation and wound tracking.
-
-### 5.2 Economy Ticks (Layer 3)
-- Supply/demand at market entities.
-
-### 5.3 Weather System (Layer 0)
-- Persistent weather states (Clear, Rain, Acid Rain, Smog) with mechanical effects. (BASIC IMPLEMENTATION DONE)
+- [ ] Currently, the city layout is terrible. Buildings are small and have no coherent layout. I want the city to be based on a grid, like Chicago. There is a very dense urban core with large skyscrapers and lots of traffic, train terminals, etc. Buildings are restricted to "lots" that are planned by the city government. So along a residential street, you would have apartments crammed together filling up their lots, very close to one another. Train stations will be especially built up commerce hubs.
+- [ ] Currently, buildings can either be walked directly into on the overworld map, or entered via the door which moves the player into an "interior  space". In God mode, the player should not need to enter a door to explore a building. In standard mode, the player should ONLY be able to enter a building via the door and entering the "interior space."
+- [ ] Show the 'held' item on the HUD
+- [ ] Add cursor interaction.  
+    - [ ] In standard mode, the interaction is limited by range- for example you can speak with somebody no more than 3 tiles away, but if you wanted to trade you need to be 1 tile away. 
+    - [ ] In God mode, can click on any screen element to interact. 
+    - [ ] The tile beneath the mouse cursor should be highlighted.
+- [ ] Currently, interaction ('E') is very vague and limited. Let's enforce "types" of interaction- speak, observe, trade. The "range" of the chosen interaction is shown on the map by differently colored outlined tiles. The type of interaction currently selected is also displayed on the HUD.
+- [ ] Speaking/talking between agents is a MAJOR component of city life. We need a complex speaking system both from player to agent and agent to agent. Players should be able to overhear conversations within range. This will be shown as text above the speakers, and can be broken up into "chunks" that update with each game step. For example: "I am ready..." *step* "...To go to the store." Players should be able to talk to agents, which will open a dialogue box. Response options will be displayed ie [a] Yes [b] Not sure, etc.
+- [ ] Human agents should have concentric circles of familiar agents organized by importance: family trees, which are the most important, friends, which are second, coworkers which are third. The closeness relates to how frequently agents visit with other agents, how likely they are to live together, share gifts, etc.
+- [ ] Religion system, agacent but not necessarily limited to factions

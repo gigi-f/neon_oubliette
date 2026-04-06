@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
     // --- Agent Spawning (Distributed into Chunks) ---
     NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
     agent_spawn.spawnAgentsIntoChunks(1000); // Massive world population
-    agent_spawn.spawnAgents(20, 0); // Local starting population
+    agent_spawn.spawnAgents(50, 0); // Local starting population
 
     // Welcome message
     event_dispatcher.trigger(NeonOubliette::HUDNotificationEvent{"Neon Oubliette: Infrastructure Active (40x40)", 5.0f, "#00FFFF"});
