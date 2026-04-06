@@ -83,14 +83,217 @@ not for driving it.
 
 ### Not Started
 
-- [ ] Currently, the city layout is terrible. Buildings are small and have no coherent layout. I want the city to be based on a grid, like Chicago. There is a very dense urban core with large skyscrapers and lots of traffic, train terminals, etc. Buildings are restricted to "lots" that are planned by the city government. So along a residential street, you would have apartments crammed together filling up their lots, very close to one another. Train stations will be especially built up commerce hubs.
-- [ ] Currently, buildings can either be walked directly into on the overworld map, or entered via the door which moves the player into an "interior  space". In God mode, the player should not need to enter a door to explore a building. In standard mode, the player should ONLY be able to enter a building via the door and entering the "interior space."
-- [ ] Show the 'held' item on the HUD
-- [ ] Add cursor interaction.  
-    - [ ] In standard mode, the interaction is limited by range- for example you can speak with somebody no more than 3 tiles away, but if you wanted to trade you need to be 1 tile away. 
-    - [ ] In God mode, can click on any screen element to interact. 
-    - [ ] The tile beneath the mouse cursor should be highlighted.
-- [ ] Currently, interaction ('E') is very vague and limited. Let's enforce "types" of interaction- speak, observe, trade. The "range" of the chosen interaction is shown on the map by differently colored outlined tiles. The type of interaction currently selected is also displayed on the HUD.
-- [ ] Speaking/talking between agents is a MAJOR component of city life. We need a complex speaking system both from player to agent and agent to agent. Players should be able to overhear conversations within range. This will be shown as text above the speakers, and can be broken up into "chunks" that update with each game step. For example: "I am ready..." *step* "...To go to the store." Players should be able to talk to agents, which will open a dialogue box. Response options will be displayed ie [a] Yes [b] Not sure, etc.
-- [ ] Human agents should have concentric circles of familiar agents organized by importance: family trees, which are the most important, friends, which are second, coworkers which are third. The closeness relates to how frequently agents visit with other agents, how likely they are to live together, share gifts, etc.
-- [ ] Religion system, agacent but not necessarily limited to factions
+---
+
+#### Phase A — City Layout Overhaul (Grid-Based Urban Form)
+
+*Goal: replace the current scatter-placement with a Chicago-style rectilinear grid where every building occupies a surveyed lot.*
+
+- [ ] **A.1 — Lot & Parcel System**
+    - [ ] Define a `LotComponent` (world-space AABB, zone class, ownership entity)
+    - [ ] Introduce a `CityPlannerSystem` that runs once at world-gen and subdivides each macro-zone into rectangular city blocks separated by streets
+    - [ ] Block sizes vary by zone: Urban Core (large, 40–80 tiles), Residential (medium, 20–40), Industrial/Port (irregular but aligned)
+    - [ ] Each block is further divided into individual lots; lot width/depth driven by zone density tables
+    - [ ] Store the full lot grid in a spatial index for fast lookup (used by building placement and pathfinding)
+
+- [ ] **A.2 — Urban Core & Skyscrapers**
+    - [ ] Tag the central macro-zone cluster as `URBAN_CORE`; apply a density multiplier to lot occupancy
+    - [ ] Skyscraper buildings: footprints 6–20 tiles wide, rendered with vertical ASCII metaphors (height encoded in glyph brightness / color tier)
+    - [ ] Ground-floor commercial mandatory on Urban Core lots facing arterial roads
+    - [ ] High pedestrian and vehicle traffic volume spawned proportionally to lot density
+    - [ ] Multiple train terminals placed at key arterial intersections; terminals are designated `COMMERCE_HUB` anchor points
+
+- [ ] **A.3 — Residential Streets**
+    - [ ] Row-house / apartment packing: buildings fill their lots edge-to-edge with only alley gaps
+    - [ ] Shared-wall detection: adjacent buildings on the same block share a wall tile rather than having a gap
+    - [ ] Setback rules: arterials require a 1-tile sidewalk; capillary streets require none
+    - [ ] Residential density gradient: lots nearest Urban Core are taller apartments; outer lots are 1–2 story row-houses
+
+- [ ] **A.4 — Commerce Hubs Around Train Stations**
+    - [ ] `COMMERCE_HUB` anchor triggers a radial upzoning: lots within N tiles are zoned `MIXED_COMMERCIAL`
+    - [ ] Markets, vendors, and kiosks auto-spawned in the hub radius
+    - [ ] Elevated foot-traffic simulation: agents path through hubs when commuting
+
+- [ ] **A.5 — Street Hierarchy Integration**
+    - [ ] Ensure `InfrastructureNetworkSystem` arterials align to grid axes; no diagonal arterials inside city limits
+    - [ ] Sidewalk tiles auto-generated along all street edges; agents prefer sidewalks over road tiles when not in vehicles
+    - [ ] Alleys carved between back-to-back building rows for service access
+
+---
+
+#### Phase B — Building Entry Rules (Standard vs. God Mode)
+
+- [ ] **B.1 — Enforce Door-Only Entry in Standard Mode**
+    - [ ] Remove all code paths that allow walking directly into a building footprint tile
+    - [ ] Movement system: collide with all non-door building tiles; only process entry event on `DOOR` tiles
+    - [ ] Interior generation triggered exclusively by door-entry event (already partially working — harden the contract)
+
+- [ ] **B.2 — God Mode Direct Inspection / Entry**
+    - [ ] In God Mode, cursor hover over any building footprint tile opens an inline info panel (floor plan outline, occupants, room list)
+    - [ ] `G` key (or configurable bind) while cursor is over a building teleports the God-Mode viewport into that building's interior
+    - [ ] Interior view rendered as an overlay with a clear visual border distinguishing "you are inside X building" from the overworld
+    - [ ] Navigating back out via ESC or clicking outside the building footprint returns the viewport to the overworld
+
+- [ ] **B.3 — HUD Contextual Indicators**
+    - [ ] HUD always shows current entry context: `[OVERWORLD]`, `[INTERIOR: Reza Tower L3]`, `[GOD: Reza Tower]`
+    - [ ] Minimap thumbnail updates to show interior floor plan when inside a building
+
+---
+
+#### Phase C — HUD Held-Item Display
+
+- [ ] **C.1 — Held-Item Slot in HUD**
+    - [ ] Reserve a fixed HUD region (lower-left, adjacent to health bar) for the held item
+    - [ ] Render item glyph (ASCII) + short name (truncated to ~12 chars) in the slot
+    - [ ] If no item held, display `[empty]` in dim color
+- [ ] **C.2 — Item Status Indicators**
+    - [ ] Show charge count or durability bar beneath the glyph for tools/weapons
+    - [ ] Flash the slot briefly when the item is used or swapped
+    - [ ] Color-code by item category (consumable = green, weapon = red, tool = cyan, key = yellow)
+
+---
+
+#### Phase D — Cursor Interaction System
+
+- [ ] **D.1 — Cursor Rendering**
+    - [ ] Render a highlight glyph over the tile currently under the mouse cursor using a dedicated notcurses plane
+    - [ ] Highlight color changes based on what is under the cursor: agent (yellow), item (cyan), door (green), empty (dim white)
+    - [ ] Keyboard cursor: arrow keys move the cursor tile-by-tile when mouse is not available; cursor snaps back to player on movement
+
+- [ ] **D.2 — Standard Mode Range Enforcement**
+    - [ ] Each interaction type carries a max range (tiles): Speak = 3, Observe = 6, Trade = 1
+    - [ ] Cursor highlight turns red when the target tile exceeds the active interaction's range
+    - [ ] Attempting to interact outside range emits a HUD notification ("Too far to trade")
+    - [ ] Range is measured as Chebyshev distance to match 8-directional movement
+
+- [ ] **D.3 — God Mode Click Interaction**
+    - [ ] Left-click on any visible tile opens the inspection panel for that entity (same data as `I` key inspect, no range limit)
+    - [ ] Right-click opens a context menu: Inspect / Follow / Teleport Cursor / Tag
+    - [ ] Middle-click (or `F` key) locks the camera onto the clicked agent and tracks them until dismissed
+
+---
+
+#### Phase E — Typed Interaction System
+
+- [ ] **E.1 — Interaction Mode Enum & State**
+    - [ ] Add `InteractionMode { SPEAK, OBSERVE, TRADE }` to the player state component
+    - [ ] Cycle through modes with `Tab` (or a dedicated bind); default is `OBSERVE`
+    - [ ] HUD shows the active interaction mode icon and label at all times (e.g., `[MODE: SPEAK]`)
+
+- [ ] **E.2 — Range Ring Rendering**
+    - [ ] When an interaction mode is active, render a border of colored tiles around the player showing max range
+    - [ ] SPEAK ring = blue outline; OBSERVE ring = white outline; TRADE ring = gold outline
+    - [ ] Ring redraws each tick in case the player moves; rendered on its own notcurses plane below entities
+
+- [ ] **E.3 — Interaction Dispatch**
+    - [ ] Pressing `E` while the cursor is on a valid target fires the active interaction type
+    - [ ] SPEAK: opens dialogue system (see Phase F)
+    - [ ] OBSERVE: opens inspection panel for target (same as inspect key, no additional privacy masking)
+    - [ ] TRADE: opens barter panel between player and target agent if within range and target is willing
+
+---
+
+#### Phase F — Conversation & Speech System
+
+*This is the single largest remaining system. Break implementation into sub-phases.*
+
+- [ ] **F.1 — Agent-to-Agent Conversation Engine**
+    - [ ] Add `ConversationComponent` to agents: tracks current conversation partner entity, topic stack, and step counter
+    - [ ] `ConversationSystem` (L1) selects conversation pairs from nearby agents with idle/leisure goals
+    - [ ] Topic selection driven by agent `NeedsComponent`, current events (weather, faction news, economy), and relationship tier
+    - [ ] Conversations have a duration (N steps); agents stand facing each other while conversing
+    - [ ] Topics serialized as tagged string templates with variable substitution (agent name, price, location, etc.)
+
+- [ ] **F.2 — Overhead Speech Rendering**
+    - [ ] Speech rendered as floating text above speaker's tile on a dedicated high-Z notcurses plane
+    - [ ] Text delivered in "chunks" — one phrase segment appears per simulation step, replacing the previous
+    - [ ] Maximum visible text width = 20 chars; longer utterances automatically chunked with ellipsis continuation ("...going to the market" → next step → "...near the east gate.")
+    - [ ] Speech bubble rendered in the speaker's faction color; fades (alpha ramp) as it reaches the last chunk
+    - [ ] Player sees overhead speech only for agents within FOV; text of out-of-FOV conversation is not rendered
+
+- [ ] **F.3 — Overheard Conversation Visibility**
+    - [ ] Player can "overhear" conversations within 5 tiles even if not a participant
+    - [ ] Overheard speech shown in italic / dim style to distinguish from addressed speech
+    - [ ] Optional: conversation log panel (toggled with `L`) records last N overheard utterances with speaker name
+
+- [ ] **F.4 — Player Dialogue System**
+    - [ ] SPEAK interaction on an agent opens a full-screen modal dialogue panel
+    - [ ] Panel shows: speaker portrait (ASCII block), agent name/title, current utterance text, and response options
+    - [ ] Response options labeled `[a]`, `[b]`, `[c]`… generated contextually from the topic and relationship tier
+    - [ ] Dialogue outcomes feed back into the simulation: selecting "buy info" transfers credits, selecting "threaten" lowers relationship score, etc.
+    - [ ] Agents remember recent dialogue with the player (stored in `RelationshipComponent`); repeat visits unlock new topic branches
+
+- [ ] **F.5 — Conversation Simulation at Macro Scale**
+    - [ ] Off-screen agents (MacroAgentRecord) still "converse" statistically — relationship scores drift based on proximity and faction alignment
+    - [ ] Major conversation outcomes (deals struck, rumors spread) logged as simulation events consumable by downstream systems
+
+---
+
+#### Phase G — Social Graph & Relationship System
+
+- [ ] **G.1 — RelationshipComponent**
+    - [ ] Add `RelationshipComponent` to all human agents: map of `{ entity → RelationshipRecord }` where record holds tier (FAMILY / FRIEND / COWORKER / ACQUAINTANCE / STRANGER), affinity score (-100 to 100), last-interaction tick, and shared-home flag
+    - [ ] Limit stored records per agent to ~50 to cap memory; LRU eviction for aging acquaintances
+
+- [ ] **G.2 — Family Trees**
+    - [ ] At agent spawn, assign family units: parents, siblings, and optionally children
+    - [ ] Family members start with maximum affinity and FAMILY tier; affinity decays slowly if they never interact
+    - [ ] Family members prefer to spawn in the same residential chunk and share a home building
+    - [ ] Death events notify all FAMILY-tier relationships and apply a temporary needs/mood penalty
+
+- [ ] **G.3 — Friendship Formation**
+    - [ ] Repeated proximity + positive interaction ticks increase affinity between ACQUAINTANCE agents
+    - [ ] When affinity crosses a threshold, tier upgrades to FRIEND
+    - [ ] Friends visit each other's homes during LEISURE goal windows
+    - [ ] Friends share information (rumors, economic tips) during conversations, propagating simulation state
+
+- [ ] **G.4 — Coworker Relationships**
+    - [ ] Agents assigned to the same workplace building become COWORKER-tier on first shared workday
+    - [ ] Coworker affinity affected by workplace conditions (faction favorability, crowding, pay level)
+    - [ ] Coworkers may form friendships over time if affinity crosses the friendship threshold
+
+- [ ] **G.5 — Relationship-Driven Behaviors**
+    - [ ] Gift-giving: high-affinity agents occasionally transfer a consumable or low-value item during LEISURE visits
+    - [ ] Co-habitation: FAMILY and very close FRIEND pairs may register the same home tile; share food/water stockpiles
+    - [ ] Grief / mourning: death of a FAMILY/FRIEND entity triggers temporary goal disruption (agent wanders, skips work)
+    - [ ] Social needs: add `socialization` need score; agents seek known FRIEND/FAMILY entities when socialization is low
+
+- [ ] **G.6 — Macro-Scale Relationship Simulation**
+    - [ ] MacroAgentRecord stores a compressed social summary (family count, friend count, avg affinity) for off-screen processing
+    - [ ] Social events (marriages, breakups, deaths) simulated statistically in macro-chunks and materialized when the chunk loads
+
+---
+
+#### Phase H — Religion System
+
+- [ ] **H.1 — Religion Data Model**
+    - [ ] Define a `ReligionRecord` struct: name, primary deity (or philosophical principle), core dogma tags (ASCETIC / HEDONIST / HIERARCHICAL / EGALITARIAN / XENO_REVERENT / etc.), associated faction affinity modifiers, and holy-day schedule
+    - [ ] Load religion definitions from a JSON schema (parallel to faction definitions); 6–10 religions at world-gen, each tied loosely to a zone cluster
+    - [ ] Each religion has a home building type: Temple, Shrine, Underground Chapel, Broadcast Tower (for digital cults), etc.
+
+- [ ] **H.2 — Agent Religiosity**
+    - [ ] Add `ReligiosityComponent`: religion entity, devotion score (0–100), last-worship tick, and schism flag
+    - [ ] Devotion affects mood, faction alignment drift, and willingness to accept certain trade/speech outcomes
+    - [ ] Agents with high devotion prioritize attending worship events during LEISURE windows
+    - [ ] Devotion decays slightly each day if the agent does not worship; rises on attending services or major holy days
+
+- [ ] **H.3 — Places of Worship**
+    - [ ] `CityGenerationSystem` places religion-specific buildings in appropriate zones (Temples in Corporate/Civic zones, Underground Chapels in Slum zones, Shrines in parks)
+    - [ ] Interior generation for worship spaces: nave/altar layout, seating glyphs, distinct color palette per religion
+    - [ ] Worship attendance triggers a `WorshipEvent`; nearby agents with matching religion entity join if in LEISURE goal
+
+- [ ] **H.4 — Religious Gatherings & Emergent Ritual**
+    - [ ] `ReligionSystem` (L2) schedules holy days based on in-game calendar; broadcasts a `HolyDayEvent` that overrides LEISURE goal for high-devotion agents
+    - [ ] Processions: agents form a moving group that walks a fixed route through the city (uses existing group-pathfinding primitives)
+    - [ ] Tension events: two processions of rival religions occupying the same tile cluster trigger a `ReligiousTensionEvent` which may escalate to conflict via the faction system
+
+- [ ] **H.5 — Faction & Religion Interplay**
+    - [ ] Each faction leader (AGI) has a stance toward each religion: PATRON / NEUTRAL / SUPPRESSOR
+    - [ ] PATRON factions fund temple construction and grant devotion bonuses to followers
+    - [ ] SUPPRESSOR factions periodically raid places of worship (generates `RaidEvent`) and impose devotion penalties
+    - [ ] A religion can accumulate enough influence to spawn a new faction if suppressed long enough (emergent politicization)
+
+- [ ] **H.6 — Proselytizing Behavior**
+    - [ ] High-devotion agents have a chance to initiate a SPEAK-type conversation with STRANGER/ACQUAINTANCE agents with no religion or low devotion
+    - [ ] Successful proselytizing (affinity > threshold, no rival religion) assigns the target agent to the religion with minimal starting devotion
+    - [ ] Failed proselytizing lowers the affinity between the two agents
