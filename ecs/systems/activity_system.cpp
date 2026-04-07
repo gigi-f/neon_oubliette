@@ -1,5 +1,4 @@
 #include "activity_system.h"
-#include <iostream>
 
 namespace NeonOubliette {
 
@@ -35,12 +34,13 @@ void ActivitySystem::handleTurnEvent(const TurnEvent& event)
                 "ActivitySystem"
             });
 
-            // HUD for progress
+            /* [MOD] Remove HUD spam for NPC activities
             m_dispatcher.enqueue<HUDNotificationEvent>({
                 name.name + " is " + activity.description + " (" + std::to_string(activity.total_turns_required - activity.turns_remaining) + "/" + std::to_string(activity.total_turns_required) + ")",
                 2.0f,
                 "#FFFFFF"
             });
+            */
         }
 
         if (activity.turns_remaining == 0)
@@ -59,12 +59,13 @@ void ActivitySystem::handleTurnEvent(const TurnEvent& event)
                 "ActivitySystem"
             });
 
-            // HUD for completion
+            /* [MOD] Remove HUD spam for NPC activities
             m_dispatcher.enqueue<HUDNotificationEvent>({
                 name.name + " completed " + activity.description + "!",
                 3.0f,
                 "#00FF00"
             });
+            */
         }
     }
 }

@@ -164,10 +164,122 @@ std::vector<PositionComponent> PathfindingSystem::reconstructPath(PathfindingSys
     return path;
 }
 
+// --- Proximity helpers ---
+
+PositionComponent PathfindingSystem::getPlayerPosition() const {
+    auto player_view = registry.view<PlayerComponent, PositionComponent>();
+    for (auto entity : player_view) {
+        return player_view.get<PositionComponent>(entity);
+    }
+    return {0, 0, 0}; // Fallback – should never happen
+}
+
+bool PathfindingSystem::isNearPlayer(PositionComponent pos) const {
+    PositionComponent player_pos = getPlayerPosition();
+    if (pos.layer_id != player_pos.layer_id) return false;
+    int dist = std::abs(pos.x - player_pos.x) + std::abs(pos.y - player_pos.y);
+    return dist <= kFullPathfindingRadius;
+}
+
+// Cheap path for entities far from the player.
+// Generates waypoints by stepping toward the goal in cardinal/diagonal
+// directions, using the arterial graph when available and falling back to
+// a straight-line walk.  No per-tile traversability checks.
+std::vector<PositionComponent> PathfindingSystem::generateSimulatedPath(
+        PositionComponent start, PositionComponent goal) const {
+    std::vector<PositionComponent> path;
+
+    // First, try to use the arterial graph for a high-level route.
+    auto* graph_comp = registry.ctx().find<ArterialGraphComponent>();
+    if (graph_comp) {
+        auto find_node = [&](PositionComponent p) -> entt::entity {
+            auto view = registry.view<InfrastructureNodeComponent, PositionComponent>();
+            entt::entity nearest = entt::null;
+            float min_d = 1e9f;
+            for (auto e : view) {
+                const auto& np = view.get<PositionComponent>(e);
+                float d = static_cast<float>(std::abs(np.x - p.x) + std::abs(np.y - p.y));
+                if (d < min_d) { min_d = d; nearest = e; }
+            }
+            return nearest;
+        };
+
+        entt::entity start_node = find_node(start);
+        entt::entity goal_node  = find_node(goal);
+
+        if (start_node != entt::null && goal_node != entt::null && start_node != goal_node) {
+            // Lightweight BFS/greedy walk on the arterial graph (much cheaper than full A*)
+            struct MNode {
+                entt::entity entity; float g; float h; entt::entity p;
+                float f() const { return g + h; }
+                bool operator>(const MNode& o) const { return f() > o.f(); }
+            };
+            std::priority_queue<MNode, std::vector<MNode>, std::greater<MNode>> open;
+            std::map<entt::entity, float> gs;
+            std::map<entt::entity, entt::entity> ps;
+
+            const auto& gp = registry.get<PositionComponent>(goal_node);
+            open.push({start_node, 0, static_cast<float>(getHeuristic(registry.get<PositionComponent>(start_node), gp)), entt::null});
+            gs[start_node] = 0;
+
+            bool found = false;
+            int iters = 0;
+            while (!open.empty() && iters < 500) {
+                ++iters;
+                MNode curr = open.top(); open.pop();
+                if (curr.entity == goal_node) { found = true; break; }
+                if (graph_comp->adj_list.count(curr.entity)) {
+                    for (auto const& edge : graph_comp->adj_list.at(curr.entity)) {
+                        float ng = curr.g + edge.cost;
+                        if (!gs.count(edge.target_node) || ng < gs[edge.target_node]) {
+                            gs[edge.target_node] = ng;
+                            ps[edge.target_node] = curr.entity;
+                            open.push({edge.target_node, ng,
+                                static_cast<float>(getHeuristic(registry.get<PositionComponent>(edge.target_node), gp)),
+                                curr.entity});
+                        }
+                    }
+                }
+            }
+
+            if (found) {
+                // Reconstruct macro waypoints
+                entt::entity c = goal_node;
+                while (c != entt::null) {
+                    path.push_back(registry.get<PositionComponent>(c));
+                    c = ps.count(c) ? ps.at(c) : entt::null;
+                }
+                std::reverse(path.begin(), path.end());
+                // Remove start position if present
+                if (!path.empty() && path.front() == start) path.erase(path.begin());
+                // Ensure goal is the final waypoint
+                if (path.empty() || !(path.back() == goal)) path.push_back(goal);
+                return path;
+            }
+        }
+    }
+
+    // Fallback: straight-line walk (skip intermediate points, just give the goal).
+    // The agent action system already does simple direct movement when
+    // CurrentPathComponent steps run out, so a sparse path is fine here.
+    path.push_back(goal);
+    return path;
+}
+
 void PathfindingSystem::processPathfindingRequest(const PathfindingRequestEvent& event) {
     std::vector<PositionComponent> path;
     std::vector<PositionComponent> macro_path;
     bool success = false;
+
+    // --- Proximity gate: only run expensive A* for entities near the player ---
+    bool entity_is_player = registry.all_of<PlayerComponent>(event.entity);
+    if (!entity_is_player && !isNearPlayer(event.start)) {
+        // Use cheap simulated path instead of full A*
+        path = generateSimulatedPath(event.start, event.goal);
+        dispatcher.enqueue<PathfindingResponseEvent>(
+            {event.entity, path, {}, event.request_id, !path.empty()});
+        return;
+    }
 
     // 1. Check if we need Hierarchical Pathfinding
     int dist = getHeuristic(event.start, event.goal);

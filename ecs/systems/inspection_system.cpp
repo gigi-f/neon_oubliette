@@ -72,24 +72,30 @@ void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
     auto view = registry_.view<PositionComponent>();
     entt::entity target = entt::null;
 
-    // 1. Exact Hit (considering SizeComponent)
-    for (auto entity : view) {
-        if (entity == event.player_entity) continue;
-        const auto& pos = view.get<PositionComponent>(entity);
-        if (pos.layer_id == event.layer_id) {
-            int width = 1, height = 1;
-            if (registry_.all_of<SizeComponent>(entity)) {
-                const auto& size = registry_.get<SizeComponent>(entity);
-                width = size.width;
-                height = size.height;
-            }
+    // 1. Multi-Layer Exact Hit Scan (Prefer higher/interactive layers)
+    std::vector<int> levels_to_check = {event.layer_id, 5, 0}; // Current, Elevated Rail, Ground
+    if (event.layer_id >= 1000) levels_to_check = {event.layer_id}; // Interiors stay local
 
-            if (event.x >= pos.x && event.x < pos.x + width &&
-                event.y >= pos.y && event.y < pos.y + height) {
-                target = entity;
-                break; // Found direct hit
+    for (int lvl : levels_to_check) {
+        for (auto entity : view) {
+            if (entity == event.player_entity) continue;
+            const auto& pos = view.get<PositionComponent>(entity);
+            if (pos.layer_id == lvl) {
+                int width = 1, height = 1;
+                if (registry_.all_of<SizeComponent>(entity)) {
+                    const auto& size = registry_.get<SizeComponent>(entity);
+                    width = size.width;
+                    height = size.height;
+                }
+
+                if (event.x >= pos.x && event.x < pos.x + width &&
+                    event.y >= pos.y && event.y < pos.y + height) {
+                    target = entity;
+                    break; 
+                }
             }
         }
+        if (target != entt::null) break;
     }
 
     // 2. Proximity Fallback (if no exact hit)
@@ -503,6 +509,11 @@ std::vector<LayerInsight> InspectionSystem::calculate_insights(entt::entity targ
                     insights.push_back({"[CIRCUIT DEGRADATION: THERMAL]", "#FFAA00"});
                 if (l0->structural_integrity < 0.5f)
                     insights.push_back({"[STRUCTURAL FAILURE IMMINENT]", "#FF0000"});
+            }
+            if (auto* t = registry_.try_get<TerrainComponent>(target)) {
+                if (t->type == TerrainType::RAIL) {
+                    insights.push_back({"[MAG-LEV GUIDANCE RAIL: HIGH VOLTAGE]", "#FFD700"});
+                }
             }
             if (l1 && l1->pain_level > 5) 
                 insights.push_back({"[STRESS: NEURO-TRAUMA DETECTED]", "#FF5555"});

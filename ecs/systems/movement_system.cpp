@@ -53,6 +53,7 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
         bool blocked = false;
 
         // [A.8] Interior Nav Grid Check (Static Obstacles)
+        entt::entity blocker = entt::null;
         if (target_layer != 0) {
             auto floor_view = m_registry.view<FloorComponent>();
             for (auto floor_ent : floor_view) {
@@ -60,6 +61,8 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 if (floor.layer_id == target_layer) {
                     if (!floor.nav_grid.is_passable(target_x, target_y)) {
                         blocked = true;
+                        // For NavGrid, we don't assign a specific entity as the blocker 
+                        // so it falls through to the "You walked into a wall" logic.
                     }
                     break;
                 }
@@ -99,6 +102,7 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                     }
 
                     blocked = true;
+                    blocker = obstacle;
                     break;
                 }
             }
@@ -123,6 +127,7 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                         }
                     }
                     blocked = true;
+                    blocker = obstacle;
                     break;
                 }
             }
@@ -130,7 +135,26 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
 
         if (blocked) {
             if (m_registry.all_of<PlayerComponent>(event.entity)) {
-                m_dispatcher.trigger(HUDNotificationEvent{"Obstacle in real-space path.", 1.0f, "#FF5555"});
+                std::string message = "Blocked by an obstacle.";
+                if (m_registry.valid(blocker)) {
+                    if (auto* name_comp = m_registry.try_get<NameComponent>(blocker)) {
+                        if (name_comp->name == "Wall") message = "You walked into a wall.";
+                        else if (name_comp->name == "Window") message = "Blocked by a window.";
+                        else if (name_comp->name == "Tree") message = "Blocked by a tree.";
+                        else message = "Blocked by " + name_comp->name + ".";
+                    } else if (auto* terrain = m_registry.try_get<TerrainComponent>(blocker)) {
+                        if (terrain->type == TerrainType::WALL) message = "You walked into a wall.";
+                        else if (terrain->type == TerrainType::WINDOW) message = "Blocked by a window.";
+                    } else if (m_registry.all_of<BuildingComponent>(blocker)) {
+                        message = "Blocked by a building.";
+                    } else if (m_registry.all_of<PersonalVehicleComponent>(blocker)) {
+                        message = "Blocked by a vehicle.";
+                    }
+                } else {
+                    // Nav grid blockage is effectively a wall in an interior
+                    message = "You walked into a wall.";
+                }
+                m_dispatcher.trigger(HUDNotificationEvent{message, 1.0f, "#FF5555"});
             }
             return;
         }

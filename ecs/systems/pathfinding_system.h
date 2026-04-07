@@ -47,7 +47,15 @@ private:
     std::deque<PathfindingRequestEvent> pending_requests_;
     static constexpr size_t kMaxPathRequestsPerTurn = 4;
 
+    // Entities within this Manhattan distance of the player get full A* pathfinding.
+    // Entities beyond this radius receive cheaper simulated paths.
+    static constexpr int kFullPathfindingRadius = 30;
+
     void processPathfindingRequest(const PathfindingRequestEvent& event);
+
+    PositionComponent getPlayerPosition() const;
+    bool isNearPlayer(PositionComponent pos) const;
+    std::vector<PositionComponent> generateSimulatedPath(PositionComponent start, PositionComponent goal) const;
 
     bool isTraversable(PositionComponent pos, entt::entity requester_entity) const;
     int getMovementCost(PositionComponent pos, entt::entity requester_entity) const;

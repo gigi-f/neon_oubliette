@@ -68,12 +68,9 @@ public:
         spawnCommerceHubExtras(zone, config.macro_cell_size, arterial_map, zone_gen);
         
         for (auto const& [pos_pair, type] : arterial_map) {
-            TerrainType t_type = TerrainType::STREET;
-            MaterialType material = MaterialType::CONCRETE;
-            char glyph = ' ';
-            std::string color = "#333333";
-            bool is_obstacle = false;
-            bool is_liquid = false;
+            TerrainType t_type = TerrainType::VOID; char glyph = ' '; std::string color = "#000000";
+            MaterialType material = MaterialType::CONCRETE; bool is_obstacle = false; bool is_liquid = false;
+            int t_layer = 0;
 
             switch(type) {
                 case ArterialType::WATERWAY_RIVER:
@@ -97,8 +94,8 @@ public:
                     material = MaterialType::CONCRETE;
                     break;
                 case ArterialType::RAIL_ELEVATED:
-                    t_type = TerrainType::VOID; glyph = '='; color = "#FFD700";
-                    material = MaterialType::STEEL;
+                    t_type = TerrainType::RAIL; glyph = '='; color = "#FFCC00"; // [MOD] Slightly brighter gold
+                    material = MaterialType::STEEL; t_layer = 5; // Mid-air layer
                     break;
                 default: break;
             }
@@ -117,9 +114,9 @@ public:
             }
             
             auto tile = m_registry.create();
-            m_registry.emplace<PositionComponent>(tile, pos_pair.first, pos_pair.second, 0);
+            m_registry.emplace<PositionComponent>(tile, pos_pair.first, pos_pair.second, t_layer);
             m_registry.emplace<TerrainComponent>(tile, t_type);
-            m_registry.emplace<RenderableComponent>(tile, glyph, color, 0);
+            m_registry.emplace<RenderableComponent>(tile, glyph, color, t_layer);
             auto& phys = m_registry.emplace<Layer0PhysicsComponent>(tile);
             phys.material = material;
             phys.is_liquid = is_liquid;
@@ -134,7 +131,7 @@ public:
                     else if (r < 0.6) v_type = PersonalVehicleType::BIKE;
                     else if (r < 0.9) v_type = PersonalVehicleType::CAR;
                     else v_type = PersonalVehicleType::SCI_FI;
-                    spawnPersonalVehicle(pos_pair.first, pos_pair.second, 0, v_type);
+                    spawnPersonalVehicle(pos_pair.first, pos_pair.second, t_layer, v_type);
                 }
             }
         }
@@ -188,7 +185,12 @@ private:
                             auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
                             uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
                             createBuildingShell(b_name, bx, by, bw, bh, floors, b_color, zone.type, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent);
-                            for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) structure_footprint.insert({fx, fy});
+                            for (int fx = bx; fx < bx + bw; ++fx) {
+                                for (int fy = by; fy < by + bh; ++fy) {
+                                    if (arterials.count({fx, fy})) continue; // Skip if arterial present
+                                    structure_footprint.insert({fx, fy});
+                                }
+                            }
                             for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
                         }
                     }
@@ -434,9 +436,19 @@ private:
     void createNatureFeature(int x, int y, std::string name, char glyph, std::string color, bool is_obstacle, TerrainType terrain = TerrainType::GRASS) {
         auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, 0); m_registry.emplace<NameComponent>(e, name); m_registry.emplace<RenderableComponent>(e, glyph, color, 0);
         m_registry.emplace<NatureEffectComponent>(e, 2.0f, -1.0f); if (is_obstacle) m_registry.emplace<ObstacleComponent>(e);
-        createTile(x, y, 0, terrain, terrain == TerrainType::GRASS ? '"' : '~', terrain == TerrainType::GRASS ? "#004400" : "#0055FF", MaterialType::WATER);
+        createTile(x, y, 0, terrain, terrain == TerrainType::GRASS ? '"' : '~', terrain == TerrainType::GRASS ? "#004400" : "#0055FF", terrain == TerrainType::GRASS ? MaterialType::CONCRETE : MaterialType::WATER);
     }
     void createTile(int x, int y, int layer, TerrainType type, char glyph, std::string color, MaterialType material = MaterialType::CONCRETE) {
+        // [MOD] Rail Continuity: Do not overwrite elevated rails with basic building tiles
+        auto view = m_registry.view<PositionComponent, TerrainComponent>();
+        for (auto ent : view) {
+            const auto& p = view.get<PositionComponent>(ent);
+            if (p.x == x && p.y == y && p.layer_id == 5) {
+                const auto& terr = view.get<TerrainComponent>(ent);
+                if (terr.type == TerrainType::RAIL) return; // Keep the rail!
+            }
+        }
+
         auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, layer); m_registry.emplace<TerrainComponent>(e, type); m_registry.emplace<RenderableComponent>(e, glyph, color, layer);
         auto& phys = m_registry.emplace<Layer0PhysicsComponent>(e); phys.material = material; 
         if (type == TerrainType::WALL || type == TerrainType::WINDOW) m_registry.emplace<ObstacleComponent>(e);

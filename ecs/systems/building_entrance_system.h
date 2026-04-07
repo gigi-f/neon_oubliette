@@ -63,7 +63,6 @@ public:
             m_registry.get<PlayerCurrentLayerComponent>(event.visitor).current_z = new_layer_id;
         }
 
-        m_dispatcher.enqueue<HUDNotificationEvent>({"Stepped into " + m_registry.get<NameComponent>(event.building).name, 2.0f, "#00FFFF"});
         
         // 3. Mark the building as 'active' for simulation scaling
         // (Active buildings get more granular micro-simulation ticks)
@@ -87,7 +86,6 @@ public:
             m_registry.get<PlayerCurrentLayerComponent>(visitor).current_z = b_pos.layer_id;
         }
 
-        m_dispatcher.enqueue<HUDNotificationEvent>({"Exited to city level.", 2.0f, "#FFFF00"});
     }
 
 private:

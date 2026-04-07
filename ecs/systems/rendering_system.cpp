@@ -157,7 +157,7 @@ void RenderingSystem::initialize() {
         */
 
         notcurses_cursor_disable(nc_context_);
-        notcurses_mice_enable(nc_context_, NCMICE_ALL_EVENTS);
+        // Mouse controls removed
     }
 
     event_dispatcher_.sink<InventoryToggleEvent>().connect<&RenderingSystem::handleInventoryToggleEvent>(this);
@@ -598,6 +598,8 @@ void RenderingSystem::update(double delta_time) {
             
             if (p_pos.layer_id == current_layer) {
                 int range = 6;
+                // High-visibility orange for player in overworld
+                render_at(world_plane_, p_pos.x, p_pos.y, '@', 0xFFA500); // [MOD] Vibrant Orange
                 std::string ring_color = Colors::RANGE_OBSERVE;
                 if (p_inter.current_mode == InteractionMode::SPEAK) {
                     range = 3;
@@ -608,6 +610,13 @@ void RenderingSystem::update(double delta_time) {
                 }
 
                 uint32_t color = parse_hex_color(ring_color);
+                
+                // Set low opacity for the ring (B.4)
+                uint64_t ring_channels = 0;
+                ncchannels_set_fg_rgb(&ring_channels, color & 0xFFFFFF);
+                ncchannels_set_fg_alpha(&ring_channels, NCALPHA_BLEND);
+                ncchannels_set_bg_alpha(&ring_channels, NCALPHA_TRANSPARENT);
+                ncplane_set_base(range_ring_plane_, "", 0, ring_channels);
                 
                 // Draw square border into range_ring_plane_ (occluded by walls [B.4])
                 for (int dx = -range; dx <= range; ++dx) {
@@ -802,7 +811,8 @@ void RenderingSystem::update(double delta_time) {
                     const auto& render = int_ent_view.get<RenderableComponent>(ent);
                     int px = pos.x + 4; // offset
                     int py = pos.y + 3;
-                    if (px > 0 && px < 49 && py > 0 && py < 19) {
+                    // Fix clipping for larger buildings (expand bounds check)
+                    if (px >= 0 && px < 50 && py >= 0 && py < 20) {
                         ncplane_set_fg_rgb(interior_overlay_plane_, parse_hex_color(render.color));
                         ncplane_putchar_yx(interior_overlay_plane_, py, px, render.glyph);
                     }

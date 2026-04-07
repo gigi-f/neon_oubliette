@@ -240,6 +240,17 @@ void InputSystem::update(double delta_time) {
         
         auto& pos = player_view.get<PositionComponent>(player_entity);
 
+        // [MOD] Ensure standard cursor always stays in sync with player layer/pos when not active
+        auto sc_view = m_registry.view<StandardCursorComponent>();
+        for (auto sce : sc_view) {
+            auto& sc = sc_view.get<StandardCursorComponent>(sce);
+            if (!sc.active) {
+                sc.x = pos.x;
+                sc.y = pos.y;
+                sc.layer_id = pos.layer_id;
+            }
+        }
+
         // Inventory UI Focus
         if (m_registry.all_of<HUDComponent>(player_entity)) {
             auto& hud = m_registry.get<HUDComponent>(player_entity);
@@ -356,20 +367,8 @@ void InputSystem::update(double delta_time) {
             }
         }
         
-        else if (key_id == ' ') {
-            // Spacebar = interact at cursor position (same as E), or wait if nothing to interact with
-            int tx = pos.x; int ty = pos.y; int tl = pos.layer_id;
-            auto cursor_view_sp = m_registry.view<StandardCursorComponent>();
-            if (cursor_view_sp.begin() != cursor_view_sp.end()) {
-                auto& sc = cursor_view_sp.get<StandardCursorComponent>(*cursor_view_sp.begin());
-                if (sc.active) { tx = sc.x; ty = sc.y; tl = sc.layer_id; }
-            }
-            m_dispatcher.trigger(InteractEvent{player_entity, tl, tx, ty});
-            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
-        }
-        
         // Interaction
-        else if (key_id == 'e' || key_id == 'E') {
+        else if (key_id == 'e' || key_id == 'E' || key_id == ' ' || key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
             int tx = pos.x; int ty = pos.y; int tl = pos.layer_id;
             auto cursor_view = m_registry.view<StandardCursorComponent>();
             if (cursor_view.begin() != cursor_view.end()) {

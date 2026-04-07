@@ -234,8 +234,8 @@ void InteractionSystem::handleInteractEvent(const InteractEvent& event) {
                 std::string glyph_hint;
                 if (registry_.all_of<RenderableComponent>(terr_ent)) {
                     char g = registry_.get<RenderableComponent>(terr_ent).glyph;
-                    if (g == '~') glyph_hint = " Looks like a river.";
-                    else if (g == '=') glyph_hint = " Elevated rail track.";
+                    if (terr.type == TerrainType::RAIL) glyph_hint = " Elevated rail track.";
+                    else if (g == '~') glyph_hint = " Looks like a river.";
                     else if (g == '"') glyph_hint = " Overgrown.";
                 }
                 event_dispatcher_.trigger(HUDNotificationEvent{"It's " + desc + glyph_hint, 2.0f, "#AADDAA"});

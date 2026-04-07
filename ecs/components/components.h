@@ -59,7 +59,8 @@ enum class TerrainType : uint8_t {
     FLOWER_BED,
     WATER_FEATURE,
     ARENA_FLOOR,
-    ARENA_SEATING
+    ARENA_SEATING,
+    RAIL
 };
 
 enum class Direction : uint8_t {
