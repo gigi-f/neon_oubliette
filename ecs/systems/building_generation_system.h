@@ -250,7 +250,8 @@ private:
                 int split_attempts = 0;
                 while (nodes.size() < (size_t)target_rooms && split_attempts < 100) {
                     std::uniform_int_distribution<size_t> dist(0, nodes.size() - 1);
-                    if (nodes[dist(m_gen)]->split(3, m_gen)) { nodes.push_back(nodes.back()->left); nodes.push_back(nodes.back()->right); }
+                    size_t idx = dist(m_gen);
+                    if (nodes[idx]->split(3, m_gen)) { nodes.push_back(nodes[idx]->left); nodes.push_back(nodes[idx]->right); }
                     split_attempts++;
                 }
                 root->getLeaves(floor_rooms); root->placeDoors(floor_doors, layer_id, m_gen);

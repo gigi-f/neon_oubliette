@@ -25,6 +25,8 @@ private:
     entt::dispatcher& m_dispatcher;
 
     uint32_t m_nextPathRequestId = 0; // Simple counter for unique request IDs
+    size_t m_nextAgentDecisionIndex = 0; // Round-robin cursor for per-turn decision budget
+    static constexpr size_t kMaxAgentDecisionsPerTurn = 40;
 
     std::pair<entt::entity, PositionComponent> findNearestResource(entt::entity agent_entity,
                                                                    const PositionComponent& agent_pos,

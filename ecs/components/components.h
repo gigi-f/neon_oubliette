@@ -889,6 +889,34 @@ struct XenoInfluenceComponent {
 };
 
 // =====================================================================
+// Debug Overlay Component (singleton — one per registry)
+// =====================================================================
+struct DebugOverlayComponent {
+    bool visible = true;
+    uint64_t turn = 0;
+
+    // Per-phase timing (milliseconds) from the LAST completed simulation tick
+    float ms_sim_layers = 0.0f;
+    float ms_macro      = 0.0f;
+    float ms_micro      = 0.0f;
+    float ms_post_micro = 0.0f;
+    float ms_output     = 0.0f;
+    float ms_dispatch   = 0.0f;
+    float ms_total_tick = 0.0f;
+
+    // "Currently executing" label — set BEFORE each phase, cleared after
+    std::string current_phase = "idle";
+
+    // Entity counts
+    size_t num_agents      = 0;
+    size_t num_pathfinding = 0;
+
+    // Extra diagnostic lines
+    std::string diag_line1;
+    std::string diag_line2;
+};
+
+// =====================================================================
 // Legacy Redirection Namespace
 // =====================================================================
 namespace ECS {
@@ -1000,6 +1028,7 @@ namespace ECS {
     using SpeechComponent = NeonOubliette::SpeechComponent;
     using AudibilityLevel = NeonOubliette::AudibilityLevel;
     using BuildingAcousticsComponent = NeonOubliette::BuildingAcousticsComponent;
+    using DebugOverlayComponent = NeonOubliette::DebugOverlayComponent;
 }
 
 } // namespace NeonOubliette

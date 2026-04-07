@@ -14,6 +14,24 @@ PathfindingSystem::PathfindingSystem(entt::registry& registry, entt::dispatcher&
     dispatcher.sink<PathfindingRequestEvent>().connect<&PathfindingSystem::handlePathfindingRequestEvent>(this);
 }
 
+void PathfindingSystem::update(double delta_time) {
+    (void)delta_time;
+
+    size_t processed = 0;
+    while (processed < kMaxPathRequestsPerTurn && !pending_requests_.empty()) {
+        auto request = pending_requests_.front();
+        pending_requests_.pop_front();
+        if (registry.valid(request.entity)) {
+            processPathfindingRequest(request);
+        }
+        processed++;
+    }
+}
+
+void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEvent& event) {
+    pending_requests_.push_back(event);
+}
+
 // Helper to check if a position is traversable (no solid entities)
 bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity requester_entity) const {
     // 1. Check World Bounds or Interior Nav Grid (Static Layout)
@@ -146,7 +164,7 @@ std::vector<PositionComponent> PathfindingSystem::reconstructPath(PathfindingSys
     return path;
 }
 
-void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEvent& event) {
+void PathfindingSystem::processPathfindingRequest(const PathfindingRequestEvent& event) {
     std::vector<PositionComponent> path;
     std::vector<PositionComponent> macro_path;
     bool success = false;
@@ -193,7 +211,9 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
                 gs[start_node] = 0;
 
                 bool found_macro = false;
-                while (!open.empty()) {
+                int macro_iters = 0;
+                while (!open.empty() && macro_iters < 2000) {
+                    ++macro_iters;
                     MNode curr = open.top(); open.pop();
                     if (curr.entity == goal_node) { found_macro = true; break; }
                     if (graph_comp->adj_list.count(curr.entity)) {
@@ -239,6 +259,8 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
         return;
     }
 
+    static constexpr int kMaxAStarIterations = 800;
+
     auto cmp = [](const Node* a, const Node* b) { return *a > *b; };
     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)> open_set(cmp);
     std::vector<Node*> all_nodes;
@@ -249,7 +271,9 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
     all_nodes.push_back(start_node);
     nodes_in_open_or_closed[event.start] = start_node;
 
-    while (!open_set.empty()) {
+    int iterations = 0;
+    while (!open_set.empty() && iterations < kMaxAStarIterations) {
+        ++iterations;
         Node* current_node = open_set.top();
         open_set.pop();
 

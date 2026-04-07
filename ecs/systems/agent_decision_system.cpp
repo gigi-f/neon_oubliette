@@ -21,6 +21,18 @@ AgentDecisionSystem::AgentDecisionSystem(entt::registry& registry, entt::dispatc
 void AgentDecisionSystem::handleTurnEvent(const TurnEvent& event) {
     auto agent_view = m_registry.view<AgentComponent, PositionComponent, NeedsComponent, NameComponent>();
 
+    std::vector<entt::entity> agents;
+    for (auto entity : agent_view) {
+        agents.push_back(entity);
+    }
+    if (agents.empty()) {
+        return;
+    }
+
+    const size_t total_agents = agents.size();
+    const size_t decisions_this_turn = std::min(kMaxAgentDecisionsPerTurn, total_agents);
+    const size_t start_index = m_nextAgentDecisionIndex % total_agents;
+
     // Get current time of day
     TimeOfDay current_time = TimeOfDay::DAY;
     auto weather_view = m_registry.view<WeatherComponent>();
@@ -28,7 +40,8 @@ void AgentDecisionSystem::handleTurnEvent(const TurnEvent& event) {
         current_time = weather_view.get<WeatherComponent>(*weather_view.begin()).time_of_day;
     }
 
-    for (auto entity : agent_view) {
+    for (size_t i = 0; i < decisions_this_turn; ++i) {
+        auto entity = agents[(start_index + i) % total_agents];
         auto& pos = agent_view.get<PositionComponent>(entity);
         auto& needs = agent_view.get<NeedsComponent>(entity);
         auto& name = agent_view.get<NameComponent>(entity);
@@ -82,6 +95,8 @@ void AgentDecisionSystem::handleTurnEvent(const TurnEvent& event) {
 
         evaluateAgentNeedsAndSetTask(entity, pos, needs, inventory, task, goal);
     }
+
+    m_nextAgentDecisionIndex = (start_index + decisions_this_turn) % total_agents;
 }
 
 void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity, PositionComponent& agent_pos,
@@ -120,7 +135,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                     agent_goal.target_x = directive.target_x;
                     agent_goal.target_y = directive.target_y;
                     agent_goal.target_layer = directive.target_layer;
-                    m_dispatcher.trigger<PathfindingRequestEvent>({agent_entity, agent_pos, {directive.target_x, directive.target_y, directive.target_layer}, m_nextPathRequestId++});
+                    m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, {directive.target_x, directive.target_y, directive.target_layer}, m_nextPathRequestId++});
                     return;
                 }
                 
@@ -159,7 +174,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                             agent_goal.target_x = s_pos.x;
                             agent_goal.target_y = s_pos.y;
                             agent_goal.target_layer = s_pos.layer_id;
-                            m_dispatcher.trigger<PathfindingRequestEvent>({agent_entity, agent_pos, {s_pos.x, s_pos.y, s_pos.layer_id}, m_nextPathRequestId++});
+                            m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, {s_pos.x, s_pos.y, s_pos.layer_id}, m_nextPathRequestId++});
                             return;
                         }
                     }
@@ -168,7 +183,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                     agent_goal.target_x = home->x;
                     agent_goal.target_y = home->y;
                     agent_goal.target_layer = home->layer;
-                    m_dispatcher.trigger<PathfindingRequestEvent>({agent_entity, agent_pos, {home->x, home->y, home->layer}, m_nextPathRequestId++});
+                    m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, {home->x, home->y, home->layer}, m_nextPathRequestId++});
                     return;
                 }
             }
@@ -192,7 +207,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                             agent_goal.target_x = s_pos.x;
                             agent_goal.target_y = s_pos.y;
                             agent_goal.target_layer = s_pos.layer_id;
-                            m_dispatcher.trigger<PathfindingRequestEvent>({agent_entity, agent_pos, {s_pos.x, s_pos.y, s_pos.layer_id}, m_nextPathRequestId++});
+                            m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, {s_pos.x, s_pos.y, s_pos.layer_id}, m_nextPathRequestId++});
                             return;
                         }
                     }
@@ -200,7 +215,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                     agent_goal.target_x = work->x;
                     agent_goal.target_y = work->y;
                     agent_goal.target_layer = work->layer;
-                    m_dispatcher.trigger<PathfindingRequestEvent>({agent_entity, agent_pos, {work->x, work->y, work->layer}, m_nextPathRequestId++});
+                    m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, {work->x, work->y, work->layer}, m_nextPathRequestId++});
                     return;
                 }
             }
@@ -266,7 +281,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                     agent_goal.target_x = target_pos.x;
                     agent_goal.target_y = target_pos.y;
                     agent_goal.target_layer = target_pos.layer_id;
-                    m_dispatcher.trigger<PathfindingRequestEvent>({agent_entity, agent_pos, target_pos, m_nextPathRequestId++});
+                    m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, target_pos, m_nextPathRequestId++});
                 }
             }
         }
@@ -285,7 +300,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                 agent_goal.target_x = target_wp.x;
                 agent_goal.target_y = target_wp.y;
                 agent_goal.target_layer = target_wp.layer_id;
-                m_dispatcher.trigger<PathfindingRequestEvent>({agent_entity, agent_pos, target_wp, m_nextPathRequestId++});
+                m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, target_wp, m_nextPathRequestId++});
             } else {
                 agent_task.task_type = AgentTaskType::WANDER;
             }

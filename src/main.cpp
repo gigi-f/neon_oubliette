@@ -128,6 +128,7 @@ int main(int argc, char** argv) {
     macro_registry.emplace<NeonOubliette::SimulationStateComponent>(config_entity);
     macro_registry.emplace<NeonOubliette::GodCursorComponent>(config_entity);
     macro_registry.emplace<NeonOubliette::StandardCursorComponent>(config_entity);
+    macro_registry.emplace<NeonOubliette::DebugOverlayComponent>(config_entity);
 
     // --- Phase 2: Global Infrastructure Skeleton ---
     show_loading("Carving infrastructure...");

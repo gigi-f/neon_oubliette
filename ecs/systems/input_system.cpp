@@ -164,6 +164,9 @@ void InputSystem::update(double delta_time) {
             return;
         }
 
+        // Toggle Debug Overlay (F12) — disabled for now
+        // if (key_id == NCKEY_F12) { ... }
+
         // Toggle God Mode / Focus Building
         if (key_id == 'g' || key_id == 'G') {
             // ... (existing code)

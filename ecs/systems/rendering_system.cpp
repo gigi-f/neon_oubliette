@@ -16,7 +16,8 @@ RenderingSystem::RenderingSystem(entt::registry& registry, struct notcurses* nc_
     : registry_(registry), nc_context_(nc_context), event_dispatcher_(event_dispatcher), 
       world_plane_(nullptr), entity_plane_(nullptr), range_ring_plane_(nullptr), hud_plane_(nullptr), 
       inventory_plane_(nullptr), interior_overlay_plane_(nullptr), 
-      minimap_plane_(nullptr), cursor_plane_(nullptr), context_menu_plane_(nullptr), inventory_visible_(false) {
+      minimap_plane_(nullptr), cursor_plane_(nullptr), context_menu_plane_(nullptr),
+      debug_overlay_plane_(nullptr), inventory_visible_(false) {
 }
 
 RenderingSystem::~RenderingSystem() {
@@ -29,6 +30,7 @@ RenderingSystem::~RenderingSystem() {
     if (minimap_plane_) ncplane_destroy(minimap_plane_);
     if (cursor_plane_) ncplane_destroy(cursor_plane_);
     if (context_menu_plane_) ncplane_destroy(context_menu_plane_);
+    if (debug_overlay_plane_) ncplane_destroy(debug_overlay_plane_);
 }
 
 void RenderingSystem::initialize() {
@@ -140,6 +142,24 @@ void RenderingSystem::initialize() {
             ncplane_set_base(context_menu_plane_, " ", 0, ctx_channels);
             ncplane_move_below(context_menu_plane_, world_plane_);
         }
+
+        // Debug Overlay Plane — disabled for now (stderr logging still active)
+        // To re-enable: uncomment this block and the rendering block below
+        /*
+        nopts.name = "DebugOverlay";
+        nopts.rows = 12;
+        nopts.cols = 44;
+        nopts.y = term_y - nopts.rows;
+        nopts.x = 0;
+        debug_overlay_plane_ = ncplane_create(stdp, &nopts);
+        if (debug_overlay_plane_) {
+            uint64_t dbg_channels = 0;
+            ncchannels_set_bg_rgb(&dbg_channels, 0x0A0A1A);
+            ncchannels_set_fg_rgb(&dbg_channels, 0x00FF00);
+            ncplane_set_base(debug_overlay_plane_, " ", 0, dbg_channels);
+            ncplane_move_top(debug_overlay_plane_);
+        }
+        */
 
         notcurses_cursor_disable(nc_context_);
         notcurses_mice_enable(nc_context_, NCMICE_ALL_EVENTS);
@@ -1048,6 +1068,10 @@ void RenderingSystem::update(double delta_time) {
     }
 
     ncplane_move_top(hud_plane_);
+
+    // --- Debug Overlay --- (disabled, stderr logging still active)
+    // Uncomment to re-enable in-game debug panel
+
     notcurses_render(nc_context_);
 }
 

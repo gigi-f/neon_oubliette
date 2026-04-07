@@ -2,6 +2,7 @@
 #define NEON_OUBLIETTE_ECS_SYSTEMS_PATHFINDING_SYSTEM_H
 
 #include <algorithm>
+#include <deque>
 #include <entt/entt.hpp>
 #include <map>
 #include <queue>
@@ -36,14 +37,17 @@ public:
 
     void initialize() override {
     }
-    void update(double delta_time) override {
-    }
+    void update(double delta_time) override;
 
     void handlePathfindingRequestEvent(const PathfindingRequestEvent& event);
 
 private:
     entt::registry& registry;
     entt::dispatcher& dispatcher;
+    std::deque<PathfindingRequestEvent> pending_requests_;
+    static constexpr size_t kMaxPathRequestsPerTurn = 4;
+
+    void processPathfindingRequest(const PathfindingRequestEvent& event);
 
     bool isTraversable(PositionComponent pos, entt::entity requester_entity) const;
     int getMovementCost(PositionComponent pos, entt::entity requester_entity) const;

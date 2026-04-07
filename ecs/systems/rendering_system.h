@@ -35,6 +35,7 @@ private:
     struct ncplane* minimap_plane_;          // HUD/Overlay Layer
     struct ncplane* cursor_plane_;           // Top Layer
     struct ncplane* context_menu_plane_;     // Top Layer
+    struct ncplane* debug_overlay_plane_;    // Debug Layer (topmost)
 
     bool inventory_visible_ = false;
 

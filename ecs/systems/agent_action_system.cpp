@@ -18,11 +18,22 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<> distrib(-1, 1);
 
+    // Collect entities FIRST to avoid iterator invalidation from trigger()/remove() inside the loop
+    std::vector<entt::entity> entities_to_process;
     auto agent_view = m_registry.view<AgentComponent, PositionComponent, NameComponent, AgentTaskComponent>();
     for (auto entity : agent_view) {
-        auto& position = agent_view.get<PositionComponent>(entity);
-        auto& name = agent_view.get<NameComponent>(entity);
-        auto& task = agent_view.get<AgentTaskComponent>(entity);
+        entities_to_process.push_back(entity);
+    }
+
+    for (auto entity : entities_to_process) {
+        // Guard: entity or required components may have been destroyed by a previous iteration's trigger()
+        if (!m_registry.valid(entity) ||
+            !m_registry.all_of<PositionComponent, AgentTaskComponent>(entity)) {
+            continue;
+        }
+
+        auto& position = m_registry.get<PositionComponent>(entity);
+        auto& task = m_registry.get<AgentTaskComponent>(entity);
 
         switch (task.task_type) {
             case AgentTaskType::SEEK_FOOD:

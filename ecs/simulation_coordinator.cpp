@@ -17,6 +17,13 @@ SimulationCoordinator::SimulationCoordinator(entt::registry& registry, entt::dis
 }
 
 void SimulationCoordinator::advance_turn(double delta_time) {
+    // Helper to get/create debug overlay
+    auto get_debug = [&]() -> DebugOverlayComponent* {
+        auto dv = m_registry.view<DebugOverlayComponent>();
+        if (dv.begin() != dv.end()) return &dv.get<DebugOverlayComponent>(*dv.begin());
+        return nullptr;
+    };
+
     // 1. Always Process Input Phase (Every Turn)
     m_scheduler.run_phase(SystemScheduler::Phase::Input, m_registry, m_dispatcher, delta_time);
 
@@ -46,42 +53,87 @@ void SimulationCoordinator::advance_turn(double delta_time) {
     }
 
     // 5. Always Process Output Phase (Every Turn)
+    if (auto* dbg = get_debug()) { dbg->current_phase = "Output"; }
+    auto t_output_start = std::chrono::steady_clock::now();
     m_scheduler.run_phase(SystemScheduler::Phase::Output, m_registry, m_dispatcher, delta_time);
+    auto t_output_end = std::chrono::steady_clock::now();
+    if (auto* dbg = get_debug()) {
+        dbg->ms_output = std::chrono::duration<float, std::milli>(t_output_end - t_output_start).count();
+    }
 
     // 6. Update Dispatcher to handle events triggered during the turn
+    if (auto* dbg = get_debug()) { dbg->current_phase = "Dispatch"; }
+    auto t_disp_start = std::chrono::steady_clock::now();
     m_dispatcher.update();
+    auto t_disp_end = std::chrono::steady_clock::now();
+    if (auto* dbg = get_debug()) {
+        dbg->ms_dispatch = std::chrono::duration<float, std::milli>(t_disp_end - t_disp_start).count();
+        dbg->current_phase = "idle";
+    }
 }
 
 void SimulationCoordinator::run_simulation_tick(double delta_time) {
     m_turn_counter++;
-    fprintf(stderr, "[TICK %lu] Starting simulation tick\n", (unsigned long)m_turn_counter);
+
+    auto get_debug = [&]() -> DebugOverlayComponent* {
+        auto dv = m_registry.view<DebugOverlayComponent>();
+        if (dv.begin() != dv.end()) return &dv.get<DebugOverlayComponent>(*dv.begin());
+        return nullptr;
+    };
+
+    auto t_tick_start = std::chrono::steady_clock::now();
+
+    // Update entity counts for debug overlay
+    if (auto* dbg = get_debug()) {
+        dbg->turn = m_turn_counter;
+        auto npc_v = m_registry.view<NPCComponent>();
+        dbg->num_agents = npc_v.size();
+    }
 
     // 2. Process Simulation Layers (Phase-Locked)
+    if (auto* dbg = get_debug()) { dbg->current_phase = "SimLayers"; }
+    auto t0 = std::chrono::steady_clock::now();
     for (uint8_t i = 0; i < static_cast<uint8_t>(SimulationLayer::Count); ++i) {
         SimulationLayer layer = static_cast<SimulationLayer>(i);
         
         if (should_layer_tick(layer, m_turn_counter)) {
-            int sys_idx = 0;
             for (auto& system : m_layer_systems[layer]) {
-                auto t0 = std::chrono::steady_clock::now();
                 system->update(delta_time);
-                auto t1 = std::chrono::steady_clock::now();
-                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
-                fprintf(stderr, "  L%d sys#%d: %lldms\n", i, sys_idx, (long long)ms);
-                sys_idx++;
             }
         }
     }
-    fprintf(stderr, "  Layers done\n");
+    auto t1 = std::chrono::steady_clock::now();
+    if (auto* dbg = get_debug()) {
+        dbg->ms_sim_layers = std::chrono::duration<float, std::milli>(t1 - t0).count();
+    }
 
     // 3. Process Macro Phase (Every Turn for non-simulation systems)
+    if (auto* dbg = get_debug()) { dbg->current_phase = "Macro"; }
+    auto t2 = std::chrono::steady_clock::now();
     m_scheduler.run_phase(SystemScheduler::Phase::Macro, m_registry, m_dispatcher, delta_time);
-    fprintf(stderr, "  Macro done\n");
+    auto t3 = std::chrono::steady_clock::now();
+    if (auto* dbg = get_debug()) {
+        dbg->ms_macro = std::chrono::duration<float, std::milli>(t3 - t2).count();
+    }
 
     // 4. Process Micro/PostMicro Phases (Every Turn)
+    if (auto* dbg = get_debug()) { dbg->current_phase = "Micro"; }
+    auto t4 = std::chrono::steady_clock::now();
     m_scheduler.run_phase(SystemScheduler::Phase::Micro, m_registry, m_dispatcher, delta_time);
+    auto t5 = std::chrono::steady_clock::now();
+    if (auto* dbg = get_debug()) {
+        dbg->ms_micro = std::chrono::duration<float, std::milli>(t5 - t4).count();
+    }
+
+    if (auto* dbg = get_debug()) { dbg->current_phase = "PostMicro"; }
+    auto t6 = std::chrono::steady_clock::now();
     m_scheduler.run_phase(SystemScheduler::Phase::PostMicro, m_registry, m_dispatcher, delta_time);
-    fprintf(stderr, "  Micro/PostMicro done\n");
+    auto t7 = std::chrono::steady_clock::now();
+    if (auto* dbg = get_debug()) {
+        dbg->ms_post_micro = std::chrono::duration<float, std::milli>(t7 - t6).count();
+        dbg->ms_total_tick = std::chrono::duration<float, std::milli>(t7 - t_tick_start).count();
+        dbg->current_phase = "idle";
+    }
 }
 
 void SimulationCoordinator::on_toggle_god_mode(const ToggleGodModeEvent& event) {
