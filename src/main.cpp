@@ -29,6 +29,7 @@
 #include "ecs/systems/infrastructure_network_system.h"
 #include "ecs/systems/macro_navigation_system.h"
 #include "ecs/systems/chunk_streaming_system.h"
+#include "ecs/systems/visibility_system.h"
 
 static bool running = true;
 
@@ -50,8 +51,14 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // --- Loading Screen ---
+    // --- Set charcoal background for consistent terminal experience ---
     struct ncplane* stdplane = notcurses_stdplane(nc_context);
+    {
+        uint64_t bg_channels = NCCHANNELS_INITIALIZER(200, 200, 200, 30, 30, 30);
+        ncplane_set_base(stdplane, " ", 0, bg_channels);
+    }
+
+    // --- Loading Screen ---
     unsigned term_rows, term_cols;
     ncplane_dim_yx(stdplane, &term_rows, &term_cols);
 
@@ -197,6 +204,13 @@ int main(int argc, char** argv) {
 
     // Move loading plane back to bottom so game planes are visible
     ncplane_move_bottom(stdplane);
+
+    // Seed initial FOV/memory before first render so terrain appears immediately.
+    {
+        NeonOubliette::VisibilitySystem initial_visibility(macro_registry, event_dispatcher);
+        initial_visibility.initialize();
+        initial_visibility.update(0.0);
+    }
 
     // --- Initial Render ---
     scheduler.run_phase(NeonOubliette::SystemScheduler::Phase::Output, macro_registry, event_dispatcher, delta_time);

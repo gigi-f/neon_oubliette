@@ -85,6 +85,7 @@ void InputSystem::update(double delta_time) {
                 auto& cursor = cursor_view.get<StandardCursorComponent>(*cursor_view.begin());
                 cursor.x = wx; cursor.y = wy; cursor.layer_id = wz;
                 cursor.active = true; cursor.mouse_driven = true;
+                cursor.screen_x = input.x; cursor.screen_y = input.y;
             }
 
             if (input.evtype == NCTYPE_PRESS) {
@@ -92,6 +93,10 @@ void InputSystem::update(double delta_time) {
                     if (current_mode == SimulationMode::GOD_MODE) {
                          m_dispatcher.trigger(InspectEvent{entt::null, wz, wx, wy, InspectionMode::SURFACE_SCAN});
                          if (active_menu) m_dispatcher.trigger<CloseContextMenuEvent>();
+                    } else {
+                        // Standard mode: left-click = interact at cursor world position
+                        m_dispatcher.trigger(InteractEvent{entt::null, wz, wx, wy});
+                        m_dispatcher.trigger<AdvanceTurnRequestEvent>();
                     }
                 } else if (key_id == NCKEY_BUTTON3) { // Right Click
                     if (current_mode == SimulationMode::GOD_MODE) {
@@ -433,6 +438,14 @@ void InputSystem::update(double delta_time) {
         }
         
         else if (key_id == ' ') {
+            // Spacebar = interact at cursor position (same as E), or wait if nothing to interact with
+            int tx = pos.x; int ty = pos.y; int tl = pos.layer_id;
+            auto cursor_view_sp = m_registry.view<StandardCursorComponent>();
+            if (cursor_view_sp.begin() != cursor_view_sp.end()) {
+                auto& sc = cursor_view_sp.get<StandardCursorComponent>(*cursor_view_sp.begin());
+                if (sc.active) { tx = sc.x; ty = sc.y; tl = sc.layer_id; }
+            }
+            m_dispatcher.trigger(InteractEvent{entt::null, tl, tx, ty});
             m_dispatcher.trigger<AdvanceTurnRequestEvent>();
         }
         

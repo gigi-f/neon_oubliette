@@ -1,0 +1,3 @@
+--- ecs/systems/rendering_system.cpp
++++ ecs/systems/rendering_system.cpp
+@@

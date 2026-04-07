@@ -113,7 +113,6 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
                     auto& field = m_registry.emplace<ConduitFieldComponent>(street);
                     field.radius = 1.0f;
                     field.economic_multiplier = 1.05f;
-                    m_registry.emplace<RenderableComponent>(street, '.', "#555555", 0);
                     m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
                 }
             }
@@ -123,10 +122,9 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
                     auto street = m_registry.create();
                     m_registry.emplace<PositionComponent>(street, x, street_y, 0);
                     m_registry.emplace<InfrastructureArterialComponent>(street, ArterialType::ROAD_SECONDARY, 1.0f, true);
-                    auto& field = m_registry.emplace<ConduitFieldComponent>(street);
-                    field.radius = 1.0f;
-                    field.economic_multiplier = 1.05f;
-                    m_registry.emplace<RenderableComponent>(street, '.', "#555555", 0);
+                    auto& field2 = m_registry.emplace<ConduitFieldComponent>(street);
+                    field2.radius = 1.0f;
+                    field2.economic_multiplier = 1.05f;
                     m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
                 }
             }
@@ -184,7 +182,6 @@ void CityPlannerSystem::subdivide_block_into_lots(entt::entity block_entity, Zon
             auto& field = m_registry.emplace<ConduitFieldComponent>(alley);
             field.radius = 0.5f;
             field.crime_modifier = 0.2f;
-            m_registry.emplace<RenderableComponent>(alley, '.', "#333333", 0);
             m_registry.get<MacroZoneComponent>(block.zone_entity).arterial_entities.push_back(alley);
         }
     }

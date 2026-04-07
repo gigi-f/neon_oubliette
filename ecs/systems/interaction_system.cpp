@@ -178,7 +178,77 @@ void InteractionSystem::handleInteractEvent(const InteractEvent& event) {
         return;
     }
 
-    // 6. Fallback
+    // 6. OBSERVE mode: describe whatever is at the target tile
+    if (current_mode == InteractionMode::OBSERVE) {
+        // 6a. Named entity (building, kiosk, furniture, etc.)
+        auto named_view = registry_.view<NameComponent, PositionComponent>();
+        for (auto named_ent : named_view) {
+            const auto& n_pos = named_view.get<PositionComponent>(named_ent);
+            if (n_pos.x == tx && n_pos.y == ty && n_pos.layer_id == tl) {
+                const auto& nm = named_view.get<NameComponent>(named_ent);
+                if (!nm.name.empty()) {
+                    event_dispatcher_.trigger(HUDNotificationEvent{"You see: " + nm.name, 2.5f, "#AADDFF"});
+                    return;
+                }
+            }
+        }
+
+        // 6b. NPC / citizen
+        auto npc_view = registry_.view<NPCComponent, PositionComponent>();
+        for (auto npc : npc_view) {
+            const auto& n_pos = npc_view.get<PositionComponent>(npc);
+            if (n_pos.x == tx && n_pos.y == ty && n_pos.layer_id == tl) {
+                std::string npc_name = "a citizen";
+                if (registry_.all_of<NameComponent>(npc))
+                    npc_name = registry_.get<NameComponent>(npc).name;
+                event_dispatcher_.trigger(HUDNotificationEvent{"You see " + npc_name + ".", 2.0f, "#FFFF88"});
+                return;
+            }
+        }
+
+        // 6c. Terrain tile description
+        auto terr_view = registry_.view<TerrainComponent, PositionComponent>();
+        for (auto terr_ent : terr_view) {
+            const auto& t_pos = terr_view.get<PositionComponent>(terr_ent);
+            if (t_pos.x == tx && t_pos.y == ty && t_pos.layer_id == tl) {
+                const auto& terr = terr_view.get<TerrainComponent>(terr_ent);
+                std::string desc;
+                switch (terr.type) {
+                    case TerrainType::STREET:         desc = "a road."; break;
+                    case TerrainType::SIDEWALK:       desc = "a sidewalk."; break;
+                    case TerrainType::GRASS:          desc = "a patch of grass."; break;
+                    case TerrainType::DIRT:           desc = "bare dirt."; break;
+                    case TerrainType::CONCRETE_FLOOR: desc = "concrete."; break;
+                    case TerrainType::WOOD_FLOOR:     desc = "a wooden floor."; break;
+                    case TerrainType::WALL:           desc = "a wall."; break;
+                    case TerrainType::WINDOW:         desc = "a window."; break;
+                    case TerrainType::OFFICE_CARPET:  desc = "office carpet."; break;
+                    case TerrainType::FLOWER_BED:     desc = "a flower bed."; break;
+                    case TerrainType::WATER_FEATURE:  desc = "a water feature."; break;
+                    case TerrainType::ARENA_FLOOR:    desc = "the arena floor."; break;
+                    case TerrainType::ARENA_SEATING:  desc = "arena seating."; break;
+                    case TerrainType::VOID:           desc = "deep water."; break;
+                    default:                          desc = "the ground."; break;
+                }
+                // Also show glyph context if there's a renderable
+                std::string glyph_hint;
+                if (registry_.all_of<RenderableComponent>(terr_ent)) {
+                    char g = registry_.get<RenderableComponent>(terr_ent).glyph;
+                    if (g == '~') glyph_hint = " Looks like a river.";
+                    else if (g == '=') glyph_hint = " Elevated rail track.";
+                    else if (g == '"') glyph_hint = " Overgrown.";
+                }
+                event_dispatcher_.trigger(HUDNotificationEvent{"It's " + desc + glyph_hint, 2.0f, "#AADDAA"});
+                return;
+            }
+        }
+
+        // 6d. Nothing identifiable at all
+        event_dispatcher_.trigger(HUDNotificationEvent{"Nothing here.", 1.5f, "#888888"});
+        return;
+    }
+
+    // 7. Fallback (non-OBSERVE modes)
     event_dispatcher_.trigger(HUDNotificationEvent{"Nothing to interact with here.", 1.0f, "#AAAAAA"});
 }
 

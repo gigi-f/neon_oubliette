@@ -391,7 +391,7 @@ private:
 
     void spawnStairs(int x, int y, int layer, int target, bool up) {
         auto s = m_registry.create(); m_registry.emplace<PositionComponent>(s, x, y, layer);
-        m_registry.emplace<RenderableComponent>(s, up ? '>' : '<', "#FFFFFF", layer);
+        m_registry.emplace<RenderableComponent>(s, up ? '>' : '<', "#AAFFAA", layer);
         m_registry.emplace<StairsComponent>(s, target);
     }
 

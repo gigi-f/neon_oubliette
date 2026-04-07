@@ -87,7 +87,6 @@ void InfrastructureNetworkSystem::carve_primary_roads(int width, int height) {
                 m_registry.emplace<PositionComponent>(junction, x, y, 0);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
                 node.node_name = "Bus Stop Node";
-                m_registry.emplace<RenderableComponent>(junction, '+', "#FFFF00", 1);
                 link_arterial_to_zone(junction, x, y);
             }
         }
@@ -101,7 +100,6 @@ void InfrastructureNetworkSystem::carve_primary_roads(int width, int height) {
                 m_registry.emplace<PositionComponent>(junction, x, y, 0);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
                 node.node_name = "Bus Stop Node";
-                m_registry.emplace<RenderableComponent>(junction, '+', "#FFFF00", 1);
                 link_arterial_to_zone(junction, x, y);
             }
         }
@@ -118,7 +116,6 @@ void InfrastructureNetworkSystem::carve_rail_line(int width, int height) {
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
                 node.node_name = "Rail Station Node";
                 m_registry.emplace<CommerceHubComponent>(junction, 15.0f, 1.8f);
-                m_registry.emplace<RenderableComponent>(junction, '=', "#00FFFF", 1);
                 link_arterial_to_zone(junction, x, y);
             }
         }
@@ -270,9 +267,8 @@ void InfrastructureNetworkSystem::resolve_junctions() {
         } else if (has_road) {
             node.node_name = "Arterial Intersection";
             m_registry.emplace<ConduitFieldComponent>(junction, 2.0f, 0.0f, 1.2f, 0.0f);
-            glyph = '+'; color = "#FFFF00";
         }
-        m_registry.emplace<RenderableComponent>(junction, glyph, color, 1);
+        
         link_arterial_to_zone(junction, pos.first, pos.second);
     }
 }
@@ -283,42 +279,35 @@ void InfrastructureNetworkSystem::create_arterial_segment(int x, int y, Arterial
     m_registry.emplace<InfrastructureArterialComponent>(entity, type, 2.0f, true);
     
     auto& field = m_registry.emplace<ConduitFieldComponent>(entity);
-    char glyph = '?';
-    std::string color = "#FFFFFF";
     
     switch(type) {
         case ArterialType::WATERWAY_RIVER:
             field.radius = 4.0f;
             field.temperature_offset = -5.0f; 
-            glyph = '~'; color = "#0055FF";
             break;
         case ArterialType::ROAD_PRIMARY:
             field.radius = 2.0f;
             field.economic_multiplier = 1.2f; 
-            glyph = '#'; color = "#AAAAAA";
             break;
         case ArterialType::ROAD_SECONDARY:
             field.radius = 1.0f;
             field.economic_multiplier = 1.05f;
-            glyph = '.'; color = "#555555";
             break;
         case ArterialType::ROAD_ALLEY:
             field.radius = 0.5f;
             field.crime_modifier = 0.2f;
-            glyph = '.'; color = "#333333";
             break;
         case ArterialType::SIDEWALK:
             field.radius = 0.5f;
-            glyph = ','; color = "#888888";
             break;
         case ArterialType::RAIL_ELEVATED:
             field.radius = 3.0f;
             field.economic_multiplier = 1.5f; 
-            glyph = '='; color = "#00FFFF";
             break;
         default: break;
     }
-    m_registry.emplace<RenderableComponent>(entity, glyph, color, 0);
+    // No RenderableComponent — conduit segments are infrastructure metadata.
+    // Visual representation is handled by terrain tiles created in city_generation_system.
     link_arterial_to_zone(entity, x, y);
 }
 

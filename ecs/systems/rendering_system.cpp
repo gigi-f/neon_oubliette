@@ -42,23 +42,31 @@ void RenderingSystem::initialize() {
         term_y = (term_y > 0) ? term_y : 24;
         term_x = (term_x > 0) ? term_x : 80;
 
+        uint64_t transp_channels = 0;
+        ncchannels_set_fg_alpha(&transp_channels, NCALPHA_TRANSPARENT);
+        ncchannels_set_bg_alpha(&transp_channels, NCALPHA_TRANSPARENT);
+
         struct ncplane_options nopts = {};
         nopts.y = 0;
         nopts.x = 0;
         nopts.rows = term_y;
         nopts.cols = term_x;
+        
         nopts.name = "Terrain";
         world_plane_ = ncplane_create(stdp, &nopts);
+        if (world_plane_) ncplane_set_base(world_plane_, "", 0, transp_channels);
 
         nopts.name = "RangeRing";
         range_ring_plane_ = ncplane_create(stdp, &nopts);
         if (range_ring_plane_) {
+            ncplane_set_base(range_ring_plane_, "", 0, transp_channels);
             ncplane_move_above(range_ring_plane_, world_plane_);
         }
 
         nopts.name = "Entities";
         entity_plane_ = ncplane_create(stdp, &nopts);
         if (entity_plane_) {
+            ncplane_set_base(entity_plane_, "", 0, transp_channels);
             ncplane_move_above(entity_plane_, range_ring_plane_);
         }
 
@@ -104,20 +112,7 @@ void RenderingSystem::initialize() {
             ncplane_move_below(interior_overlay_plane_, world_plane_);
         }
 
-        // Minimap Plane [B.4]
-        nopts.name = "Minimap";
-        nopts.rows = 10;
-        nopts.cols = 20;
-        nopts.y = 1;
-        nopts.x = term_x - nopts.cols - 1;
-        minimap_plane_ = ncplane_create(stdp, &nopts);
-        if (minimap_plane_) {
-            uint64_t mini_channels = 0;
-            ncchannels_set_bg_rgb(&mini_channels, 0x050505);
-            ncchannels_set_fg_rgb(&mini_channels, 0x00FF00);
-            ncplane_set_base(minimap_plane_, " ", 0, mini_channels);
-            ncplane_move_top(minimap_plane_);
-        }
+        // Minimap disabled — not needed
 
         // Cursor Plane [D.1]
         nopts.name = "Cursor";
@@ -178,7 +173,7 @@ void RenderingSystem::update(double delta_time) {
     if (range_ring_plane_) ncplane_erase(range_ring_plane_);
     if (entity_plane_) ncplane_erase(entity_plane_);
     ncplane_erase(hud_plane_);
-    if (minimap_plane_) ncplane_erase(minimap_plane_);
+    if (minimap_plane_) ncplane_erase(minimap_plane_); // plane not created; noop guard
 
     // Determine mode and camera focus
     SimulationMode current_mode = SimulationMode::STANDARD;
@@ -468,13 +463,20 @@ void RenderingSystem::update(double delta_time) {
             // --- End [C.1] ---
 
             if (show_help) {
+                // Controls (left column)
                 ncplane_set_fg_rgb(hud_plane_, 0xFFFF00);
-                ncplane_putstr_yx(hud_plane_, 0, 35, "CONTROLS [? hide]");
-                ncplane_putstr_yx(hud_plane_, 1, 35, "WASD:Move  SPC:Wait  Q:Quit");
-                ncplane_putstr_yx(hud_plane_, 2, 35, "E:Interact  B:Inventory  ESC:Close");
-                ncplane_putstr_yx(hud_plane_, 3, 35, "</>:Floor");
-                ncplane_putstr_yx(hud_plane_, 4, 35, "i:Scan  I:BioAudit  c:Cogn");
-                ncplane_putstr_yx(hud_plane_, 5, 35, "f:Finance  t:Structure");
+                ncplane_putstr_yx(hud_plane_, 0, 35, "WASD:Move  E/Click:Interact");
+                ncplane_putstr_yx(hud_plane_, 1, 35, "B:Inventory  Q:Quit  ?:Legend");
+                // ASCII Legend (right column)
+                ncplane_set_fg_rgb(hud_plane_, 0xAAAAAA);
+                ncplane_putstr_yx(hud_plane_, 2, 35, "LEGEND:");
+                ncplane_set_fg_rgb(hud_plane_, 0xFFFFFF); ncplane_putstr_yx(hud_plane_, 2, 42, "@ You");
+                ncplane_set_fg_rgb(hud_plane_, 0x00FF00); ncplane_putstr_yx(hud_plane_, 3, 35, "n NPC");
+                ncplane_set_fg_rgb(hud_plane_, 0xFFAA00); ncplane_putstr_yx(hud_plane_, 3, 41, "K Kiosk");
+                ncplane_set_fg_rgb(hud_plane_, 0xFFFF00); ncplane_putstr_yx(hud_plane_, 4, 35, "+ Door");
+                ncplane_set_fg_rgb(hud_plane_, 0xFF00FF); ncplane_putstr_yx(hud_plane_, 4, 41, "E Elev");
+                ncplane_set_fg_rgb(hud_plane_, 0xAAAAAA); ncplane_putstr_yx(hud_plane_, 5, 35, "# Bld  . Road");
+                ncplane_set_fg_rgb(hud_plane_, 0x55FFFF); ncplane_putstr_yx(hud_plane_, 5, 49, "* Item");
             }
 
             int row = 2;
@@ -573,9 +575,10 @@ void RenderingSystem::update(double delta_time) {
         const auto& render = terrain_view.get<RenderableComponent>(entity);
         
         uint32_t color = parse_hex_color(render.color);
-        if (registry_.all_of<Layer0PhysicsComponent>(entity)) {
+        bool has_physics = registry_.all_of<Layer0PhysicsComponent>(entity);
+        if (has_physics) {
             const auto& phys = registry_.get<Layer0PhysicsComponent>(entity);
-            color = parse_hex_color(map_temperature_to_color(phys.temperature_celsius, render.color));
+            // Terrain keeps authored palette; thermal tinting is reserved for non-terrain entities.
             if (phys.temperature_celsius > 800.0f) {
                 static thread_local std::mt19937 fgen(666);
                 if (std::uniform_real_distribution<>(0,1)(fgen) < 0.2) color = 0xFFFF00; 
@@ -827,8 +830,24 @@ void RenderingSystem::update(double delta_time) {
         }
 
         if (cur_active && cur_layer == current_layer) {
-            int sx = cur_x + offset_x;
-            int sy = cur_y + offset_y;
+            int sx, sy;
+            // Use raw screen coords for mouse-driven cursor so X tracks actual pointer
+            {
+                auto raw_sc_view = registry_.view<StandardCursorComponent>();
+                bool mouse_driven = false;
+                if (raw_sc_view.begin() != raw_sc_view.end()) {
+                    const auto& rsc = raw_sc_view.get<StandardCursorComponent>(*raw_sc_view.begin());
+                    if (rsc.mouse_driven && rsc.screen_x >= 0) {
+                        sx = rsc.screen_x;
+                        sy = rsc.screen_y;
+                        mouse_driven = true;
+                    }
+                }
+                if (!mouse_driven) {
+                    sx = cur_x + offset_x;
+                    sy = cur_y + offset_y;
+                }
+            }
             if (sx >= 0 && sx < (int)view_cols && sy >= 0 && sy < (int)view_rows) {
                 ncplane_move_yx(cursor_plane_, sy, sx);
                 ncplane_move_top(cursor_plane_);
@@ -926,8 +945,8 @@ void RenderingSystem::update(double delta_time) {
         }
     }
 
-    // --- Minimap Thumbnail [B.4] ---
-    if (minimap_plane_) {
+    // --- Minimap disabled ---
+    if (false && minimap_plane_) {
         ncplane_erase(minimap_plane_);
         
         uint64_t border_chan = 0;

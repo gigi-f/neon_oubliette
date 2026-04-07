@@ -84,7 +84,7 @@ void TransitSystem::setup_transit_network() {
         m_registry.emplace<NameComponent>(train, "Blue Line Train");
         auto const& start_pos = m_registry.get<PositionComponent>(rail_nodes[0]);
         m_registry.emplace<PositionComponent>(train, start_pos.x, start_pos.y, start_pos.layer_id);
-        m_registry.emplace<RenderableComponent>(train, 'T', "#FFFFFF", 2);
+        m_registry.emplace<RenderableComponent>(train, 'T', "#00EEFF", 2);
         auto& tv = m_registry.emplace<TransitVehicleComponent>(train);
         tv.type = TransitVehicleType::TRAIN;
         tv.current_route = route_ent;

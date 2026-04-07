@@ -77,27 +77,27 @@ public:
 
             switch(type) {
                 case ArterialType::WATERWAY_RIVER:
-                    t_type = TerrainType::VOID; glyph = '~'; color = "#0000FF";
+                    t_type = TerrainType::VOID; glyph = '~'; color = "#4499DD";
                     is_obstacle = true; material = MaterialType::WATER; is_liquid = true;
                     break;
                 case ArterialType::ROAD_PRIMARY:
-                    t_type = TerrainType::STREET; glyph = ' '; color = "#222222";
+                    t_type = TerrainType::STREET; glyph = '.'; color = "#6688AA";
                     material = MaterialType::CONCRETE;
                     break;
                 case ArterialType::ROAD_SECONDARY:
-                    t_type = TerrainType::STREET; glyph = '.'; color = "#444444";
+                    t_type = TerrainType::STREET; glyph = '.'; color = "#556688";
                     material = MaterialType::CONCRETE;
                     break;
                 case ArterialType::ROAD_ALLEY:
-                    t_type = TerrainType::STREET; glyph = '.'; color = "#221100";
+                    t_type = TerrainType::STREET; glyph = '.'; color = "#443355";
                     material = MaterialType::CONCRETE;
                     break;
                 case ArterialType::SIDEWALK:
-                    t_type = TerrainType::SIDEWALK; glyph = '.'; color = "#555555";
+                    t_type = TerrainType::SIDEWALK; glyph = '.'; color = "#BBAA77";
                     material = MaterialType::CONCRETE;
                     break;
                 case ArterialType::RAIL_ELEVATED:
-                    t_type = TerrainType::VOID; glyph = '='; color = "#FFFF00";
+                    t_type = TerrainType::VOID; glyph = '='; color = "#FFD700";
                     material = MaterialType::STEEL;
                     break;
                 default: break;
@@ -109,7 +109,7 @@ public:
                 const auto& n_pos = m_registry.get<PositionComponent>(ne);
                 const auto& node = m_registry.get<InfrastructureNodeComponent>(ne);
                 if (n_pos.x == pos_pair.first && n_pos.y == pos_pair.second && node.is_bridge) {
-                    glyph = '='; color = "#AAAAAA";
+                    glyph = '='; color = "#AABB88";
                     is_obstacle = false;
                     material = MaterialType::STEEL;
                     break;
@@ -173,13 +173,13 @@ private:
                         if (w_road) { for (int y = by; y < by + bh; ++y) arterials[{bx, y}] = ArterialType::SIDEWALK; bx++; bw--; }
                         if (e_road) { for (int y = by; y < by + bh; ++y) arterials[{bx + bw - 1, y}] = ArterialType::SIDEWALK; bw--; }
                         if (bw > 1 && bh > 1) {
-                            std::string b_name = "Building"; std::string b_color = "#555555"; int floors = 1;
+                            std::string b_name = "Building"; std::string b_color = "#778899"; int floors = 1;
                             switch(zone.type) {
-                                case ZoneType::CORPORATE: b_name = "Highrise"; b_color = "#0055FF"; floors = 10; break;
-                                case ZoneType::SLUM: b_name = "Shanty"; b_color = "#884400"; floors = 1; break;
-                                case ZoneType::INDUSTRIAL: b_name = "Plant"; b_color = "#AA2200"; floors = 2; break;
+                                case ZoneType::CORPORATE: b_name = "Highrise"; b_color = "#4488FF"; floors = 10; break;
+                                case ZoneType::SLUM: b_name = "Shanty"; b_color = "#CC7733"; floors = 1; break;
+                                case ZoneType::INDUSTRIAL: b_name = "Plant"; b_color = "#DD4422"; floors = 2; break;
                                 case ZoneType::RESIDENTIAL: 
-                                    b_name = "Apartments"; b_color = "#00AA44"; floors = std::max(1, 8 - (int)dist_to_core);
+                                    b_name = "Apartments"; b_color = "#33AA55"; floors = std::max(1, 8 - (int)dist_to_core);
                                     if (floors <= 2) b_name = "Row-house";
                                     break;
                                 default: break;
@@ -198,17 +198,17 @@ private:
         for (int x = start_x; x < start_x + cell_size; ++x) {
             for (int y = start_y; y < start_y + cell_size; ++y) {
                 if (structure_footprint.count({x, y}) || arterials.count({x, y})) continue;
-                TerrainType t_type = TerrainType::GRASS; char glyph = '"'; std::string color = "#004400";
+                TerrainType t_type = TerrainType::GRASS; char glyph = '"'; std::string color = "#2D7044";
                 switch(zone.type) {
-                    case ZoneType::URBAN_CORE: case ZoneType::CORPORATE: t_type = TerrainType::SIDEWALK; glyph = '.'; color = "#111111"; break;
-                    case ZoneType::SLUM: t_type = TerrainType::DIRT; glyph = '\''; color = "#443322"; break;
-                    case ZoneType::INDUSTRIAL: t_type = TerrainType::CONCRETE_FLOOR; glyph = '.'; color = "#222222"; break;
-                    case ZoneType::RESIDENTIAL: t_type = TerrainType::GRASS; glyph = '"'; color = "#004400"; break;
-                    case ZoneType::TRANSIT: t_type = TerrainType::STREET; glyph = ' '; color = "#333333"; break;
-                    case ZoneType::AIRPORT: t_type = TerrainType::CONCRETE_FLOOR; glyph = '.'; color = "#222222"; break;
-                    case ZoneType::PARK: t_type = TerrainType::GRASS; glyph = '"'; color = "#004400"; break;
-                    case ZoneType::COLOSSEUM: t_type = TerrainType::ARENA_FLOOR; glyph = '.'; color = "#222222"; break;
-                    case ZoneType::MIXED_COMMERCIAL: t_type = TerrainType::SIDEWALK; glyph = '.'; color = "#221122"; break;
+                    case ZoneType::URBAN_CORE: case ZoneType::CORPORATE: t_type = TerrainType::SIDEWALK; glyph = '.'; color = "#1A3A5C"; break;
+                    case ZoneType::SLUM: t_type = TerrainType::DIRT; glyph = '\''; color = "#7A4422"; break;
+                    case ZoneType::INDUSTRIAL: t_type = TerrainType::CONCRETE_FLOOR; glyph = '.'; color = "#5A3520"; break;
+                    case ZoneType::RESIDENTIAL: t_type = TerrainType::GRASS; glyph = '"'; color = "#2D7044"; break;
+                    case ZoneType::TRANSIT: t_type = TerrainType::STREET; glyph = '.'; color = "#2A4060"; break;
+                    case ZoneType::AIRPORT: t_type = TerrainType::CONCRETE_FLOOR; glyph = '.'; color = "#3A5070"; break;
+                    case ZoneType::PARK: t_type = TerrainType::GRASS; glyph = '"'; color = "#3A8840"; break;
+                    case ZoneType::COLOSSEUM: t_type = TerrainType::ARENA_FLOOR; glyph = '.'; color = "#6A1510"; break;
+                    case ZoneType::MIXED_COMMERCIAL: t_type = TerrainType::SIDEWALK; glyph = '.'; color = "#502060"; break;
                     default: break;
                 }
                 createTile(x, y, 0, t_type, glyph, color, MaterialType::CONCRETE);
@@ -366,7 +366,7 @@ private:
         spawnVendor(x, y, 0, name + " Vendor");
     }
     void spawnVendor(int x, int y, int layer, std::string name) {
-        auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, layer); m_registry.emplace<NameComponent>(e, name); m_registry.emplace<RenderableComponent>(e, 'V', "#FFFFFF", layer); m_registry.emplace<AgentComponent>(e);
+        auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, layer); m_registry.emplace<NameComponent>(e, name); m_registry.emplace<RenderableComponent>(e, 'V', "#FFAA33", layer); m_registry.emplace<AgentComponent>(e);
     }
     void createSkyscraperShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
@@ -516,7 +516,7 @@ private:
                     else if (cur_x == x) { meta.wall_side = StreetFacingSide::WEST; meta.wall_offset = cur_y - y; }
                     else if (cur_x == x + w - 1) { meta.wall_side = StreetFacingSide::EAST; meta.wall_offset = cur_y - y; }
 
-                    createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#111111", MaterialType::CONCRETE);
+                    createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#1A1A1A", MaterialType::CONCRETE);
                 } else {
                     bool is_shared = false; if (cur_x == x && (shared_sides & (uint8_t)StreetFacingSide::WEST)) is_shared = true; if (cur_x == x + w - 1 && (shared_sides & (uint8_t)StreetFacingSide::EAST)) is_shared = true;
                     if (cur_y == y && (shared_sides & (uint8_t)StreetFacingSide::NORTH)) is_shared = true; if (cur_y == y + h - 1 && (shared_sides & (uint8_t)StreetFacingSide::SOUTH)) is_shared = true;
@@ -550,7 +550,7 @@ private:
                         else createTile(cur_x, cur_y, 0, TerrainType::WALL, glyph, color, MaterialType::CONCRETE);
                     }
                 }
-            } else createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#111111", MaterialType::CONCRETE);
+            } else createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#1A1A1A", MaterialType::CONCRETE);
         }
     }
     entt::registry& m_registry; entt::dispatcher& m_dispatcher;

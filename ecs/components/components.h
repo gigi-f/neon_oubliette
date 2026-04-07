@@ -185,6 +185,8 @@ struct StandardCursorComponent {
     int layer_id = 0;
     bool active = false;
     bool mouse_driven = false;
+    int screen_x = -1;  // raw terminal col of mouse pointer
+    int screen_y = -1;  // raw terminal row of mouse pointer
     template <class Archive> void serialize(Archive& ar) { 
         ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer_id), CEREAL_NVP(active), CEREAL_NVP(mouse_driven)); 
     }
