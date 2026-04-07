@@ -122,7 +122,6 @@ void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
         if (registry_.all_of<NameComponent>(target)) {
             name = registry_.get<NameComponent>(target).name;
         }
-        event_dispatcher_.trigger(HUDNotificationEvent{"Vague reading: " + name, 1.0f, "#AAAAAA"});
         return;
     }
 

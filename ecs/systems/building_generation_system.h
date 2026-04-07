@@ -126,7 +126,6 @@ public:
             }
 
             player_layer.current_z = pos.layer_id;
-            m_dispatcher.enqueue<HUDNotificationEvent>("Entered Building", 2.0f, "#AAAAFF");
         }
     }
 

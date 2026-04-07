@@ -42,89 +42,8 @@ void InputSystem::update(double delta_time) {
 
     while ((key_id = notcurses_get(m_ncContext, &ts, &input)) > 0) {
         // --- Handle Mouse [D.1 / D.3] ---
-        if (nckey_mouse_p(key_id) || key_id == NCKEY_MOTION) {
-            unsigned term_y, term_x;
-            notcurses_term_dim_yx(m_ncContext, &term_y, &term_x);
+        // (Mouse controls removed)
 
-            int cam_x = 0, cam_y = 0, cam_z = 0;
-            if (current_mode == SimulationMode::GOD_MODE) {
-                // Determine if we're following or using cursor
-                bool following = false;
-                auto follow_view = m_registry.view<GodModeFollowComponent>();
-                if (follow_view.begin() != follow_view.end()) {
-                    auto target = follow_view.get<GodModeFollowComponent>(*follow_view.begin()).target;
-                    if (m_registry.valid(target) && m_registry.all_of<PositionComponent>(target)) {
-                        const auto& tp = m_registry.get<PositionComponent>(target);
-                        cam_x = tp.x; cam_y = tp.y; cam_z = tp.layer_id;
-                        following = true;
-                    }
-                }
-                if (!following) {
-                    auto g_view = m_registry.view<GodCursorComponent>();
-                    if (g_view.begin() != g_view.end()) {
-                        auto& gc = g_view.get<GodCursorComponent>(*g_view.begin());
-                        cam_x = gc.x; cam_y = gc.y; cam_z = gc.layer_id;
-                    }
-                }
-            } else {
-                auto p_view = m_registry.view<PlayerComponent, PositionComponent, PlayerCurrentLayerComponent>();
-                if (p_view.begin() != p_view.end()) {
-                    auto ent = *p_view.begin();
-                    cam_x = p_view.get<PositionComponent>(ent).x;
-                    cam_y = p_view.get<PositionComponent>(ent).y;
-                    cam_z = p_view.get<PlayerCurrentLayerComponent>(ent).current_z;
-                }
-            }
-
-            int wx = input.x - ((int)term_x / 2) + cam_x;
-            int wy = input.y - ((int)term_y / 2) + cam_y;
-            int wz = cam_z;
-
-            auto cursor_view = m_registry.view<StandardCursorComponent>();
-            if (cursor_view.begin() != cursor_view.end()) {
-                auto& cursor = cursor_view.get<StandardCursorComponent>(*cursor_view.begin());
-                cursor.x = wx; cursor.y = wy; cursor.layer_id = wz;
-                cursor.active = true; cursor.mouse_driven = true;
-                cursor.screen_x = input.x; cursor.screen_y = input.y;
-            }
-
-            if (input.evtype == NCTYPE_PRESS) {
-                if (key_id == NCKEY_BUTTON1) { // Left Click
-                    if (current_mode == SimulationMode::GOD_MODE) {
-                         m_dispatcher.trigger(InspectEvent{entt::null, wz, wx, wy, InspectionMode::SURFACE_SCAN});
-                         if (active_menu) m_dispatcher.trigger<CloseContextMenuEvent>();
-                    } else {
-                        // Standard mode: left-click = interact at cursor world position
-                        m_dispatcher.trigger(InteractEvent{entt::null, wz, wx, wy});
-                        m_dispatcher.trigger<AdvanceTurnRequestEvent>();
-                    }
-                } else if (key_id == NCKEY_BUTTON3) { // Right Click
-                    if (current_mode == SimulationMode::GOD_MODE) {
-                        m_dispatcher.trigger(OpenContextMenuEvent{wx, wy, wz});
-                    }
-                } else if (key_id == NCKEY_BUTTON2) { // Middle Click [D.3]
-                    if (current_mode == SimulationMode::GOD_MODE) {
-                        entt::entity target = entt::null;
-                        auto pos_view = m_registry.view<PositionComponent>(entt::exclude<TerrainComponent>);
-                        for (auto ent : pos_view) {
-                            const auto& p = pos_view.get<PositionComponent>(ent);
-                            if (p.layer_id == wz) {
-                                int w = 1, h = 1;
-                                if (m_registry.all_of<SizeComponent>(ent)) {
-                                    const auto& s = m_registry.get<SizeComponent>(ent);
-                                    w = s.width; h = s.height;
-                                }
-                                if (wx >= p.x && wx < p.x + w && wy >= p.y && wy < p.y + h) {
-                                    target = ent; break;
-                                }
-                            }
-                        }
-                        if (m_registry.valid(target)) m_dispatcher.trigger(GodModeFollowAgentEvent{target});
-                    }
-                }
-            }
-            if (key_id == NCKEY_MOTION) continue;
-        }
 
         if (input.evtype != NCTYPE_PRESS && input.evtype != NCTYPE_UNKNOWN) continue;
 
@@ -445,7 +364,7 @@ void InputSystem::update(double delta_time) {
                 auto& sc = cursor_view_sp.get<StandardCursorComponent>(*cursor_view_sp.begin());
                 if (sc.active) { tx = sc.x; ty = sc.y; tl = sc.layer_id; }
             }
-            m_dispatcher.trigger(InteractEvent{entt::null, tl, tx, ty});
+            m_dispatcher.trigger(InteractEvent{player_entity, tl, tx, ty});
             m_dispatcher.trigger<AdvanceTurnRequestEvent>();
         }
         

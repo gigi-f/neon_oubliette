@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
     macro_registry.emplace<NeonOubliette::PlayerComponent>(player_entity); 
     macro_registry.emplace<NeonOubliette::NameComponent>(player_entity, "Neon Operator");
     macro_registry.emplace<NeonOubliette::InventoryComponent>(player_entity);
-    macro_registry.emplace<NeonOubliette::RenderableComponent>(player_entity, '@', "#FFFFFF", 0);
+    macro_registry.emplace<NeonOubliette::RenderableComponent>(player_entity, '@', "#FFA500", 0);
     macro_registry.emplace<NeonOubliette::HUDComponent>(player_entity); 
     macro_registry.emplace<NeonOubliette::PersistentEntityComponent>(player_entity, true);
     macro_registry.emplace<NeonOubliette::VisibilityComponent>(player_entity, 18);
