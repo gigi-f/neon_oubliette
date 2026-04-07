@@ -609,11 +609,30 @@ void RenderingSystem::update(double delta_time) {
 
                 uint32_t color = parse_hex_color(ring_color);
                 
-                // Draw square border into range_ring_plane_
+                // Draw square border into range_ring_plane_ (occluded by walls [B.4])
                 for (int dx = -range; dx <= range; ++dx) {
                     for (int dy = -range; dy <= range; ++dy) {
                         if (std::abs(dx) == range || std::abs(dy) == range) {
-                            render_at(range_ring_plane_, p_pos.x + dx, p_pos.y + dy, '+', color);
+                            int tx = p_pos.x + dx;
+                            int ty = p_pos.y + dy;
+                            
+                            // Simple occlusion check: is there a wall/window here?
+                            bool occluded = false;
+                            auto terrain_view_ring = registry_.view<PositionComponent, TerrainComponent>();
+                            for (auto t_ent : terrain_view_ring) {
+                                const auto& tp = terrain_view_ring.get<PositionComponent>(t_ent);
+                                if (tp.x == tx && tp.y == ty && tp.layer_id == current_layer) {
+                                    auto type = terrain_view_ring.get<TerrainComponent>(t_ent).type;
+                                    if (type == TerrainType::WALL || type == TerrainType::WINDOW) {
+                                        occluded = true;
+                                    }
+                                    break;
+                                }
+                            }
+                            
+                            if (!occluded) {
+                                render_at(range_ring_plane_, tx, ty, '.', color);
+                            }
                         }
                     }
                 }

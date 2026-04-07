@@ -330,28 +330,28 @@ void InputSystem::update(double delta_time) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
-                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.active = true; }
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
                 sc.y--; sc.mouse_driven = false;
             }
         } else if (key_id == NCKEY_DOWN) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
-                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.active = true; }
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
                 sc.y++; sc.mouse_driven = false;
             }
         } else if (key_id == NCKEY_LEFT) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
-                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.active = true; }
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
                 sc.x--; sc.mouse_driven = false;
             }
         } else if (key_id == NCKEY_RIGHT) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
-                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.active = true; }
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
                 sc.x++; sc.mouse_driven = false;
             }
         }

@@ -342,24 +342,60 @@ private:
         }
         interior.stored_objects.clear();
         m_dispatcher.enqueue<LogEvent>("Materialized Interior from Cache", LogSeverity::INFO, "BuildingGen");
+        
+        // [FIX] Invalidate visibility caches after creating new terrain
+        m_dispatcher.enqueue<ChunkChangedEvent>();
     }
 
     void buildFloorStructure(int width, int height, int layer_id, const std::vector<RoomData>& rooms, const std::vector<PositionComponent>& doors, int floor_idx, const std::vector<ExtDoor>& ext_doors, BuildingInteriorComponent& interior, FloorComponent& floor_comp) {
-        // [B.5] Return map of door coordinates to door entity (can be added to interior for later use)
+        // [B.5] Map door coordinates to entity for consistency
         std::map<std::pair<int, int>, entt::entity> door_entity_map;
         
+        // 1. Pre-calculate Wall Mask to avoid duplicate terrain entities
+        std::vector<bool> wall_mask(width * height, false);
         for (int x = 0; x < width; ++x) for (int y = 0; y < height; ++y) {
-            if (x == 0 || x == width - 1 || y == 0 || y == height - 1) { floor_comp.nav_grid.set_passable(x, y, false); createTile(x, y, layer_id, TerrainType::WALL, '#', "#444444", true); }
-            else createTile(x, y, layer_id, TerrainType::CONCRETE_FLOOR, '.', "#222222", false);
+            if (x == 0 || x == width - 1 || y == 0 || y == height - 1) wall_mask[y * width + x] = true;
         }
         for (auto const& room : rooms) {
             for (int x = room.x - 1; x <= room.x + room.width; ++x) for (int y = room.y - 1; y <= room.y + room.height; ++y) {
                 if (x == room.x - 1 || x == room.x + room.width || y == room.y - 1 || y == room.y + room.height) {
-                    if (x > 0 && x < width - 1 && y > 0 && y < height - 1) { floor_comp.nav_grid.set_passable(x, y, false); createTile(x, y, layer_id, TerrainType::WALL, '#', "#555555", true); }
+                    if (x > 0 && x < width - 1 && y > 0 && y < height - 1) wall_mask[y * width + x] = true;
                 }
             }
         }
+
+        // 2. Clear walls at interior door positions
+        for (auto const& d : doors) {
+            if (d.layer_id == layer_id && d.x >= 0 && d.x < width && d.y >= 0 && d.y < height) {
+                wall_mask[d.y * width + d.x] = false;
+            }
+        }
+
+        // 3. Clear walls at exterior door positions (first floor only)
+        if (floor_idx == 0) {
+            for (auto const& ed : ext_doors) {
+                int ex = 1, ey = 1;
+                if (ed.wall == StreetFacingSide::NORTH) { ex = 1 + ed.offset; ey = 0; }
+                else if (ed.wall == StreetFacingSide::SOUTH) { ex = 1 + ed.offset; ey = height - 1; }
+                else if (ed.wall == StreetFacingSide::WEST) { ex = 0; ey = 1 + ed.offset; }
+                else if (ed.wall == StreetFacingSide::EAST) { ex = width - 1; ey = 1 + ed.offset; }
+                ex = std::clamp(ex, 0, width - 1); ey = std::clamp(ey, 0, height - 1);
+                wall_mask[ey * width + ex] = false;
+            }
+        }
+
+        // 4. Materialize Based on Mask
+        for (int x = 0; x < width; ++x) for (int y = 0; y < height; ++y) {
+            if (wall_mask[y * width + x]) {
+                floor_comp.nav_grid.set_passable(x, y, false);
+                std::string color = (x == 0 || x == width - 1 || y == 0 || y == height - 1) ? "#444444" : "#555555";
+                createTile(x, y, layer_id, TerrainType::WALL, '#', color, true);
+            } else {
+                createTile(x, y, layer_id, TerrainType::CONCRETE_FLOOR, '.', "#222222", false);
+            }
+        }
         
+        // 5. Special Entities (Doors)
         if (floor_idx == 0) {
             for (auto const& ed : ext_doors) {
                 int ex = 1, ey = 1;
@@ -375,7 +411,6 @@ private:
                 m_registry.emplace<NameComponent>(door_ent, "Exit to City");
                 m_registry.emplace<PortalComponent>(door_ent, ed.x, ed.y, ed.layer, true);
                 floor_comp.nav_grid.set_passable(ex, ey, true);
-                // Also add a DoorComponent for acoustics consistency
                 m_registry.emplace<DoorComponent>(door_ent, false, true); 
             }
         }

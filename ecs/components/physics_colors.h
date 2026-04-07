@@ -25,9 +25,9 @@ namespace Colors {
     inline const std::string COOLING_MIST  = "#1E90FF";
 
     // Interaction Range Rings [E.2]
-    inline const std::string RANGE_SPEAK   = "#0000FF";
-    inline const std::string RANGE_OBSERVE = "#FFFFFF";
-    inline const std::string RANGE_TRADE   = "#FFD700"; // Gold
+    inline const std::string RANGE_SPEAK   = "#222288";
+    inline const std::string RANGE_OBSERVE = "#555555";
+    inline const std::string RANGE_TRADE   = "#887700"; // Gold (dimmed)
 }
 
 /**
