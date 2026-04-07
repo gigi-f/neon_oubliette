@@ -287,37 +287,127 @@ not for driving it.
 
 #### Phase F — Conversation & Speech System
 
-*This is the single largest remaining system. Break implementation into sub-phases.*
+*Goal: Transition the dialogue system from a hardcoded stub to a systemic, data-driven engine that reflects the complexity of the city's simulation layers — drawing on the architecture of games like Caves of Qud and Dwarf Fortress.*
 
-- [ ] **F.1 — Agent-to-Agent Conversation Engine**
-    - [ ] Add `ConversationComponent` to agents: tracks current conversation partner entity, topic stack, and step counter
-    - [ ] `ConversationSystem` (L1) selects conversation pairs from nearby agents with idle/leisure goals
-    - [ ] Topic selection driven by agent `NeedsComponent`, current events (weather, faction news, economy), and relationship tier
-    - [ ] Conversations have a duration (N steps); agents stand facing each other while conversing
-    - [ ] Topics serialized as tagged string templates with variable substitution (agent name, price, location, etc.)
+---
 
-- [ ] **F.2 — Overhead Speech Rendering**
-    - [ ] Speech rendered as floating text above speaker's tile on a dedicated high-Z notcurses plane
-    - [ ] Text delivered in "chunks" — one phrase segment appears per simulation step, replacing the previous
-    - [ ] Maximum visible text width = 20 chars; longer utterances automatically chunked with ellipsis continuation ("...going to the market" → next step → "...near the east gate.")
-    - [ ] Speech bubble rendered in the speaker's faction color; fades (alpha ramp) as it reaches the last chunk
-    - [ ] Player sees overhead speech only for agents within FOV; text of out-of-FOV conversation is not rendered
+##### F.1 — Systemic Dialogue Assembly Engine
 
-- [ ] **F.3 — Overheard Conversation Visibility**
-    - [ ] Player can "overhear" conversations within 5 tiles even if not a participant
-    - [ ] Overheard speech shown in italic / dim style to distinguish from addressed speech
-    - [ ] Optional: conversation log panel (toggled with `L`) records last N overheard utterances with speaker name
+> "The simulation comes first. Dialogue is the simulation talking."
 
-- [x] **F.4 — Player Dialogue System**
-    - [x] SPEAK interaction on an agent opens a full-screen modal dialogue panel
-    - [x] Panel shows: speaker portrait (ASCII block), agent name/title, current utterance text, and response options
-    - [x] Response options labeled `[a]`, `[b]`, `[c]`… generated contextually from the topic and relationship tier
-    - [ ] Dialogue outcomes feed back into the simulation: selecting "buy info" transfers credits, selecting "threaten" lowers relationship score, etc.
-    - [ ] Agents remember recent dialogue with the player (stored in `RelationshipComponent`); repeat visits unlock new topic branches
+The core engine that converts raw ECS state into natural language. This replaces the hardcoded `generate_content()` stub.
 
-- [ ] **F.5 — Conversation Simulation at Macro Scale**
-    - [ ] Off-screen agents (MacroAgentRecord) still "converse" statistically — relationship scores drift based on proximity and faction alignment
-    - [ ] Major conversation outcomes (deals struck, rumors spread) logged as simulation events consumable by downstream systems
+- [ ] **Dialogue Atoms**: Define a library of discrete, queryable facts derived from ECS components. Each atom has a tag (e.g., `TOPIC_HUNGER`, `TOPIC_WORKPLACE`, `TOPIC_FACTION_WAR`), a condition predicate (lambda over `entt::registry`), and a weight score.
+    - Example atoms: `{"TOPIC_HUNGER", [](registry, ent) { return needs.hunger < 30; }, weight=90}`, `{"TOPIC_PAYDAY", [](registry, ent) { return economy.last_paytick < 5; }, weight=40}`
+- [ ] **Grammar Template Engine (Tracery-style)**: Implement a recursive string-expansion system in C++. Templates stored in `data/dialogue/grammar.json`. Slots like `<workplace>`, `<agent_name>`, `<faction_leader>` are injected from live ECS data at generation time.
+    - Example rule: `"work_complaint": ["Those <faction_leader> bastards cut our rations to <ration_count> again.", "<workplace> is burning us out. Twelve-hour shifts now."]`
+- [ ] **InkCPP Integration for Gold Paths**: Evaluate integrating **InkCPP** (C++ runtime for Inkle's Ink language, `JBenda/inkcpp` on GitHub) for hand-authored branching dialogue (AGI leaders, quest NPCs). High-value, authored `.ink` scripts compile to binary; the runtime is lightweight (CMake-compatible, no external deps).
+- [ ] **Topic Selection Pipeline**: On dialogue open, score all atoms for the target agent, select the top N by weight, and assemble a sentence via the grammar engine. Personality tags (e.g., `LACONIC`, `VERBOSE`, `PARANOID`) modify template selection.
+
+---
+
+##### F.2 — Content Domains: What NPCs Talk About
+
+*Specific topic domains with the simulation data that drives them.*
+
+- [ ] **Lore & World History**:
+    - Faction origin myths (authored templates per faction, drawn from `FactionComponent.leader_name`).
+    - Rumors about the city's founding — the "Oubliette" mythology and what lies beneath.
+    - Spiritual beliefs: Hierodule agents speak in cryptic proverbs referencing the stars; Cacogen agents are unintelligible or unsettling.
+    - AGI leader doctrine: Citizens quote their faction's AGI like scripture. Different factions have distinct rhetoric styles.
+
+- [ ] **Work & Socio-Economic Conditions**:
+    - Agents with a `BuildingComponent` workplace discuss: shift length, pay rate (from `EconomicSystem.wage_index`), boss tier (from `SocialHierarchyComponent`), and co-worker conflicts.
+    - Unemployment: Agents without a workplace express desperation or shame.
+    - Factory workers mention production quotas; traders mention price volatility; guards mention patrol assignments.
+    - Macro event reactions: During a supply shortage (Phase L), workers mention scarcity. During a stock crash, traders panic.
+
+- [ ] **Family & Relationships**:
+    - Agents with `RelationshipComponent` entries at FAMILY tier mention them by name: "My daughter works the docks in Sector 4. Haven't seen her in weeks."
+    - Grief: If a FAMILY-tier relation has recently died (death event within N ticks), agent expresses mourning or distraction.
+    - Childrearing: ADULT agents with CHILD-tier relations express concern for safety, schooling, food status.
+    - Estrangement: Low-affinity FAMILY relationships produce bitter or evasive comments.
+
+- [ ] **The Rumor Mill (Information Propagation)**:
+    - Agents propagate `InformationRecord` items (Phase N) verbally during conversations. Each fact has a veracity score that degrades with each retelling.
+    - Economic tips: "I heard the black market near the old tram depot is flush with med-kits this week."
+    - Political rumors: "Word is the Syndicate AGI is funding a push into Corporate sector. Might get ugly."
+    - Personal gossip: "That guard on 3rd Ave took a bribe from a Fence. I saw it."
+
+- [ ] **Immediate Environment & Needs**:
+    - Hunger < 30: desperate, short utterances about food or credits. Ignores pleasantries.
+    - Thirst < 30: mentions water reclamation failures, dry throat, complaints about infrastructure.
+    - Frustration > 70: hostile, dismissive, or threatening. May refuse to continue dialogue.
+    - Night cycle: tired agents give shorter utterances, reference sleep deprivation.
+    - Weather: agents mention rain, acid fog, heat. Reactions vary by body type and faction.
+
+---
+
+##### F.3 — Speech Styles, Dialects & Filtering
+
+- [ ] **Factional Dialects**: Each faction has a `speech_profile` JSON tag that modifies template word-lists:
+    - `CORPORATE`: formal, euphemistic, heavy with jargon ("resource optimization", "capital reallocation").
+    - `SYNDICATE`: street-level slang, clipped sentences, oblique references to violence.
+    - `COLLECTIVE`: collective pronouns, references to community, politically charged.
+    - `XENO (Hierodule)`: archaic, poetic, third-person self-reference, references to deep time.
+    - `XENO (Cacogen)`: partially garbled, phoneme substitution, glitch-text artifacts in the rendered string.
+- [ ] **Relationship Modifier**: Higher-affinity agents (FRIEND/FAMILY tier) use warmer, familiar register. STRANGERs are guarded or terse.
+- [ ] **Time-of-Day Filter**: Late-night utterances shorter and more weary. Morning utterances more alert or anxious (before shift).
+
+---
+
+##### F.4 — Agent-to-Agent Conversation Engine
+
+*Autonomous NPC-to-NPC conversations that happen in the world without player involvement.*
+
+- [ ] Add `ConversationComponent` to agents: current partner entity, topic atom tag, step counter, duration.
+- [ ] `ConversationSystem` (runs at L2 cadence) selects pairs from nearby LEISURE/IDLE agents using the social proximity grid (already in `SocialInteractionSystem`).
+- [ ] Topic selected by running the atom scoring pipeline on both agents; highest shared-interest atom wins.
+- [ ] Conversations last N steps (configurable per topic type); agents face each other (position delta applied).
+- [ ] Conversation end: relationship affinity adjusted based on topic type (sharing food info = +affinity, complaints about same faction = +affinity).
+
+---
+
+##### F.5 — Overhead Speech Rendering
+
+- [ ] Speech rendered as floating text above speaker's tile on a dedicated high-Z notcurses plane.
+- [ ] Text delivered in "chunks" — one phrase segment per simulation step, replacing the previous.
+- [ ] Maximum visible width = 20 chars; longer utterances auto-chunked with ellipsis continuation.
+- [ ] Speech bubble rendered in speaker's faction color; alpha-ramps to dim over the last 2 chunks.
+- [ ] Player sees overhead speech only for agents within FOV.
+
+---
+
+##### F.6 — Overheard Conversations & Intelligence
+
+- [ ] Player can "overhear" conversations within 5 tiles even without participating.
+- [ ] Overheard speech rendered in italic/dim style to distinguish from direct address.
+- [ ] If overheard content contains an `InformationRecord`, it is added to the player's intel log.
+- [ ] Dialogue Log panel (toggled `L`): records last 20 overheard utterances with speaker name, tick, and location.
+- [ ] Sound attenuation via `SoundSystem` walls/doors logic: speech heard through walls renders MUFFLED (dim, asterisks replace some words).
+
+---
+
+##### F.7 — Player Dialogue Modal (Expansion of Existing Stub)
+
+- [x] Full-screen modal with ASCII portrait, agent name/title.
+- [ ] **Dynamic Topic Menu**: Options generated at runtime from the atom pipeline. Categories: `[Ask about Work]`, `[Ask about Family]`, `[Inquire: Lore]`, `[What's the word?]` (rumor), `[Never mind.]`
+- [ ] **Context-Sensitive Options**: If agent holds an `InformationRecord`, a `[Buy Info]` option appears (costs credits). If relationship is FAMILY tier, a `[Family Check-In]` option appears.
+- [ ] **Consequence Engine**: Each player choice feeds back into the simulation:
+    - `[Threaten]`: lowers affinity, may trigger guard alert.
+    - `[Buy Info]`: transfers credits, agent shares `InformationRecord`.
+    - `[Express Solidarity]`: raises affinity with agent's faction.
+    - `[Lie]`: plants a false `InformationRecord` into the agent's memory.
+- [ ] **Memory**: Agents store last 3 player interactions in `RelationshipComponent`; repeat visits unlock `[Last time we spoke...]` branch.
+- [ ] **Portrait Expansion**: Per-faction/per-archetype ASCII portrait variants. Faction color applied to portrait frame.
+
+---
+
+##### F.8 — Conversation Simulation at Macro Scale
+
+- [ ] Off-screen agents (MacroAgentRecord) converse statistically: affinity scores drift based on proximity and faction alignment per macro tick.
+- [ ] Information propagation: "viral" rumors spread through macro-cells statistically, materializing as live `InformationRecord` items when the chunk loads.
+- [ ] Major outcomes (deals, feuds, conversions to a faction/religion) logged as simulation milestone events.
 
 ---
 
