@@ -26,6 +26,8 @@ private:
     void handleInteractEvent(const InteractEvent& event);
     void handlePickupItemEvent(const PickupItemEvent& event);
     void handleDropItemEvent(const DropItemEvent& event);
+    void handleAttackEvent(const AttackEvent& event);
+    void handleStealAttemptEvent(const StealAttemptEvent& event);
 };
 
 } // namespace Systems

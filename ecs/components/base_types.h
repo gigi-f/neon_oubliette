@@ -137,7 +137,8 @@ enum class AudibilityLevel : uint8_t {
 enum class InteractionMode : uint8_t {
     SPEAK,
     OBSERVE,
-    TRADE
+    TRADE,
+    ACTION
 };
 
 enum class ItemMarketCategory : uint8_t {

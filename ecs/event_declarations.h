@@ -189,6 +189,16 @@ struct UseItemEvent {
     entt::entity item_in_inventory_entity;
 };
 
+struct AttackEvent {
+    entt::entity attacker_entity;
+    entt::entity target_entity;
+};
+
+struct StealAttemptEvent {
+    entt::entity thief_entity;
+    entt::entity target_entity;
+};
+
 struct ConsumeItemEvent {
     entt::entity consumer_entity;
     entt::entity item_to_consume_entity;

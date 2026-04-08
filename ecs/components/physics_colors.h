@@ -28,6 +28,7 @@ namespace Colors {
     inline const std::string RANGE_SPEAK   = "#222288";
     inline const std::string RANGE_OBSERVE = "#555555";
     inline const std::string RANGE_TRADE   = "#887700"; // Gold (dimmed)
+    inline const std::string RANGE_ACTION  = "#882222"; // Red (dimmed)
 }
 
 /**

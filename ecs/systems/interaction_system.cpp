@@ -15,6 +15,8 @@ void InteractionSystem::initialize() {
     event_dispatcher_.sink<InteractEvent>().connect<&InteractionSystem::handleInteractEvent>(this);
     event_dispatcher_.sink<PickupItemEvent>().connect<&InteractionSystem::handlePickupItemEvent>(this);
     event_dispatcher_.sink<DropItemEvent>().connect<&InteractionSystem::handleDropItemEvent>(this);
+    event_dispatcher_.sink<AttackEvent>().connect<&InteractionSystem::handleAttackEvent>(this);
+    event_dispatcher_.sink<StealAttemptEvent>().connect<&InteractionSystem::handleStealAttemptEvent>(this);
 }
 
 void InteractionSystem::update(double delta_time) {
@@ -387,7 +389,122 @@ void InteractionSystem::handleInteractEvent(const InteractEvent& event) {
         return;
     }
 
-    // 7. Fallback (non-OBSERVE modes)
+    // 7. ACTION mode: pickup, steal, search container, attack
+    if (current_mode == InteractionMode::ACTION) {
+        // 7a. Pick up item on ground at target tile
+        auto item_view = registry_.view<ItemComponent, PositionComponent>();
+        for (auto item_ent : item_view) {
+            const auto& i_pos = item_view.get<PositionComponent>(item_ent);
+            if (i_pos.x == tx && i_pos.y == ty && i_pos.layer_id == tl) {
+                event_dispatcher_.trigger(PickupItemEvent{event.entity, item_ent, tx, ty, tl});
+                return;
+            }
+        }
+
+        // 7b. Attack or steal from NPC at target tile
+        auto agent_view = registry_.view<AgentComponent, PositionComponent>();
+        for (auto agent : agent_view) {
+            if (agent == event.entity) continue;
+            const auto& a_pos = agent_view.get<PositionComponent>(agent);
+            if (a_pos.x == tx && a_pos.y == ty && a_pos.layer_id == tl) {
+                // Check if player is holding a weapon — attack
+                bool has_weapon = false;
+                if (registry_.all_of<HUDComponent>(event.entity)) {
+                    auto& hud = registry_.get<HUDComponent>(event.entity);
+                    if (registry_.valid(hud.held_item) && registry_.all_of<WeaponComponent>(hud.held_item)) {
+                        has_weapon = true;
+                    }
+                }
+
+                if (has_weapon) {
+                    event_dispatcher_.trigger(AttackEvent{event.entity, agent});
+                    return;
+                }
+
+                // Otherwise attempt pickpocket (steal from NPC inventory)
+                event_dispatcher_.trigger(StealAttemptEvent{event.entity, agent});
+                return;
+            }
+        }
+
+        // 7c. Search / open a container at target tile
+        auto container_view = registry_.view<ContainerComponent, PositionComponent>();
+        for (auto container_ent : container_view) {
+            const auto& c_pos = container_view.get<PositionComponent>(container_ent);
+            if (c_pos.x == tx && c_pos.y == ty && c_pos.layer_id == tl) {
+                auto& container = container_view.get<ContainerComponent>(container_ent);
+                if (container.is_locked) {
+                    // Check if player holds a matching key
+                    bool unlocked = false;
+                    if (registry_.all_of<InventoryComponent>(event.entity)) {
+                        for (auto key_ent : registry_.get<InventoryComponent>(event.entity).contained_items) {
+                            if (registry_.all_of<KeyComponent>(key_ent)) {
+                                unlocked = true;
+                                container.is_locked = false;
+                                std::string key_name = "key";
+                                if (registry_.all_of<NameComponent>(key_ent)) key_name = registry_.get<NameComponent>(key_ent).name;
+                                event_dispatcher_.trigger(HUDNotificationEvent{"Unlocked with " + key_name + ".", 2.0f, "#FFFF00"});
+                                break;
+                            }
+                        }
+                    }
+                    if (!unlocked) {
+                        event_dispatcher_.trigger(HUDNotificationEvent{"It's locked.", 1.5f, "#FF5555"});
+                        return;
+                    }
+                }
+                container.is_open = !container.is_open;
+                if (!container.is_open) {
+                    event_dispatcher_.trigger(HUDNotificationEvent{"Closed.", 1.0f, "#AAAAAA"});
+                    return;
+                }
+                // List contents
+                if (container.contained_items.empty()) {
+                    event_dispatcher_.trigger(HUDNotificationEvent{"Empty.", 1.5f, "#888888"});
+                } else {
+                    std::string contents = "Contains: ";
+                    for (int ci = 0; ci < (int)container.contained_items.size() && ci < 4; ++ci) {
+                        auto item_e = container.contained_items[ci];
+                        std::string iname = "item";
+                        if (registry_.all_of<NameComponent>(item_e)) iname = registry_.get<NameComponent>(item_e).name;
+                        if (ci > 0) contents += ", ";
+                        contents += iname;
+                    }
+                    if (container.contained_items.size() > 4) contents += "...";
+                    event_dispatcher_.trigger(HUDNotificationEvent{contents, 3.0f, "#AADDFF"});
+                    // Transfer all items to the player's inventory
+                    if (registry_.all_of<InventoryComponent>(event.entity)) {
+                        auto& inv = registry_.get<InventoryComponent>(event.entity);
+                        for (auto take_ent : container.contained_items) {
+                            inv.contained_items.push_back(take_ent);
+                        }
+                        container.contained_items.clear();
+                        // Mark as theft if inside a building and witnessed
+                        if (registry_.all_of<InteriorStateComponent>(event.entity)) {
+                            event_dispatcher_.enqueue<CrimeReportEvent>({
+                                event.entity, container_ent, tx, ty, tl, "THEFT", 0
+                            });
+                        }
+                    }
+                }
+                return;
+            }
+        }
+
+        // 7d. Use held item on nothing / self (e.g. consume food)
+        if (registry_.all_of<HUDComponent>(event.entity)) {
+            auto& hud = registry_.get<HUDComponent>(event.entity);
+            if (registry_.valid(hud.held_item)) {
+                event_dispatcher_.trigger(UseItemEvent{event.entity, hud.held_item});
+                return;
+            }
+        }
+
+        event_dispatcher_.trigger(HUDNotificationEvent{"Nothing to act on here.", 1.0f, "#AAAAAA"});
+        return;
+    }
+
+    // 8. Fallback (non-OBSERVE modes)
     event_dispatcher_.trigger(HUDNotificationEvent{"Nothing to interact with here.", 1.0f, "#AAAAAA"});
 }
 
@@ -481,6 +598,138 @@ void InteractionSystem::handlePickupItemEvent(const PickupItemEvent& event) {
             name = registry_.get<NameComponent>(event.item_entity).name;
         }
         event_dispatcher_.trigger(HUDNotificationEvent{"Picked up " + name, 1.5f, "#00FF00"});
+    }
+}
+
+void InteractionSystem::handleAttackEvent(const AttackEvent& event) {
+    if (!registry_.valid(event.attacker_entity) || !registry_.valid(event.target_entity)) return;
+
+    int damage = 5; // unarmed
+    std::string weapon_name = "fist";
+
+    if (registry_.all_of<HUDComponent>(event.attacker_entity)) {
+        auto& hud = registry_.get<HUDComponent>(event.attacker_entity);
+        if (registry_.valid(hud.held_item) && registry_.all_of<WeaponComponent>(hud.held_item)) {
+            damage = registry_.get<WeaponComponent>(hud.held_item).damage;
+            if (registry_.all_of<NameComponent>(hud.held_item))
+                weapon_name = registry_.get<NameComponent>(hud.held_item).name;
+            // Degrade weapon
+            if (registry_.all_of<DurabilityComponent>(hud.held_item)) {
+                auto& dur = registry_.get<DurabilityComponent>(hud.held_item);
+                dur.current = std::max(0.0f, dur.current - 1.0f);
+            }
+        }
+    }
+
+    if (registry_.all_of<Layer0PhysicsComponent>(event.target_entity)) {
+        auto& phys = registry_.get<Layer0PhysicsComponent>(event.target_entity);
+        phys.health = std::max(0.0f, phys.health - static_cast<float>(damage));
+
+        std::string target_name = "target";
+        if (registry_.all_of<NameComponent>(event.target_entity))
+            target_name = registry_.get<NameComponent>(event.target_entity).name;
+
+        event_dispatcher_.trigger(HUDNotificationEvent{
+            "Hit " + target_name + " with " + weapon_name + " for " + std::to_string(damage) + " dmg.",
+            2.0f, "#FF4444"
+        });
+    }
+
+    // Crime report only if witnessed or victim survives to report it
+    if (registry_.all_of<PlayerComponent>(event.attacker_entity)) {
+        const auto& pos = registry_.get<PositionComponent>(event.target_entity);
+
+        bool victim_survives = registry_.all_of<Layer0PhysicsComponent>(event.target_entity) &&
+            registry_.get<Layer0PhysicsComponent>(event.target_entity).health > 0.0f;
+
+        bool witnessed = false;
+        auto witness_view = registry_.view<PositionComponent, VisibilityComponent, NPCComponent>();
+        for (auto witness : witness_view) {
+            if (witness == event.attacker_entity || witness == event.target_entity) continue;
+            const auto& w_pos = witness_view.get<PositionComponent>(witness);
+            if (w_pos.layer_id == pos.layer_id) {
+                const auto& w_vis = witness_view.get<VisibilityComponent>(witness);
+                if (w_vis.visible_tiles.count(pos)) { witnessed = true; break; }
+            }
+        }
+
+        if (victim_survives || witnessed) {
+            event_dispatcher_.enqueue<CrimeReportEvent>({
+                event.attacker_entity, event.target_entity,
+                pos.x, pos.y, pos.layer_id,
+                "ASSAULT", 0
+            });
+            std::string reporter = victim_survives ? "Victim" : "Witness";
+            event_dispatcher_.trigger(HUDNotificationEvent{
+                reporter + " reporting assault to authorities.", 2.5f, "#FF8800"
+            });
+        }
+    }
+}
+
+void InteractionSystem::handleStealAttemptEvent(const StealAttemptEvent& event) {
+    if (!registry_.valid(event.thief_entity) || !registry_.valid(event.target_entity)) return;
+    if (!registry_.all_of<InventoryComponent>(event.target_entity)) {
+        event_dispatcher_.trigger(HUDNotificationEvent{"Nothing to steal.", 1.0f, "#AAAAAA"});
+        return;
+    }
+
+    auto& target_inv = registry_.get<InventoryComponent>(event.target_entity);
+    if (target_inv.contained_items.empty()) {
+        event_dispatcher_.trigger(HUDNotificationEvent{"Their pockets are empty.", 1.5f, "#AAAAAA"});
+        return;
+    }
+
+    // Take first item from target's inventory
+    entt::entity stolen = target_inv.contained_items.front();
+    target_inv.contained_items.erase(target_inv.contained_items.begin());
+
+    registry_.emplace_or_replace<StolenComponent>(stolen, event.target_entity);
+
+    if (registry_.all_of<InventoryComponent>(event.thief_entity)) {
+        registry_.get<InventoryComponent>(event.thief_entity).contained_items.push_back(stolen);
+    }
+
+    std::string item_name = "item";
+    if (registry_.all_of<NameComponent>(stolen)) item_name = registry_.get<NameComponent>(stolen).name;
+
+    event_dispatcher_.trigger(HUDNotificationEvent{"Stole " + item_name + ".", 2.0f, "#FF8800"});
+
+    // Crime report only if victim notices or a bystander witnesses the theft
+    if (registry_.all_of<PlayerComponent>(event.thief_entity)) {
+        const auto& pos = registry_.get<PositionComponent>(event.target_entity);
+        const auto& thief_pos = registry_.get<PositionComponent>(event.thief_entity);
+
+        bool victim_notices = false;
+        if (registry_.all_of<VisibilityComponent>(event.target_entity)) {
+            const auto& v_vis = registry_.get<VisibilityComponent>(event.target_entity);
+            if (v_vis.visible_tiles.count(thief_pos)) victim_notices = true;
+        }
+
+        bool witnessed = false;
+        if (!victim_notices) {
+            auto witness_view = registry_.view<PositionComponent, VisibilityComponent, NPCComponent>();
+            for (auto witness : witness_view) {
+                if (witness == event.thief_entity || witness == event.target_entity) continue;
+                const auto& w_pos = witness_view.get<PositionComponent>(witness);
+                if (w_pos.layer_id == pos.layer_id) {
+                    const auto& w_vis = witness_view.get<VisibilityComponent>(witness);
+                    if (w_vis.visible_tiles.count(thief_pos)) { witnessed = true; break; }
+                }
+            }
+        }
+
+        if (victim_notices || witnessed) {
+            event_dispatcher_.enqueue<CrimeReportEvent>({
+                event.thief_entity, event.target_entity,
+                pos.x, pos.y, pos.layer_id,
+                "THEFT", 0
+            });
+            std::string reporter = victim_notices ? "Victim" : "Witness";
+            event_dispatcher_.trigger(HUDNotificationEvent{
+                reporter + " reporting theft to authorities.", 2.5f, "#FF8800"
+            });
+        }
     }
 }
 

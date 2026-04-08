@@ -194,11 +194,12 @@ void InputSystem::update(double delta_time) {
                     m_registry.emplace<PlayerInteractionComponent>(entity);
                 }
                 auto& pi = m_registry.get<PlayerInteractionComponent>(entity);
-                pi.current_mode = static_cast<InteractionMode>((static_cast<int>(pi.current_mode) + 1) % 3);
+                pi.current_mode = static_cast<InteractionMode>((static_cast<int>(pi.current_mode) + 1) % 4);
                 
                 std::string mode_name = "OBSERVE";
                 if (pi.current_mode == InteractionMode::SPEAK) mode_name = "SPEAK";
                 else if (pi.current_mode == InteractionMode::TRADE) mode_name = "TRADE";
+                else if (pi.current_mode == InteractionMode::ACTION) mode_name = "ACTION";
                 
                 m_dispatcher.trigger(HUDNotificationEvent{"Mode: " + mode_name, 1.5f, "#FFFFFF"});
             }
@@ -487,6 +488,7 @@ void InputSystem::update(double delta_time) {
                 auto mode = m_registry.get<PlayerInteractionComponent>(player_entity).current_mode;
                 if (mode == InteractionMode::SPEAK) max_range = 3;
                 else if (mode == InteractionMode::OBSERVE) max_range = 6;
+                else if (mode == InteractionMode::ACTION) max_range = 1;
             }
 
             if (dist > max_range) {

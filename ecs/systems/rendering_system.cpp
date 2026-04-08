@@ -512,6 +512,7 @@ void RenderingSystem::update(double delta_time) {
                 uint32_t mode_color = 0xFFFFFF; // White
                 if (mode == InteractionMode::SPEAK) { mode_label = "SPEAK"; mode_color = 0x0000FF; } // Blue
                 else if (mode == InteractionMode::TRADE) { mode_label = "TRADE"; mode_color = 0xFFD700; } // Gold
+                else if (mode == InteractionMode::ACTION) { mode_label = "ACTION"; mode_color = 0xFF4444; } // Red
 
                 ncplane_set_fg_rgb(hud_plane_, mode_color);
                 ncplane_printf_yx(hud_plane_, 1, 30, "[MODE: %s]", mode_label.c_str());
@@ -791,6 +792,9 @@ void RenderingSystem::update(double delta_time) {
                 } else if (p_inter.current_mode == InteractionMode::TRADE) {
                     range = 1;
                     ring_color = Colors::RANGE_TRADE;
+                } else if (p_inter.current_mode == InteractionMode::ACTION) {
+                    range = 1;
+                    ring_color = Colors::RANGE_ACTION;
                 }
 
                 uint32_t color = parse_hex_color(ring_color);
@@ -1401,6 +1405,7 @@ void RenderingSystem::update(double delta_time) {
                             auto mode = registry_.get<PlayerInteractionComponent>(p_ent).current_mode;
                             if (mode == InteractionMode::SPEAK) max_range = 3;
                             else if (mode == InteractionMode::TRADE) max_range = 1;
+                            else if (mode == InteractionMode::ACTION) max_range = 1;
                         }
 
                         if (dist > max_range) {
