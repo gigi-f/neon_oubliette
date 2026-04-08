@@ -1378,9 +1378,6 @@ struct DebugOverlayComponent {
     // "Currently executing" label — set BEFORE each phase, cleared after
     std::string current_phase = "idle";
 
-    // Most-recently-started system within the current phase
-    std::string current_system;
-
     // Entity counts
     size_t num_agents      = 0;
     size_t num_pathfinding = 0;

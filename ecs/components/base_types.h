@@ -15,6 +15,16 @@
 
 namespace NeonOubliette {
 
+// --- Size/Metric System ---
+constexpr float METERS_PER_TILE = 1.0f;
+
+// --- Real-World Scaling Constants (Meters/Tiles) ---
+constexpr int ROAD_WIDTH_PRIMARY    = 16;
+constexpr int ROAD_WIDTH_SECONDARY  = 8;
+constexpr int ROAD_WIDTH_ALLEY      = 4;
+constexpr int SIDEWALK_WIDTH        = 4;
+constexpr int RIVER_WIDTH           = 20;
+
 enum class Direction : uint8_t {
     NORTH, SOUTH, EAST, WEST
 };

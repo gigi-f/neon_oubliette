@@ -63,14 +63,14 @@ private:
                     std::uniform_real_distribution<> dis(0.0, 1.0);
                     if (dis(gen) < zone.density) {
                         int bx = lot.x; int by = lot.y; int bw = lot.width; int bh = lot.height;
-                        bool n_road = isRoad(bx, by - 1, bw, 1, arterials);
-                        bool s_road = isRoad(bx, by + bh, bw, 1, arterials);
-                        bool w_road = isRoad(bx - 1, by, 1, bh, arterials);
-                        bool e_road = isRoad(bx + bw, by, 1, bh, arterials);
-                        if (n_road) { for (int x = bx; x < bx + bw; ++x) arterials[{x, by}] = ArterialType::SIDEWALK; by++; bh--; }
-                        if (s_road) { for (int x = bx; x < bx + bw; ++x) arterials[{x, by + bh - 1}] = ArterialType::SIDEWALK; bh--; }
-                        if (w_road) { for (int y = by; y < by + bh; ++y) arterials[{bx, y}] = ArterialType::SIDEWALK; bx++; bw--; }
-                        if (e_road) { for (int y = by; y < by + bh; ++y) arterials[{bx + bw - 1, y}] = ArterialType::SIDEWALK; bw--; }
+                        bool n_road = isRoad(bx, by - ROAD_WIDTH_SECONDARY / 2 - 1, bw, 1, arterials);
+                        bool s_road = isRoad(bx, by + bh + ROAD_WIDTH_SECONDARY / 2, bw, 1, arterials);
+                        bool w_road = isRoad(bx - ROAD_WIDTH_SECONDARY / 2 - 1, by, 1, bh, arterials);
+                        bool e_road = isRoad(bx + bw + ROAD_WIDTH_SECONDARY / 2, by, 1, bh, arterials);
+                        if (n_road) { for (int x = bx; x < bx + bw; ++x) for (int sw = 0; sw < SIDEWALK_WIDTH; ++sw) arterials[{x, by + sw}] = ArterialType::SIDEWALK; by += SIDEWALK_WIDTH; bh -= SIDEWALK_WIDTH; }
+                        if (s_road) { for (int x = bx; x < bx + bw; ++x) for (int sw = 0; sw < SIDEWALK_WIDTH; ++sw) arterials[{x, by + bh - 1 - sw}] = ArterialType::SIDEWALK; bh -= SIDEWALK_WIDTH; }
+                        if (w_road) { for (int y = by; y < by + bh; ++y) for (int sw = 0; sw < SIDEWALK_WIDTH; ++sw) arterials[{bx + sw, y}] = ArterialType::SIDEWALK; bx += SIDEWALK_WIDTH; bw -= SIDEWALK_WIDTH; }
+                        if (e_road) { for (int y = by; y < by + bh; ++y) for (int sw = 0; sw < SIDEWALK_WIDTH; ++sw) arterials[{bx + bw - 1 - sw, y}] = ArterialType::SIDEWALK; bw -= SIDEWALK_WIDTH; }
                         if (bw > 1 && bh > 1) {
                             std::string b_name = "Building"; std::string b_color = "#778899"; int floors = 1;
                             
@@ -193,7 +193,7 @@ private:
         return false;
     }
     void generateUrbanCoreInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& structure_footprint, entt::entity chunk_ent) {
-        placeTrainTerminals(zone, arterials, gen, structure_footprint, chunk_ent);
+        placeTrainTerminals(zone, gen, structure_footprint, chunk_ent);
         
         // [N.2] Random Broadcast Tower Placement in Urban Core
         std::uniform_real_distribution<> tower_dis(0.0, 1.0);
@@ -393,15 +393,30 @@ private:
         return building;
     }
 
-    void placeTrainTerminals(const MacroZoneComponent& zone, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint, entt::entity chunk_ent) {
-        std::map<std::pair<int, int>, int> intersection_check; for (auto const& [pos, type] : arterials) intersection_check[pos]++;
-        for (auto const& [pos, count] : intersection_check) if (count >= 2) {
-            std::uniform_real_distribution<> dis(0.0, 1.0);
-            if (dis(gen) < 0.2) {
-                int tw = 10, th = 10, tx = pos.first - 5, ty = pos.second - 5; std::vector<DoorInfo> h_doors = {{pos.first, ty + th - 1, true}, {pos.first, ty, true}, {tx, pos.second, true}, {tx + tw - 1, pos.second, true}};
-                createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, (uint8_t)StreetFacingSide::ALL, 0, 0, h_doors, tx * 10000 + ty, chunk_ent, gen);
-                auto hub = m_registry.create(); m_registry.emplace<PositionComponent>(hub, pos.first, pos.second, 0); m_registry.emplace<CommerceHubComponent>(hub, 20.0f, 1.6f);
-                for (int fx = tx; fx < tx + tw; ++fx) for (int fy = ty; fy < ty + th; ++fy) footprint.insert({fx, fy});
+    void placeTrainTerminals(const MacroZoneComponent& zone, std::mt19937& gen, std::set<std::pair<int, int>>& footprint, entt::entity chunk_ent) {
+        auto config_view = m_registry.view<WorldConfigComponent>();
+        if (config_view.empty()) return;
+        auto& config = config_view.get<WorldConfigComponent>(config_view.front());
+        int cell_size = config.macro_cell_size;
+
+        int start_x = zone.macro_x * cell_size, start_y = zone.macro_y * cell_size;
+        int end_x = start_x + cell_size, end_y = start_y + cell_size;
+
+        auto node_view = m_registry.view<PositionComponent, InfrastructureNodeComponent>();
+        for (auto node_ent : node_view) {
+            const auto& pos = node_view.get<PositionComponent>(node_ent);
+            if (pos.x >= start_x && pos.x < end_x && pos.y >= start_y && pos.y < end_y && pos.layer_id == 0) {
+                const auto& node = node_view.get<InfrastructureNodeComponent>(node_ent);
+                if (node.node_name == "Primary Intersection") {
+                    std::uniform_real_distribution<> dis(0.0, 1.0);
+                    if (dis(gen) < 0.25) { // 25% chance
+                        int tw = 20, th = 20, tx = pos.x - 10, ty = pos.y - 10;
+                        std::vector<DoorInfo> h_doors = {{pos.x, ty + th - 1, true}, {pos.x, ty, true}, {tx, pos.y, true}, {tx + tw - 1, pos.y, true}};
+                        createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, (uint8_t)StreetFacingSide::ALL, 0, 0, h_doors, tx * 10000 + ty, chunk_ent, gen);
+                        auto hub = m_registry.create(); m_registry.emplace<PositionComponent>(hub, pos.x, pos.y, 0); m_registry.emplace<CommerceHubComponent>(hub, 40.0f, 1.8f);
+                        for (int fx = tx; fx < tx + tw; ++fx) for (int fy = ty; fy < ty + th; ++fy) footprint.insert({fx, fy});
+                    }
+                }
             }
         }
     }

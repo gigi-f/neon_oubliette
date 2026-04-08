@@ -1,0 +1,567 @@
+#include "input_system.h"
+#include "../components/components.h"
+#include "../event_declarations.h"
+#include <cstdlib>
+
+namespace NeonOubliette {
+namespace Systems {
+
+InputSystem::InputSystem(entt::registry& registry, struct notcurses* nc_context, entt::dispatcher& dispatcher)
+    : m_registry(registry), m_ncContext(nc_context), m_dispatcher(dispatcher) {
+}
+
+void InputSystem::initialize() {
+}
+
+void InputSystem::update(double delta_time) {
+    ncinput input;
+    struct timespec ts = {0, 0};
+    uint32_t key_id;
+
+    // Get Simulation State
+    SimulationMode current_mode = SimulationMode::STANDARD;
+    auto state_view = m_registry.view<SimulationStateComponent>();
+    if (state_view.begin() != state_view.end()) {
+        auto& state = state_view.get<SimulationStateComponent>(*state_view.begin());
+        current_mode = state.mode;
+    }
+
+    // Check if Context Menu is open
+    auto menu_view = m_registry.view<ContextMenuComponent>();
+    ContextMenuComponent* active_menu = nullptr;
+    if (menu_view.begin() != menu_view.end()) {
+        active_menu = &menu_view.get<ContextMenuComponent>(*menu_view.begin());
+    }
+
+    // Check if Dialogue is open
+    auto dialogue_view = m_registry.view<DialogueStateComponent>();
+    DialogueStateComponent* active_dialogue = nullptr;
+    if (dialogue_view.begin() != dialogue_view.end()) {
+        active_dialogue = &dialogue_view.get<DialogueStateComponent>(*dialogue_view.begin());
+    }
+
+    while ((key_id = notcurses_get(m_ncContext, &ts, &input)) > 0) {
+        // --- Handle Mouse [D.1 / D.3] ---
+        // (Mouse controls removed)
+
+
+        if (input.evtype != NCTYPE_PRESS && input.evtype != NCTYPE_UNKNOWN) continue;
+
+        // Context Menu Navigation
+        if (active_menu && active_menu->open) {
+            // ... (existing menu logic)
+            if (key_id == NCKEY_UP) {
+                active_menu->selected_index = std::max(0, active_menu->selected_index - 1);
+                continue;
+            } else if (key_id == NCKEY_DOWN) {
+                active_menu->selected_index = std::min((int)active_menu->options.size() - 1, active_menu->selected_index + 1);
+                continue;
+            } else if (key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
+                m_dispatcher.trigger(ContextMenuSelectEvent{active_menu->selected_index});
+                continue;
+            } else if (key_id == NCKEY_ESC) {
+                m_dispatcher.trigger<CloseContextMenuEvent>();
+                continue;
+            }
+            // Swallow other keys if menu is open
+            continue;
+        }
+
+        // Dialogue Navigation
+        if (active_dialogue && active_dialogue->is_open) {
+            if (key_id >= 'a' && key_id <= 'z') {
+                m_dispatcher.trigger(DialogueChoiceEvent{static_cast<int>(key_id - 'a')});
+                m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                continue;
+            } else if (key_id == NCKEY_ESC) {
+                m_dispatcher.trigger<CloseDialogueWindowEvent>();
+                continue;
+            }
+            // Swallow other keys if dialogue is open
+            continue;
+        }
+
+        // Barter Navigation [Phase T.1]
+        auto barter_view = m_registry.view<BarterUIComponent>();
+        if (barter_view.begin() != barter_view.end()) {
+            auto& ui = barter_view.get<BarterUIComponent>(*barter_view.begin());
+            if (ui.is_open) {
+                if (key_id == NCKEY_ESC) {
+                    m_dispatcher.trigger<CloseBarterEvent>();
+                    continue;
+                } else if (key_id == NCKEY_TAB || key_id == '\t') {
+                    ui.focusing_npc_inventory = !ui.focusing_npc_inventory;
+                    ui.selected_inventory_index = 0;
+                    continue;
+                } else if (key_id == NCKEY_UP) {
+                    ui.selected_inventory_index = std::max(0, ui.selected_inventory_index - 1);
+                    continue;
+                } else if (key_id == NCKEY_DOWN) {
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    entt::entity target = ui.focusing_npc_inventory ? ui.target_agent : p_ent;
+                    if (m_registry.valid(target) && m_registry.all_of<InventoryComponent>(target)) {
+                        auto& inv = m_registry.get<InventoryComponent>(target);
+                        if (!inv.contained_items.empty())
+                            ui.selected_inventory_index = std::min((int)inv.contained_items.size() - 1, ui.selected_inventory_index + 1);
+                    }
+                    continue;
+                } else if (key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    entt::entity target_ent = ui.focusing_npc_inventory ? ui.target_agent : p_ent;
+                    auto& offer = ui.focusing_npc_inventory ? ui.npc_offer : ui.player_offer;
+                    if (m_registry.valid(target_ent) && m_registry.all_of<InventoryComponent>(target_ent)) {
+                        auto& inv = m_registry.get<InventoryComponent>(target_ent);
+                        if (!inv.contained_items.empty() && ui.selected_inventory_index < (int)inv.contained_items.size()) {
+                            entt::entity item = inv.contained_items[ui.selected_inventory_index];
+                            auto it = std::find(offer.begin(), offer.end(), item);
+                            if (it != offer.end()) offer.erase(it);
+                            else offer.push_back(item);
+                        }
+                    }
+                    continue;
+                } else if (key_id == 's' || key_id == 'S') {
+                    // [T.3] REQUEST Trade
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    if (m_registry.valid(p_ent)) {
+                        m_dispatcher.trigger(BarterEvent{p_ent, ui.target_agent, ui.player_offer, ui.npc_offer, ui.player_info_offer, ui.npc_info_offer, 0, 0, BarterState::REQUEST});
+                        m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                    }
+                    continue;
+                } else if (key_id == 'p' || key_id == 'P') {
+                    // [T.3] PRESSURE NPC
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    if (m_registry.valid(p_ent)) {
+                        m_dispatcher.trigger(BarterEvent{p_ent, ui.target_agent, ui.player_offer, ui.npc_offer, ui.player_info_offer, ui.npc_info_offer, 0, 0, BarterState::PRESSURE});
+                        m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                    }
+                    continue;
+                } else if (key_id == 'x' || key_id == 'X') {
+                    // [T.3] Add Information to Offer
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    if (m_registry.valid(p_ent) && m_registry.all_of<InformationComponent>(p_ent)) {
+                        auto& info = m_registry.get<InformationComponent>(p_ent);
+                        if (!info.records.empty()) {
+                            // Simplified: toggle first record for now, or use index if we had one
+                            const auto& record = info.records.front();
+                            auto it = std::find_if(ui.player_info_offer.begin(), ui.player_info_offer.end(), [&](const InformationRecord& r) {
+                                return r.content_tag == record.content_tag;
+                            });
+                            if (it != ui.player_info_offer.end()) ui.player_info_offer.erase(it);
+                            else ui.player_info_offer.push_back(record);
+                        }
+                    }
+                    continue;
+                }
+                // Swallow other keys if barter is open
+                continue;
+            }
+        }
+
+        // Dialogue Log Toggling [F.6]
+        if (key_id == 'l' || key_id == 'L') {
+            auto player_view = m_registry.view<PlayerComponent>();
+            if (!player_view.empty()) {
+                auto& log = m_registry.get_or_emplace<DialogueLogComponent>(player_view.front());
+                log.visible = !log.visible;
+                continue;
+            }
+        }
+
+        // 1. Global Commands
+        if (key_id == 'q' || key_id == 'Q') {
+            m_dispatcher.trigger<NeonOubliette::ShutdownEvent>();
+            return;
+        }
+
+        // Toggle Debug Overlay (F12) — disabled for now
+        // if (key_id == NCKEY_F12) { ... }
+
+        // Toggle God Mode / Focus Building
+        if (key_id == 'g' || key_id == 'G') {
+            // ... (existing code)
+        }
+
+        // --- Cycle Interaction Mode [E.1] ---
+        if (key_id == NCKEY_TAB || key_id == '\t') {
+            auto player_view = m_registry.view<PlayerComponent>();
+            for (auto entity : player_view) {
+                if (!m_registry.all_of<PlayerInteractionComponent>(entity)) {
+                    m_registry.emplace<PlayerInteractionComponent>(entity);
+                }
+                auto& pi = m_registry.get<PlayerInteractionComponent>(entity);
+                pi.current_mode = static_cast<InteractionMode>((static_cast<int>(pi.current_mode) + 1) % 4);
+                
+                std::string mode_name = "OBSERVE";
+                if (pi.current_mode == InteractionMode::SPEAK) mode_name = "SPEAK";
+                else if (pi.current_mode == InteractionMode::TRADE) mode_name = "TRADE";
+                else if (pi.current_mode == InteractionMode::ACTION) mode_name = "ACTION";
+                
+                m_dispatcher.trigger(HUDNotificationEvent{"Mode: " + mode_name, 1.5f, "#FFFFFF"});
+            }
+            continue;
+        }
+
+        // Toggle Pause
+        if (key_id == 'p' || key_id == 'P' || (current_mode == SimulationMode::GOD_MODE && key_id == ' ')) {
+            m_dispatcher.trigger<TogglePauseEvent>();
+            continue;
+        }
+
+        // Adjust Speed (God Mode Only)
+        if (current_mode == SimulationMode::GOD_MODE) {
+            if (key_id == '+' || key_id == '=') {
+                m_dispatcher.trigger(AdjustGodModeSpeedEvent{0.5f});
+                continue;
+            } else if (key_id == '-' || key_id == '_') {
+                m_dispatcher.trigger(AdjustGodModeSpeedEvent{-0.5f});
+                continue;
+            }
+        }
+
+        // 2. Mode-Specific Commands
+        if (current_mode == SimulationMode::GOD_MODE) {
+            auto cursor_view = m_registry.view<GodCursorComponent>();
+            if (cursor_view.begin() != cursor_view.end()) {
+                auto& cursor = cursor_view.get<GodCursorComponent>(*cursor_view.begin());
+                
+                auto break_follow = [&]() {
+                    auto follow_view = m_registry.view<GodModeFollowComponent>();
+                    m_registry.destroy(follow_view.begin(), follow_view.end());
+                };
+
+                if (key_id == 'w' || key_id == 'W' || key_id == NCKEY_UP) { cursor.y--; break_follow(); }
+                else if (key_id == 's' || key_id == 'S' || key_id == NCKEY_DOWN) { cursor.y++; break_follow(); }
+                else if (key_id == 'a' || key_id == 'A' || key_id == NCKEY_LEFT) { cursor.x--; break_follow(); }
+                else if (key_id == 'd' || key_id == 'D' || key_id == NCKEY_RIGHT) { cursor.x++; break_follow(); }
+                
+                // Vertical Navigation in God Mode
+                else if (key_id == '>') {
+                    auto state_view = m_registry.view<SimulationStateComponent>();
+                    if (state_view.begin() != state_view.end()) {
+                        auto& state = state_view.get<SimulationStateComponent>(*state_view.begin());
+                        if (state.is_inside_view && m_registry.valid(state.focused_building)) {
+                            auto& b_comp = m_registry.get<BuildingComponent>(state.focused_building);
+                            state.focus_floor = std::min(state.focus_floor + 1, b_comp.height - 1);
+                        } else {
+                            cursor.layer_id++;
+                            break_follow();
+                        }
+                    } else {
+                        cursor.layer_id++;
+                        break_follow();
+                    }
+                }
+                else if (key_id == '<') {
+                    auto state_view = m_registry.view<SimulationStateComponent>();
+                    if (state_view.begin() != state_view.end()) {
+                        auto& state = state_view.get<SimulationStateComponent>(*state_view.begin());
+                        if (state.is_inside_view && m_registry.valid(state.focused_building)) {
+                            state.focus_floor = std::max(state.focus_floor - 1, 0);
+                        } else {
+                            cursor.layer_id--;
+                            break_follow();
+                        }
+                    } else {
+                        cursor.layer_id--;
+                        break_follow();
+                    }
+                }
+                
+                // UI Toggles
+                else if (key_id == 'v' || key_id == 'V') {
+                    m_dispatcher.trigger<ToggleCrisisDashboardEvent>();
+                    continue;
+                }
+                else if (key_id == NCKEY_ESC) {
+                    auto state_view = m_registry.view<SimulationStateComponent>();
+                    if (state_view.begin() != state_view.end()) {
+                        auto& state = state_view.get<SimulationStateComponent>(*state_view.begin());
+                        if (state.is_inside_view) {
+                            m_dispatcher.trigger<GodModeExitFocusEvent>();
+                        } else {
+                            m_dispatcher.trigger<CloseInspectionWindowEvent>();
+                            m_dispatcher.trigger<CloseDialogueWindowEvent>();
+                        }
+                    } else {
+                        m_dispatcher.trigger<CloseInspectionWindowEvent>();
+                        m_dispatcher.trigger<CloseDialogueWindowEvent>();
+                    }
+                }
+
+                // Inspection in God Mode (uses cursor pos)
+                if (key_id == 'i') m_dispatcher.trigger(InspectEvent{entt::null, cursor.layer_id, cursor.x, cursor.y, InspectionMode::SURFACE_SCAN});
+                else if (key_id == 'I') m_dispatcher.trigger(InspectEvent{entt::null, cursor.layer_id, cursor.x, cursor.y, InspectionMode::BIOLOGICAL_AUDIT});
+                else if (key_id == 'c') m_dispatcher.trigger(InspectEvent{entt::null, cursor.layer_id, cursor.x, cursor.y, InspectionMode::COGNITIVE_PROFILE});
+                else if (key_id == 'F') m_dispatcher.trigger(InspectEvent{entt::null, cursor.layer_id, cursor.x, cursor.y, InspectionMode::FINANCIAL_FORENSICS});
+                else if (key_id == 't') m_dispatcher.trigger(InspectEvent{entt::null, cursor.layer_id, cursor.x, cursor.y, InspectionMode::STRUCTURAL_ANALYSIS});
+                else if (key_id == 'f') { // [D.3] Keyboard Follow
+                    entt::entity target = entt::null;
+                    auto pos_view = m_registry.view<PositionComponent>(entt::exclude<TerrainComponent>);
+                    for (auto ent : pos_view) {
+                        const auto& p = pos_view.get<PositionComponent>(ent);
+                        if (p.layer_id == cursor.layer_id) {
+                            int w = 1, h = 1;
+                            if (m_registry.all_of<SizeComponent>(ent)) {
+                                const auto& s = m_registry.get<SizeComponent>(ent);
+                                w = s.width; h = s.height;
+                            }
+                            if (cursor.x >= p.x && cursor.x < p.x + w && 
+                                cursor.y >= p.y && cursor.y < p.y + h) {
+                                target = ent; break;
+                            }
+                        }
+                    }
+                    if (m_registry.valid(target)) m_dispatcher.trigger(GodModeFollowAgentEvent{target});
+                }
+            }
+            continue;
+        }
+
+        // STANDARD MODE (Player-centric)
+        auto player_view = m_registry.view<PlayerComponent, PositionComponent>();
+        entt::entity player_entity = entt::null;
+        for (auto entity : player_view) {
+            player_entity = entity;
+            break;
+        }
+
+        if (player_entity == entt::null)
+            continue;
+        
+        auto& pos = player_view.get<PositionComponent>(player_entity);
+
+        // [MOD] Ensure standard cursor always stays in sync with player layer/pos when not active
+        auto sc_view = m_registry.view<StandardCursorComponent>();
+        for (auto sce : sc_view) {
+            auto& sc = sc_view.get<StandardCursorComponent>(sce);
+            if (!sc.active) {
+                sc.x = pos.x;
+                sc.y = pos.y;
+                sc.layer_id = pos.layer_id;
+            }
+        }
+
+        // Inventory UI Focus
+        if (m_registry.all_of<HUDComponent>(player_entity)) {
+            auto& hud = m_registry.get<HUDComponent>(player_entity);
+            if (hud.inventory_open) {
+                if (key_id == NCKEY_UP) {
+                    hud.selected_inventory_index = std::max(0, hud.selected_inventory_index - 1);
+                    continue;
+                } else if (key_id == NCKEY_DOWN) {
+                    if (m_registry.all_of<InventoryComponent>(player_entity)) {
+                        auto& inv = m_registry.get<InventoryComponent>(player_entity);
+                        if (!inv.contained_items.empty()) {
+                            hud.selected_inventory_index = std::min(static_cast<int>(inv.contained_items.size()) - 1, hud.selected_inventory_index + 1);
+                        }
+                    }
+                    continue;
+                } else if (key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
+                    if (m_registry.all_of<InventoryComponent>(player_entity)) {
+                        auto& inv = m_registry.get<InventoryComponent>(player_entity);
+                        if (!inv.contained_items.empty() && hud.selected_inventory_index < (int)inv.contained_items.size()) {
+                            entt::entity item_ent = inv.contained_items[hud.selected_inventory_index];
+                            
+                            // [C.1] Set as held item
+                            hud.held_item = item_ent;
+                            hud.held_item_flash_timer = 0.5f; // [C.2] Flash on swap
+                            std::string item_name = "item";
+                            if (m_registry.all_of<ItemComponent>(item_ent)) {
+                                item_name = m_registry.get<ItemComponent>(item_ent).name;
+                            }
+                            m_dispatcher.trigger(HUDNotificationEvent{"Holding " + item_name, 1.5f, "#00FFFF"});
+
+                            m_dispatcher.trigger(UseItemEvent{player_entity, item_ent});
+                            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                        }
+                    }
+                    continue;
+                } else if (key_id == 'd' || key_id == 'D') {
+                    if (m_registry.all_of<InventoryComponent>(player_entity)) {
+                        auto& inv = m_registry.get<InventoryComponent>(player_entity);
+                        if (!inv.contained_items.empty() && hud.selected_inventory_index < (int)inv.contained_items.size()) {
+                            entt::entity item_ent = inv.contained_items[hud.selected_inventory_index];
+                            m_dispatcher.trigger(DropItemEvent{player_entity, item_ent, pos.x, pos.y, pos.layer_id});
+                            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                        }
+                    }
+                    continue;
+                } else if (key_id == 'b' || key_id == 'B') {
+                    m_dispatcher.trigger(InventoryToggleEvent{player_entity});
+                    continue;
+                } else if (key_id == NCKEY_ESC) {
+                    m_dispatcher.trigger(InventoryToggleEvent{player_entity});
+                    continue;
+                }
+                // Swallow other keys if inventory is open
+                continue;
+            }
+        }
+
+        // Determine target for movement (Direct or via Personal Vehicle)
+        entt::entity move_target = player_entity;
+        if (m_registry.all_of<RidingComponent>(player_entity)) {
+            auto vehicle = m_registry.get<RidingComponent>(player_entity).vehicle;
+            if (m_registry.valid(vehicle) && m_registry.all_of<PersonalVehicleComponent>(vehicle)) {
+                if (m_registry.get<PersonalVehicleComponent>(vehicle).driver == player_entity) {
+                    move_target = vehicle;
+                }
+            }
+        }
+
+        // Movement (Horizontal)
+        if (key_id == 'w' || key_id == 'W') {
+            m_dispatcher.trigger(MoveEvent{move_target, 0, -1, pos.layer_id});
+            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+            // Snap back [D.1]
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) cv.get<StandardCursorComponent>(*cv.begin()).active = false;
+        } else if (key_id == 's' || key_id == 'S') {
+            m_dispatcher.trigger(MoveEvent{move_target, 0, 1, pos.layer_id});
+            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+            // Snap back [D.1]
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) cv.get<StandardCursorComponent>(*cv.begin()).active = false;
+        } else if (key_id == 'a' || key_id == 'A') {
+            m_dispatcher.trigger(MoveEvent{move_target, -1, 0, pos.layer_id});
+            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+            // Snap back [D.1]
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) cv.get<StandardCursorComponent>(*cv.begin()).active = false;
+        } else if (key_id == 'd' || key_id == 'D') {
+            m_dispatcher.trigger(MoveEvent{move_target, 1, 0, pos.layer_id});
+            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+            // Snap back [D.1]
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) cv.get<StandardCursorComponent>(*cv.begin()).active = false;
+        } 
+        
+        // --- Keyboard Cursor Movement [D.1] ---
+        else if (key_id == NCKEY_UP) {
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) {
+                auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
+                sc.y--; sc.mouse_driven = false;
+            }
+        } else if (key_id == NCKEY_DOWN) {
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) {
+                auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
+                sc.y++; sc.mouse_driven = false;
+            }
+        } else if (key_id == NCKEY_LEFT) {
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) {
+                auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
+                sc.x--; sc.mouse_driven = false;
+            }
+        } else if (key_id == NCKEY_RIGHT) {
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) {
+                auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
+                if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
+                sc.x++; sc.mouse_driven = false;
+            }
+        }
+        
+        // Interaction
+        else if (key_id == 'e' || key_id == 'E' || key_id == ' ' || key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
+            int tx = pos.x; int ty = pos.y; int tl = pos.layer_id;
+            auto cursor_view = m_registry.view<StandardCursorComponent>();
+            if (cursor_view.begin() != cursor_view.end()) {
+                auto& sc = cursor_view.get<StandardCursorComponent>(*cursor_view.begin());
+                if (sc.active) { tx = sc.x; ty = sc.y; tl = sc.layer_id; }
+            }
+
+            // [D.2] Determine range for Interaction (currently mostly Trade (1) or Speak (3) related things)
+            int dist = std::max(std::abs(tx - pos.x), std::abs(ty - pos.y));
+            int max_range = 1; // Default TRADE
+            if (m_registry.all_of<PlayerInteractionComponent>(player_entity)) {
+                auto mode = m_registry.get<PlayerInteractionComponent>(player_entity).current_mode;
+                if (mode == InteractionMode::SPEAK) max_range = 3;
+                else if (mode == InteractionMode::OBSERVE) max_range = 6;
+                else if (mode == InteractionMode::ACTION) max_range = 1;
+            }
+
+            if (dist > max_range) {
+                std::string mode_str = "interact";
+                if (m_registry.all_of<PlayerInteractionComponent>(player_entity)) {
+                    auto mode = m_registry.get<PlayerInteractionComponent>(player_entity).current_mode;
+                    if (mode == InteractionMode::SPEAK) mode_str = "speak";
+                    else if (mode == InteractionMode::TRADE) mode_str = "trade";
+                }
+                m_dispatcher.trigger(HUDNotificationEvent{"Too far to " + mode_str + ".", 1.5f, "#FF0000"});
+                continue;
+            }
+
+            m_dispatcher.trigger(InteractEvent{player_entity, tl, tx, ty});
+            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+        }
+
+        // Movement (Vertical)
+        else if (key_id == '>') {
+            m_dispatcher.trigger(PlayerLayerChangeEvent{1});
+            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) cv.get<StandardCursorComponent>(*cv.begin()).layer_id++;
+        } else if (key_id == '<') {
+            m_dispatcher.trigger(PlayerLayerChangeEvent{-1});
+            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+            auto cv = m_registry.view<StandardCursorComponent>();
+            if (cv.begin() != cv.end()) cv.get<StandardCursorComponent>(*cv.begin()).layer_id--;
+        }
+        
+        // UI Toggles
+        else if (key_id == '?') {
+            m_dispatcher.trigger(ToggleControlsHelpEvent{player_entity});
+        } else if (key_id == 'b' || key_id == 'B') {
+            m_dispatcher.trigger(InventoryToggleEvent{player_entity});
+        } else if (key_id == NCKEY_ESC) {
+            m_dispatcher.trigger<CloseInspectionWindowEvent>();
+            m_dispatcher.trigger<CloseDialogueWindowEvent>();
+        }
+
+        // Inspection
+        else if (key_id == 'i' || key_id == 'I' || key_id == 'c' || key_id == 'f' || key_id == 't' || key_id == 'n' || key_id == 'N') { 
+            int tx = pos.x; int ty = pos.y; int tl = pos.layer_id;
+            
+            // For 'n' (Intel Log), we always target the player
+            if (key_id == 'n' || key_id == 'N') {
+                m_dispatcher.trigger(InspectEvent{player_entity, pos.layer_id, pos.x, pos.y, InspectionMode::HISTORY});
+                continue;
+            }
+
+            auto cursor_view = m_registry.view<StandardCursorComponent>();
+            if (cursor_view.begin() != cursor_view.end()) {
+                auto& sc = cursor_view.get<StandardCursorComponent>(*cursor_view.begin());
+                if (sc.active) { tx = sc.x; ty = sc.y; tl = sc.layer_id; }
+            }
+
+            // [D.2] Enforce Observe Range (6)
+            int dist = std::max(std::abs(tx - pos.x), std::abs(ty - pos.y));
+            if (dist > 6) {
+                m_dispatcher.trigger(HUDNotificationEvent{"Too far to observe.", 1.5f, "#FF0000"});
+                continue;
+            }
+
+            InspectionMode mode = InspectionMode::SURFACE_SCAN;
+            if (key_id == 'I') mode = InspectionMode::BIOLOGICAL_AUDIT;
+            else if (key_id == 'c') mode = InspectionMode::COGNITIVE_PROFILE;
+            else if (key_id == 'f') mode = InspectionMode::FINANCIAL_FORENSICS;
+            else if (key_id == 't') mode = InspectionMode::STRUCTURAL_ANALYSIS;
+            
+            m_dispatcher.trigger(InspectEvent{player_entity, tl, tx, ty, mode});
+        }
+    }
+}
+
+} // namespace Systems
+} // namespace NeonOubliette

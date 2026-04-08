@@ -89,13 +89,14 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
             break;
     }
 
-    int block_w = (cell_size - (num_splits_x - 1)) / num_splits_x;
-    int block_h = (cell_size - (num_splits_y - 1)) / num_splits_y;
+    int road_w = ROAD_WIDTH_SECONDARY;
+    int block_w = (cell_size - (num_splits_x - 1) * road_w) / num_splits_x;
+    int block_h = (cell_size - (num_splits_y - 1) * road_w) / num_splits_y;
 
     for (int ix = 0; ix < num_splits_x; ++ix) {
         for (int iy = 0; iy < num_splits_y; ++iy) {
-            int bx = sx + ix * (block_w + 1);
-            int by = sy + iy * (block_h + 1);
+            int bx = sx + ix * (block_w + road_w);
+            int by = sy + iy * (block_h + road_w);
             
             // Create the block
             auto block_entity = create_block(bx, by, block_w, block_h, zone_entity);
@@ -105,27 +106,33 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
             
             // Create streets between blocks (secondary roads)
             if (ix < num_splits_x - 1) {
-                int street_x = bx + block_w;
-                for (int y = by; y < by + block_h; ++y) {
-                    auto street = m_registry.create();
-                    m_registry.emplace<PositionComponent>(street, street_x, y, 0);
-                    m_registry.emplace<InfrastructureArterialComponent>(street, ArterialType::ROAD_SECONDARY, 1.0f, true);
-                    auto& field = m_registry.emplace<ConduitFieldComponent>(street);
-                    field.radius = 1.0f;
-                    field.economic_multiplier = 1.05f;
-                    m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
+                int street_start_x = bx + block_w;
+                for (int dw = 0; dw < road_w; ++dw) {
+                    int street_x = street_start_x + dw;
+                    for (int y = by; y < by + block_h; ++y) {
+                        auto street = m_registry.create();
+                        m_registry.emplace<PositionComponent>(street, street_x, y, 0);
+                        m_registry.emplace<InfrastructureArterialComponent>(street, ArterialType::ROAD_SECONDARY, 1.0f, true);
+                        auto& field = m_registry.emplace<ConduitFieldComponent>(street);
+                        field.radius = 1.0f;
+                        field.economic_multiplier = 1.05f;
+                        m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
+                    }
                 }
             }
             if (iy < num_splits_y - 1) {
-                int street_y = by + block_h;
-                for (int x = bx; x < bx + block_w; ++x) {
-                    auto street = m_registry.create();
-                    m_registry.emplace<PositionComponent>(street, x, street_y, 0);
-                    m_registry.emplace<InfrastructureArterialComponent>(street, ArterialType::ROAD_SECONDARY, 1.0f, true);
-                    auto& field2 = m_registry.emplace<ConduitFieldComponent>(street);
-                    field2.radius = 1.0f;
-                    field2.economic_multiplier = 1.05f;
-                    m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
+                int street_start_y = by + block_h;
+                for (int dw = 0; dw < road_w; ++dw) {
+                    int street_y = street_start_y + dw;
+                    for (int x = bx; x < bx + block_w; ++x) {
+                        auto street = m_registry.create();
+                        m_registry.emplace<PositionComponent>(street, x, street_y, 0);
+                        m_registry.emplace<InfrastructureArterialComponent>(street, ArterialType::ROAD_SECONDARY, 1.0f, true);
+                        auto& field2 = m_registry.emplace<ConduitFieldComponent>(street);
+                        field2.radius = 1.0f;
+                        field2.economic_multiplier = 1.05f;
+                        m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
+                    }
                 }
             }
         }
@@ -168,28 +175,31 @@ void CityPlannerSystem::subdivide_block_into_lots(entt::entity block_entity, Zon
     int available_w = block.width + (lot_count_x > 1 ? (lot_count_x - 1) : 0);
     int lot_w = available_w / lot_count_x;
     
-    int alley_gap = back_to_back ? 1 : 0;
-    int available_h = block.height - alley_gap;
+    int alley_gap = back_to_back ? ROAD_WIDTH_ALLEY : 0;
+    int available_h = block.height - (lot_count_y > 1 ? alley_gap : 0);
     int lot_h = available_h / lot_count_y;
 
     // Create alleys for back-to-back blocks
     if (back_to_back && lot_count_y > 1) {
-        int alley_y = block.y + lot_h;
-        for (int x = block.x; x < block.x + block.width; ++x) {
-            auto alley = m_registry.create();
-            m_registry.emplace<PositionComponent>(alley, x, alley_y, 0);
-            m_registry.emplace<InfrastructureArterialComponent>(alley, ArterialType::ROAD_ALLEY, 0.5f, true);
-            auto& field = m_registry.emplace<ConduitFieldComponent>(alley);
-            field.radius = 0.5f;
-            field.crime_modifier = 0.2f;
-            m_registry.get<MacroZoneComponent>(block.zone_entity).arterial_entities.push_back(alley);
+        int alley_y_start = block.y + lot_h;
+        for (int dy = 0; dy < alley_gap; ++dy) {
+            int alley_y = alley_y_start + dy;
+            for (int x = block.x; x < block.x + block.width; ++x) {
+                auto alley = m_registry.create();
+                m_registry.emplace<PositionComponent>(alley, x, alley_y, 0);
+                m_registry.emplace<InfrastructureArterialComponent>(alley, ArterialType::ROAD_ALLEY, 0.5f, true);
+                auto& field = m_registry.emplace<ConduitFieldComponent>(alley);
+                field.radius = 0.5f;
+                field.crime_modifier = 0.2f;
+                m_registry.get<MacroZoneComponent>(block.zone_entity).arterial_entities.push_back(alley);
+            }
         }
     }
 
     for (int ix = 0; ix < lot_count_x; ++ix) {
         for (int iy = 0; iy < lot_count_y; ++iy) {
             int lx = block.x + ix * (lot_w - 1);
-            int ly = block.y + iy * lot_h + (iy > 0 ? alley_gap : 0);
+            int ly = block.y + iy * (lot_h + (iy > 0 ? alley_gap : 0));
             
             // Adjust last lot to fill the block exactly
             int lw = (ix == lot_count_x - 1) ? (block.x + block.width - lx) : lot_w;

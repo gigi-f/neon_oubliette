@@ -130,9 +130,9 @@ int main(int argc, char** argv) {
     // --- World Dimensions (single source of truth) ---
     constexpr int MACRO_COLS       = 40;
     constexpr int MACRO_ROWS       = 40;
-    constexpr int MACRO_CELL_SIZE  = 20;
-    constexpr int WORLD_WIDTH      = MACRO_COLS * MACRO_CELL_SIZE;  // 800
-    constexpr int WORLD_HEIGHT     = MACRO_ROWS * MACRO_CELL_SIZE;  // 800
+    constexpr int MACRO_CELL_SIZE  = 120; // 120m city block
+    constexpr int WORLD_WIDTH      = MACRO_COLS * MACRO_CELL_SIZE;  // 4800
+    constexpr int WORLD_HEIGHT     = MACRO_ROWS * MACRO_CELL_SIZE;  // 4800
 
     // --- World Config ---
     auto config_entity = macro_registry.create();
@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
     agent_spawn.spawnAgents(50, 0); // Local starting population
 
     // Welcome message
-    event_dispatcher.trigger(NeonOubliette::HUDNotificationEvent{"Neon Oubliette: Infrastructure Active (40x40)", 5.0f, "#00FFFF"});
+    event_dispatcher.trigger(NeonOubliette::HUDNotificationEvent{"Neon Oubliette: Infrastructure Active (Metric 1:1 Scale)", 5.0f, "#00FFFF"});
 
     // Move loading plane back to bottom so game planes are visible
     ncplane_move_bottom(stdplane);

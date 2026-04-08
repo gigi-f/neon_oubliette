@@ -58,13 +58,16 @@ void InfrastructureNetworkSystem::generate_skeleton(int width, int height) {
 }
 
 void InfrastructureNetworkSystem::carve_electric_grid(int width, int height) {
-    // High-voltage lines follow the primary road grid but with fewer nodes
-    for (int y = 20; y < height; y += 40) {
+    int cell_size = 20;
+    auto config_view = m_registry.view<WorldConfigComponent>();
+    if (!config_view.empty()) cell_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+
+    for (int y = cell_size; y < height; y += cell_size * 2) {
         for (int x = 0; x < width; ++x) {
             create_arterial_segment(x, y, ArterialType::ELECTRIC_GRID);
             
             // Substations at every other intersection
-            if (x % 80 == 0) {
+            if (x % (cell_size * 4) == 0) {
                 auto junction = m_registry.create();
                 m_registry.emplace<PositionComponent>(junction, x, y, 0);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
@@ -72,13 +75,12 @@ void InfrastructureNetworkSystem::carve_electric_grid(int width, int height) {
                 node.is_substation = true;
                 
                 // Mark chunk as a source if it's near the edge (simulating external supply)
-                if (x == 0 || y == 20) {
+                if (x == 0 || y == cell_size) {
                     // Find chunk entity for this position
                     auto chunk_view = m_registry.view<ChunkComponent>();
                     for (auto entity : chunk_view) {
                         const auto& chunk = chunk_view.get<ChunkComponent>(entity);
-                        // Assuming 40x40 chunks for now based on roadmap
-                        if (x / 40 == chunk.chunk_x && y / 40 == chunk.chunk_y) {
+                        if (x / (cell_size / 2) == chunk.chunk_x && y / (cell_size / 2) == chunk.chunk_y) {
                             if (!m_registry.all_of<PowerGridComponent>(entity)) {
                                 m_registry.emplace<PowerGridComponent>(entity, 1.0f, 1.0f, true);
                             } else {
@@ -95,14 +97,16 @@ void InfrastructureNetworkSystem::carve_electric_grid(int width, int height) {
 }
 
 void InfrastructureNetworkSystem::carve_sewers(int width, int height) {
-    // Sewers follow the main road grid but on Layer -1.
-    // They also branch out into industrial and slum zones more heavily.
-    for (int y = 20; y < height; y += 40) {
+    int cell_size = 20;
+    auto config_view = m_registry.view<WorldConfigComponent>();
+    if (!config_view.empty()) cell_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+
+    for (int y = cell_size; y < height; y += cell_size * 2) {
         for (int x = 0; x < width; ++x) {
             create_arterial_segment(x, y, ArterialType::SEWER, -1);
             
             // Access points (manholes) at intersections
-            if (x % 40 == 20) {
+            if (x % (cell_size * 2) == cell_size) {
                 auto junction = m_registry.create();
                 m_registry.emplace<PositionComponent>(junction, x, y, -1);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
@@ -111,7 +115,7 @@ void InfrastructureNetworkSystem::carve_sewers(int width, int height) {
             }
         }
     }
-    for (int x = 20; x < width; x += 40) {
+    for (int x = cell_size; x < width; x += cell_size * 2) {
         for (int y = 0; y < height; ++y) {
             create_arterial_segment(x, y, ArterialType::SEWER, -1);
         }
@@ -125,7 +129,7 @@ void InfrastructureNetworkSystem::carve_sewers(int width, int height) {
     
     for (int i = 0; i < 50; ++i) {
         int sx = disX(gen), sy = disY(gen);
-        int length = 20 + (disX(gen) % 30);
+        int length = cell_size + (disX(gen) % cell_size);
         bool horizontal = (disX(gen) % 2 == 0);
         
         for (int l = 0; l < length; ++l) {
@@ -146,12 +150,14 @@ void InfrastructureNetworkSystem::carve_river(int width, int height) {
     std::uniform_int_distribution<> disX(width / 4, width * 3 / 4);
     
     int current_x = disX(gen);
+    int half_r = RIVER_WIDTH / 2;
+
     for (int y = 0; y < height; ++y) {
-        if (y % 5 == 0) {
-            std::uniform_int_distribution<> drift(-1, 1);
-            current_x = std::clamp(current_x + drift(gen), 0, width - 1);
+        if (y % 10 == 0) {
+            std::uniform_int_distribution<> drift(-2, 2);
+            current_x = std::clamp(current_x + drift(gen), half_r, width - half_r);
         }
-        for (int dx = -1; dx <= 1; ++dx) {
+        for (int dx = -half_r; dx < half_r; ++dx) {
             int rx = std::clamp(current_x + dx, 0, width - 1);
             create_arterial_segment(rx, y, ArterialType::WATERWAY_RIVER);
         }
@@ -159,12 +165,29 @@ void InfrastructureNetworkSystem::carve_river(int width, int height) {
 }
 
 void InfrastructureNetworkSystem::carve_primary_roads(int width, int height) {
-    for (int y = 20; y < height; y += 40) {
+    int cell_size = 20;
+    auto config_view = m_registry.view<WorldConfigComponent>();
+    if (!config_view.empty()) cell_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+
+    int half_w = ROAD_WIDTH_PRIMARY / 2;
+
+    for (int y = cell_size; y < height; y += cell_size) {
         for (int x = 0; x < width; ++x) {
-            create_arterial_segment(x, y, ArterialType::ROAD_PRIMARY);
+            for (int dy = -half_w; dy < half_w; ++dy) {
+                create_arterial_segment(x, std::clamp(y + dy, 0, height - 1), ArterialType::ROAD_PRIMARY);
+            }
             
-            // Create bus stop nodes
-            if (x % 30 == 0) {
+            // Intersection of horizontal road with potential vertical roads
+            if (x % cell_size == 0) {
+                auto junction = m_registry.create();
+                m_registry.emplace<PositionComponent>(junction, x, y, 0);
+                auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
+                node.node_name = "Primary Intersection";
+                link_arterial_to_zone(junction, x, y);
+            }
+
+            // Create bus stop nodes every now and then
+            if (x % (cell_size * 2) == cell_size / 2) {
                 auto junction = m_registry.create();
                 m_registry.emplace<PositionComponent>(junction, x, y, 0);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
@@ -173,11 +196,13 @@ void InfrastructureNetworkSystem::carve_primary_roads(int width, int height) {
             }
         }
     }
-    for (int x = 20; x < width; x += 40) {
+    for (int x = cell_size; x < width; x += cell_size) {
         for (int y = 0; y < height; ++y) {
-            create_arterial_segment(x, y, ArterialType::ROAD_PRIMARY);
+            for (int dx = -half_w; dx < half_w; ++dx) {
+                create_arterial_segment(std::clamp(x + dx, 0, width - 1), y, ArterialType::ROAD_PRIMARY);
+            }
             
-            if (y % 30 == 0) {
+            if (y % (cell_size * 2) == 0) {
                 auto junction = m_registry.create();
                 m_registry.emplace<PositionComponent>(junction, x, y, 0);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
@@ -189,10 +214,18 @@ void InfrastructureNetworkSystem::carve_primary_roads(int width, int height) {
 }
 
 void InfrastructureNetworkSystem::carve_rail_line(int width, int height) {
-    for (int y = 0; y < height; y += 80) {
+    int cell_size = 20;
+    auto config_view = m_registry.view<WorldConfigComponent>();
+    if (!config_view.empty()) cell_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+
+    for (int y = 0; y < height; y += cell_size * 4) {
         for (int x = 0; x < width; ++x) {
-            create_arterial_segment(x, y, ArterialType::RAIL_ELEVATED, 5);
-            if (x % 40 == 0) {
+            // Rail is 3 tiles wide for a double track + maintenance walkway
+            for (int dy = -1; dy <= 1; ++dy) {
+                create_arterial_segment(x, std::clamp(y + dy, 0, height - 1), ArterialType::RAIL_ELEVATED, 5);
+            }
+
+            if (x % (cell_size * 2) == 0) {
                 auto junction = m_registry.create();
                 m_registry.emplace<PositionComponent>(junction, x, y, 5);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
@@ -206,12 +239,16 @@ void InfrastructureNetworkSystem::carve_rail_line(int width, int height) {
 
 void InfrastructureNetworkSystem::carve_secondary_roads() {
     auto zone_view = m_registry.view<MacroZoneComponent>();
+    int cell_size = 20;
+    auto config_view = m_registry.view<WorldConfigComponent>();
+    if (!config_view.empty()) cell_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+
     for (auto entity : zone_view) {
         const auto& zone = zone_view.get<MacroZoneComponent>(entity);
-        int sx = zone.macro_x * 20;
-        int sy = zone.macro_y * 20;
-        int ex = sx + 19;
-        int ey = sy + 19;
+        int sx = zone.macro_x * cell_size;
+        int sy = zone.macro_y * cell_size;
+        int ex = sx + cell_size - 1;
+        int ey = sy + cell_size - 1;
 
         switch (zone.type) {
             case ZoneType::CORPORATE:

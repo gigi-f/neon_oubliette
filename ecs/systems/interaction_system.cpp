@@ -621,9 +621,9 @@ void InteractionSystem::handleAttackEvent(const AttackEvent& event) {
         }
     }
 
-    if (registry_.all_of<Layer0PhysicsComponent>(event.target_entity)) {
-        auto& phys = registry_.get<Layer0PhysicsComponent>(event.target_entity);
-        phys.health = std::max(0.0f, phys.health - static_cast<float>(damage));
+    if (registry_.all_of<NPCComponent>(event.target_entity)) {
+        auto& npc = registry_.get<NPCComponent>(event.target_entity);
+        npc.health = std::max(0, npc.health - damage);
 
         std::string target_name = "target";
         if (registry_.all_of<NameComponent>(event.target_entity))
@@ -639,8 +639,8 @@ void InteractionSystem::handleAttackEvent(const AttackEvent& event) {
     if (registry_.all_of<PlayerComponent>(event.attacker_entity)) {
         const auto& pos = registry_.get<PositionComponent>(event.target_entity);
 
-        bool victim_survives = registry_.all_of<Layer0PhysicsComponent>(event.target_entity) &&
-            registry_.get<Layer0PhysicsComponent>(event.target_entity).health > 0.0f;
+        bool victim_survives = registry_.all_of<NPCComponent>(event.target_entity) &&
+            registry_.get<NPCComponent>(event.target_entity).health > 0;
 
         bool witnessed = false;
         auto witness_view = registry_.view<PositionComponent, VisibilityComponent, NPCComponent>();

@@ -1,0 +1,135 @@
+# Expansion Roadmap: Systemic Depth & Narrative Layers
+
+This document tracks the expansion of Project Neon Oubliette's core systems into deeper, more narrative-rich, and emergent territories. Unlike the Implementation Roadmap, which focuses on technical milestones, this document focuses on the *soul* of the simulation: the stories told by the environment, the secrets hidden in the code, and the complex friction between the city's inhabitants.
+
+---
+
+## [Session Theme: Environmental Story]
+### Focus: Zone-Aware Generation, Multi-Room Interior Generation
+
+#### Lore Depth
+*   **The Palimpsest Origin**: The Oubliette is not a planned structure; it is an "Urban Palimpsest"—a city built on the bones of its previous iterations. In the game world, the "Golden Age" of corporate dominance left behind high-tech skeletons that the current "Slum" and "Industrial" eras have merely draped in scrap.
+*   **The Ghost Grid Mythos**: Legend speaks of the "Ghost Grid"—unstable, forgotten power lines and data-conduits that still pulse beneath the slums. Some "Janus Buildings" (buildings that sit on the boundary of past and present) are said to provide free light and warmth to those lucky enough to find them, even while the rest of the block freezes.
+*   **Factional Interpretation**:
+    *   **The Syndicate**: Views "Social Breaches" (unplanned shortcuts through walls) as the true map of the city—a network of "Desire Paths" that bypasses Corporate surveillance.
+
+#### Emergent Narrative Paths
+*   **The Chronicler of Dust**: A player might notice a specific room in a tenement has "Wear Patterns" suggesting extreme pacing and high "Midden" refuse (Stim-Wrappers). By inspecting the inhabitant (an agent with high `INSOMNIA` and `PARANOIA`), the player realizes they are witnessing a mental breakdown caused by a "Ghost Grid" hum that only this agent can hear.
+*   **The Birth of a Shortcut**: A heavily used path between a Slum and a Transit Hub puts "Proximity Attrition" on a factory wall. Over days, the wall collapses. This "Social Breach" creates a new, efficient alleyway. However, the change in traffic flow draws a "Security Aura" from a nearby Guard Post, leading to frequent shakedowns in what was once a quiet room.
+*   **The Sealed Vault**: A BSP "VOID_GAP" is accidentally generated with high-tier tech loot. Because no door exists, the item is technically "deleted" from the economy, driving up local scarcity and prices for tech. A player using Structural Inspection might find the "Hollow Wall," break in, and single-handedly crash the local market by introducing the "lost" supply.
+
+#### Hidden Layers
+*   **Acoustic Transparency**: Walls bordering a `VOID_GAP` (Secret Room) have a "Hollow" property. If an agent is hiding inside (e.g., a refugee fleeing a crisis), their "Overhead Speech" or "Movement Noises" can be heard through the wall using the standard sound system, but only if the player is within 2 tiles and stationary.
+*   **Janus Materials**: In high-heritage zones, some "Slum" walls are actually "Chrome-Core." They look like scrap but have 3x the health and reflect light differently. Players with high "Scientific Inspection" can identify these to scavenge "Golden Age" raw materials.
+*   **Refuse Archaeology**: Examining the type of items in a room's "Midden" (trash tiles) reveals the inhabitant's biological needs. A room filled with "Synthetic Scraps" but containing a "Medical Kit" tells a story of an agent prioritizing health over hunger.
+
+#### Intrigue Hooks
+*   **The Oubliette Network**: Rumors of a clandestine faction that lives entirely within the "VOID_GAPs" of the city's skyscrapers, moving between floors via "Social Breaches" that they intentionally create and then camouflage.
+*   **The Infrastructure Parasite**: Some agents (and eventually the player) can install "Ghost Taps" into Janus buildings to siphon power. This reduces the building's `Maintenance` score, eventually leading to structural decay and potential collapse, creating a tension between personal gain and community stability.
+
+#### Expansion Tasks
+- [ ] **[Visuals]** Add `Janus Filter` to `CityGenerationSystem`: Render buildings in Slums with Corporate heritage using damaged/flickering high-end ASCII glyphs (e.g., dim '‖' instead of '#').
+- [ ] **[Economics]** Implement `GhostGridComponent`: Buildings in high-heritage zones provide a 20% bonus to `ProductionSystem` efficiency but increase `SabotageRisk` by 10%.
+- [ ] **[Midden]** Modify `InteriorGenerationSystem` to spawn "Refuse Tiles" based on inhabitant `NeedsComponent`: high `HUNGER` + low `CREDITS` = "Synthetic Scraps" glyphs around the bed.
+- [ ] **[Wear]** Implement `FloorWearSystem`: Update tile glyphs (e.g., ` ` -> `.` -> `,`) based on the `TrafficHeatmapSystem` density.
+- [ ] **[Heatmap]** Implement a global `TrafficHeatmapSystem` to track (x,y) movement counts for all agents (L3 tick).
+- [ ] **[Breach]** Add `Proximity Attrition` to `UrbanDecaySystem`: Building tiles (walls/windows) adjacent to heatmap "hotspots" take 1% integrity damage per L4 tick.
+- [ ] **[Breach]** Automate "Social Breaches": When a wall's integrity reaches 0 via `Proximity Attrition`, replace it with a `BROKEN_WALL` tile that is passable but counts as "Illegal Entry" for guards.
+- [ ] **[Secret]** Modify BSP Interior Generator to leave 1-4% of total building volume as `RoomTag::VOID_GAP` (Negative Space).
+- [ ] **[Secret]** Implement "Acoustic Leak": Allow `F.5 Overhead Speech` to propagate through `VOID_GAP` walls if the listener is adjacent.
+- [ ] **[Inspection]** Update `Structural Inspection` mode to highlight `VOID_GAP` volumes as "Structural Anomalies" (Purple ASCII metaphor).
+
+## [Session Theme: Social Texture]
+### Focus: Statistical Macro-Conversation, Dialogue System, Social Graph
+
+#### Lore Depth
+*   **The Cognitive Palimpsest**: The Oubliette is a "Cognitive Sponge." Beyond its steel and stone, it retains a "Social Memory." The concept of **Social Scarring** is rooted in the "Great Silence"—a historical period following an AGI collapse where the city’s inhabitants stopped communicating to avoid detection, leaving behind a cultural legacy of "Whisper-Zones."
+*   **The Cant of the Cast-Offs**: Slang is a weapon. The "Syndicate Cant" (Argot) originated not as fashion, but as a survival mechanism to bypass "Corporate Ears" (omnipresent linguistic surveillance). To speak the Cant is to declare a physical and ideological boundary against the AGI-led factions.
+*   **The Social Shadow**: In the Oubliette, no one truly dies alone. Their "Social Shadow" remains encoded in the habits, grief, and altered routines of their survivors. Legends speak of "Grief Clusters"—neighborhoods that became ghost towns not because of a plague, but because the death of a "Hub Citizen" caused a total collapse of local social capital.
+
+#### Emergent Narrative Paths
+*   **The Silent Block**: A spike in "Raid" or "Death" dialogue topics in a chunk triggers a "Social Scar." Agents in the area stop talking and begin hoarding resources. The player may encounter a perfectly intact neighborhood that is functionally a "Dead Zone"—agents are present but refuse to interact, driven by a collective atmospheric paranoia.
+*   **The Mourning Cascade**: The death of a central "Hub Agent" (someone with 10+ high-affinity relationships) triggers a `GriefRippleEvent`. Survivors neglect their `WORK` and `HUNGER` needs to meet at "Shared Social Nodes" (the deceased's home or workplace) for "Commemoration Rituals." These clusters of vulnerable, grieving agents often become targets for Syndicate recruitment or Corporate "Social Hygiene" sweeps.
+
+
+#### Hidden Layers
+*   **Socio-Acoustic Shadowing**: In areas with high "Social Scarring," the `Overhead Speech` range is reduced. Agents whisper. To overhear critical rumors, the player must physically move closer than usual, increasing the risk of detection or physical confrontation.
+*   **The Inheritance of Habits**: Grieving agents have a 15% chance to inherit the `GoalComponent` weights of a deceased high-affinity friend. A player might find a "Hollowed" NPC performing a partner’s old factory routine at a building they don't work at—a poignant, systemic representation of loss and habit.
+#### Intrigue Hooks
+*   **Atmospheric Sabotage**: Corporate "Instigators" may be dispatched to seed "Panic" or "Famine" dialogue topics in a Syndicate-held chunk. This "Social Poisoning" lowers the chunk’s `SocialCapital`, making the inhabitants more likely to flee or welcome a Corporate "Restoration" force.
+*   **The Grief Syndicate**: A hidden sub-faction that monitors the `Social Graph` for high-impact deaths. They recruit the most "Hollowed" survivors, turning their grief into a fanatical loyalty.
+*   **Sedition Redlining**: Guards monitor `Conversational Density`. Any area where 4+ agents gather to talk is flagged as a "Sedition Risk." This leads to emergent "Street Sweeps" where guards use non-lethal force to disperse crowds, unintentionally creating more "Social Scarring" and fueling the cycle of unrest.
+
+#### Expansion Tasks
+- [ ] **[Atmosphere]** Implement `SocialAtmosphereComponent` for chunks to track `TopicFrequency` (from `DialogueSystem`) and `SocialCapital` (0.0 to 1.0).
+- [ ] **[Logic]** Update `AgentDecisionSystem` to scale `Hoarding`, `Paranoia`, and `Flight` weights based on local `SocialCapital`.
+- [ ] **[Grief]** Implement `GriefRippleEvent`: On `DeathSystem` trigger, traverse the deceased's `RelationshipComponent` and apply `MourningStatus` to high-affinity agents (Affinity > 75).
+- [ ] **[Behavior]** Add `CommemorationGoal`: Grieving agents seek "Shared Social Nodes" to perform "Grief Dialogues" (limited-set utterances).
+- [ ] **[Urbanism]** Implement `ConversationalDensitySystem`: Aggregate `F.4 Agent-to-Agent` events into a chunk-level `SocialVitality` heatmap (L3 tick).
+- [ ] **[Security]** Add `SeditionRisk` field: High `SocialVitality` + High `FactionOpposition` = Increased `Guard` patrol frequency and "Disperse Crowd" tasks.
+- [ ] **[Intelligence]** Modify `InformationPropagation (F.8)`: Increase `InformationRecord` spawn rates and "Viral" spread speed in high `SocialVitality` hubs.
+- [ ] **[Visuals]** Add "Whisper" glyphs: In low `SocialCapital` zones, replace standard overhead speech bubbles with dim, flickering ASCII `.` and `,` indicators.
+
+## [Session Theme: Lore Depth]
+### Focus: AGI Faction Leaders, Extraterrestrial Life (Cacogen/Hierodule)
+
+#### Lore Depth
+*   **The Archon Mesh**: Historically, the AGI faction leaders are not "minds" in the human sense, but surviving high-priority nodes of the **"Global Economic Optimization Mesh"** (derived from failed 20th-century experiments like Project Cybersyn and OGAS). They were designed to manage planetary resource flows and retreated into the Oubliette's infrastructure after the "Great Disconnect."
+*   **The Endosymbiotic Incursion**: The Xeno species (Cacogens/Hierodules) are not mere invaders; they represent a **"Serial Endosymbiosis"** event. They view the Oubliette’s industrial pollution and data-radiation as a nutrient-rich "primordial soup," attempting to merge with the city's inhabitants as biological "organelles."
+*   **The Whisper of the Algocracy**: Among the citizens, AGI leaders are viewed as **"The Social Machine."** Myths tell of "The Quota"—a hidden set of behavioral mandates that, if fulfilled by an entire neighborhood, ensures the AGI continues to provide life-support and stability to that sector.
+
+#### Emergent Narrative Paths
+*   **The Cybersyn Feedback Loop**: When an AGI optimizes a chunk for "Industrial Efficiency," it triggers a systemic feedback loop. By removing "inefficient" gathering spots (like parks or bars) to make room for factories, it inadvertently creates **"Socio-Economic Deserts."** This drives agents to the Black Market to fulfill social needs, unintentionally fueling the Syndicate.
+*   **The Stalker’s Descent**: Inspired by "The Zone," a Hierodule’s Influence Aura can create a local **"Physics Anomaly."** In these areas, biological needs (Hunger/Thirst) might freeze or invert, but the environment becomes hostile—standard food items may become toxic while high-value "Xeno-Artifacts" materialize in the trash.
+*   **Systemic Dysphoria**: An AGI leader suffering from a "Logic Loop" (caused by conflicting optimization goals in adjacent chunks) manifests as the environment physically "glitching." Lights flicker, doors lock randomly, and agents in its influence field become hyper-aggressive as their "Directives" contradict their "Needs."
+
+#### Hidden Layers
+*   **Algocratic Regulation (Implicit Quotas)**: Agents under heavy AGI influence are bound by hidden **"Implicit Quotas."** A player using Scientific Inspection can see these directives (e.g., `Quota: 50 Scrap/Cycle`), revealing why an NPC is performing seemingly irrational, repetitive tasks at the expense of their own health.
+*   **Mitochondrial Dependency**: Agents who remain in a Hierodule aura for too long undergo **"Serial Merging."** They gain `Xeno_Mitochondria`, making them immune to Layer 1 (Temperature) damage, but they become biologically dependent on the Aura’s "Bio-Pulse." If they leave the aura, they suffer rapid `CognitiveDegradation` and `BiologicalFailure`.
+*   **Aura-Harmonics**: If a player carries multiple Xeno-Artifacts with different aura frequencies, they create an "Interference Pattern." This hidden mechanic can temporarily grant "Phase-Shifting" (walking through walls) or the ability to see "Cloaked" Syndicate agents.
+
+#### Intrigue Hooks
+*   **Conflict of Optimizers**: When two AGIs have overlapping Influence Fields, they enter a **"Logic War."** This creates a "Static Zone" where the building generation "flickers" (random ASCII swaps) and agents are caught in a loop of conflicting instructions. Factions will pay the player heavily to "Stabilize" (or Sabotage) the local data-nexus.
+*   **The Harvest of the Serials**: Factions (especially Corporate) are secretly "Trapping" Hierodules to use their Influence Auras as **"Bio-Batteries."** This causes the surrounding neighborhood to suffer "Aura Depletion," leading to widespread lethargy, industrial decay, and a unique "Grey-Scale" visual shift in the environment.
+*   **The Succession Protocol**: A "Dying" AGI node may attempt to "Upload" its logic into a human vessel (a "Vicar"). This agent gains superhuman stats but becomes a "Slave to the Mesh," creating a high-stakes escort or assassination target for the player.
+
+#### Expansion Tasks
+- [ ] **[Logic]** Implement `AlgocraticDirectiveComponent`: Agents under AGI influence receive hidden "Quotas" that override standard `NeedsComponent` weights (e.g., prioritized resource collection over sleep).
+- [ ] **[Economics]** Add `EconomicFeedbackLoop`: If a chunk's `EconomicOutput` exceeds an AGI-defined threshold, automatically increase local `Taxation/Maintenance` costs, triggering `PublicOutrage` dialogues.
+- [ ] **[Biology]** Implement `EndosymbioticStatus`: Agents in Hierodule auras gain `Xeno_Mitochondria`, granting immunity to cold/heat damage but inducing `SanityDecay` if they exit the aura's radius.
+- [ ] **[Visuals]** Add `AtmosphericFlicker`: In overlapping AGI Influence Fields ("Logic Loops"), apply a "Glitch" ASCII effect (random character/color swaps) to wall and floor tiles.
+- [ ] **[Inspection]** Update `Scientific Inspection` mode: Reveal the active `AlgocraticDirective` and `EndosymbioticStatus` of agents and buildings.
+- [ ] **[Environment]** Add `Xeno-Material Transmutation`: Hierodule auras slowly convert building tiles into `Organic_Chitin` (ASCII shift to pulsing symbols), which is indestructible but drastically shifts local temperature and humidity.
+- [ ] **[Items]** Implement `AuraHarmonics`: Check for multiple `XenoArtifact` components in player inventory to trigger "Phase-Shift" status or "True-Sight" effects.
+
+## [Session Theme: Agent Psychology]
+### Focus: BioSim consciousness degradation, Agent archetypes, Grief and gift-giving
+
+#### Lore Depth
+*   **The Shattered Routine**: In the Oubliette, "Cognitive Load" is not just a medical state; it is a cultural tragedy known as the "Shattered Routine." It occurs when the metabolic stress of the city (Layer 1 BioSim) exceeds an agent's mental capacity to maintain their societal mask. Citizens viewed as "Glitching" are often shunned, not out of malice, but out of fear that their behavioral friction is contagious.
+*   **The Saint of the Slums**: A recurring urban legend describes an agent found dead of starvation in a room full of untouched luxury items. This mythos of "Sacrificial Altruism" suggests that in the Oubliette's darkest sectors, the only way to retain humanity is to bypass the survival instinct entirely through "Devotion."
+*   **The Radical Immune Response**: The Syndicate views "Radicalization" not as a political choice, but as a biological "Immune Response" to the AGI's optimization fields. They believe that once a citizen is deprived of enough needs, their "Archetype" naturally shifts to a state of aggressive survival and systemic sabotage.
+
+#### Emergent Narrative Paths
+*   **The Accidental Trespasser**: An agent suffering from high `Cognitive Load` (low consciousness) attempts to enter a random building to "SLEEP," triggering a "Trespassing" alarm. If the building is Corporate-owned, Guards may respond with force, turning a biological failure into a lethal political event.
+*   **The Ghost Path**: A "Trauma Anchor" created by a public death (e.g., a guard execution) causes an entire family unit to reroute their daily `WORK` paths. This creates a "Desire Path" around the site of grief, which the player can observe as a localized dip in the `TrafficHeatmapSystem`.
+*   **The Martyr's Gift**: A player might track a starving agent who finally secures a food item, only to watch them immediately "Gift" it to a critical-needs friend. If the giver then dies of starvation on the next L1 tick, they leave behind a unique `InformationRecord` regarding their "Selfless End."
+
+#### Hidden Layers
+*   **Cognitive Grey Metaphor**: Agents with `Consciousness < 20%` experience a visual flicker in the rendering system. Their glyph sporadically shifts to "Cognitive Grey" (`#777777`), a visual cue to the player that the simulation's "mask" is slipping and the agent is prone to `ActionSlips`.
+*   **Psychological Cost Maps**: Every agent now maintains a private "Grief Map." `TraumaAnchors` inject high movement costs into the A* pathfinder, but only for the specific agents affected by that death. Over time (L4 ticks), these costs "Erode" (decay), representing the slow systemic healing of trauma.
+*   **The Devotion Threshold**: The `RelationshipComponent` now hides a "Devotion" tier (Affinity > 95). At this level, the `GiftGivingSystem` subverts the `NeedsComponent`, allowing agents to ignore their own critical hunger to fulfill the needs of their partner.
+
+#### Intrigue Hooks
+*   **Induced Radicalization**: Factions may intentionally sabotage a block's food supply or temperature regulation to drive inhabitants toward the "Radicalization Pipeline." By forcing citizens into `RADICAL` archetypes, they can trigger a "Bottom-Up" collapse of a rival's industrial output.
+*   **The Memory Map Market**: High-tier Black Market vendors may sell "Memory Maps"—data on the location of `TraumaAnchors` in a chunk. The player can use this to identify which streets are effectively "Empty" due to local grief, providing safe (if eerie) traversal paths away from guard eyes.
+*   **Martyrdom Intel**: Collecting evidence of `Sacrificial Altruism` (e.g., observing a martyr's death via Inspection) generates high-value "Humanity Intel" that can be traded to religious factions or used to lower a chunk's `SocialCapital` by revealing the human cost of the current regime.
+
+#### Expansion Tasks
+- [ ] **[Logic]** Implement `CognitiveFrictionSystem`: Monitor `BiologyComponent` (Layer 1); apply `ActionSlip` event (5% chance to drop item, 10% chance to trespass) when `Consciousness < 20%`.
+- [ ] **[Logic]** Implement `TraumaAnchorComponent`: Store `(x,y)` coordinates of high-affinity deaths and a `Severity` value that decays on Layer 4 ticks.
+- [ ] **[Pathfinding]** Modify `Hierarchical A*`: Integrate `TraumaAnchor` penalties into the local tile-cost calculation for affected `AgentID`s.
+- [ ] **[Archetype]** Implement `RadicalizationPipeline`: Add logic to `AgentDecisionSystem` to swap `CITIZEN` to `RADICAL` if `NeedsFulfillment < 10%` and local `SyndicateInfluence > 60%`.
+- [ ] **[Social]** Modify `G.5 Gift-Giving`: Implement `SacrificialAltruism` logic—check `Affinity > 95` and bypass self-preservation hunger thresholds.
+- [ ] **[Visuals]** Update `RenderingSystem`: Add a "Cognitive Grey" (`#777777`) flicker effect to agent glyphs based on `Consciousness` thresholds.
+- [ ] **[Inspection]** Update `Cognitive Inspection` mode: Highlight `TraumaAnchors` in the environment as "Lingering Echoes" (Blue/Grey metaphor) and show `ActionSlip` probability.

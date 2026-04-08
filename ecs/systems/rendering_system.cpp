@@ -203,23 +203,20 @@ void RenderingSystem::initialize() {
             ncplane_move_below(context_menu_plane_, world_plane_);
         }
 
-        // Debug Overlay Plane — disabled for now (stderr logging still active)
-        // To re-enable: uncomment this block and the rendering block below
-        /*
+        // Debug Bar — fixed 1-row strip at the very bottom of the terminal
         nopts.name = "DebugOverlay";
-        nopts.rows = 12;
-        nopts.cols = 44;
-        nopts.y = term_y - nopts.rows;
+        nopts.rows = 1;
+        nopts.cols = term_x;
+        nopts.y = (int)term_y - 1;
         nopts.x = 0;
         debug_overlay_plane_ = ncplane_create(stdp, &nopts);
         if (debug_overlay_plane_) {
             uint64_t dbg_channels = 0;
             ncchannels_set_bg_rgb(&dbg_channels, 0x0A0A1A);
-            ncchannels_set_fg_rgb(&dbg_channels, 0x00FF00);
+            ncchannels_set_fg_rgb(&dbg_channels, 0x00CC44);
             ncplane_set_base(debug_overlay_plane_, " ", 0, dbg_channels);
             ncplane_move_top(debug_overlay_plane_);
         }
-        */
 
         notcurses_cursor_disable(nc_context_);
         // Mouse controls removed
@@ -1684,8 +1681,29 @@ void RenderingSystem::update(double delta_time) {
 
     ncplane_move_top(hud_plane_);
 
-    // --- Debug Overlay --- (disabled, stderr logging still active)
-    // Uncomment to re-enable in-game debug panel
+    // --- Debug Bar (1 row, bottom of screen) ---
+    if (debug_overlay_plane_) {
+        ncplane_erase(debug_overlay_plane_);
+        ncplane_move_top(debug_overlay_plane_);
+
+        auto dbg_view = registry_.view<DebugOverlayComponent>();
+        if (dbg_view.begin() != dbg_view.end()) {
+            const auto& dbg = dbg_view.get<DebugOverlayComponent>(*dbg_view.begin());
+
+            // Build the status string: Phase | System | Turn | Timings
+            char buf[256];
+            const std::string& sys = dbg.current_system.empty() ? dbg.current_phase : dbg.current_system;
+            snprintf(buf, sizeof(buf),
+                " T:%-6llu  %-14s  Macro:%5.1fms  Micro:%5.1fms  Out:%5.1fms  Total:%6.1fms",
+                (unsigned long long)dbg.turn,
+                sys.c_str(),
+                dbg.ms_macro, dbg.ms_micro, dbg.ms_output, dbg.ms_total_tick);
+
+            ncplane_set_fg_rgb(debug_overlay_plane_, 0x00CC44);
+            ncplane_set_bg_rgb(debug_overlay_plane_, 0x0A0A1A);
+            ncplane_putstr_yx(debug_overlay_plane_, 0, 0, buf);
+        }
+    }
 
     notcurses_render(nc_context_);
 }

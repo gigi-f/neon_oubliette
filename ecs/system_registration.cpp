@@ -76,70 +76,70 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
                           entt::dispatcher& event_dispatcher) {
     // --- Input Phase ---
     scheduler.add_system(SystemScheduler::Phase::Input,
-                         std::make_unique<Systems::InputSystem>(registry, nc_context, event_dispatcher));
+                         std::make_unique<Systems::InputSystem>(registry, nc_context, event_dispatcher), "Input");
 
     // --- Macro Phase ---
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<MacroNavigationSystem>(registry, event_dispatcher));
+                         std::make_unique<MacroNavigationSystem>(registry, event_dispatcher), "MacroNav");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<PathfindingSystem>(registry, event_dispatcher));
+                         std::make_unique<PathfindingSystem>(registry, event_dispatcher), "Pathfinding");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<AgentDecisionSystem>(registry, event_dispatcher));
+                         std::make_unique<AgentDecisionSystem>(registry, event_dispatcher), "AgentDecision");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<AgentActionSystem>(registry, event_dispatcher));
+                         std::make_unique<AgentActionSystem>(registry, event_dispatcher), "AgentAction");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<GuardResponseSystem>(registry, event_dispatcher));
+                         std::make_unique<GuardResponseSystem>(registry, event_dispatcher), "GuardResponse");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<AgentSpawnSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<MovementSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<VerticalSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BuildingGenerationSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<PopulationSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<VisibilitySystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::SoundSystem>(registry, event_dispatcher));
+                         std::make_unique<AgentSpawnSystem>(registry, event_dispatcher), "AgentSpawn");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<MovementSystem>(registry, event_dispatcher), "Movement");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<VerticalSystem>(registry, event_dispatcher), "Vertical");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BuildingGenerationSystem>(registry, event_dispatcher), "BuildingGen");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<PopulationSystem>(registry, event_dispatcher), "Population");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<VisibilitySystem>(registry, event_dispatcher), "Visibility");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::SoundSystem>(registry, event_dispatcher), "Sound");
 
     // Interaction/Inspection systems
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<Systems::InteractionSystem>(registry, nc_context, event_dispatcher));
+                         std::make_unique<Systems::InteractionSystem>(registry, nc_context, event_dispatcher), "Interaction");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<Systems::InspectionSystem>(registry, nc_context, event_dispatcher));
+                         std::make_unique<Systems::InspectionSystem>(registry, nc_context, event_dispatcher), "Inspection");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<Systems::DialogueSystem>(registry, nc_context, event_dispatcher));
+                         std::make_unique<Systems::DialogueSystem>(registry, nc_context, event_dispatcher), "Dialogue");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<Systems::GodModeSystem>(registry, event_dispatcher));
+                         std::make_unique<Systems::GodModeSystem>(registry, event_dispatcher), "GodMode");
 
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ActivitySystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BarterSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ActivitySystem>(registry, event_dispatcher), "Activity");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BarterSystem>(registry, event_dispatcher), "Barter");
 
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<CraftingSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<CraftingSystem>(registry, event_dispatcher), "Crafting");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<ConsumptionSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ContainerSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ItemUsageSystem>(registry, event_dispatcher));
+                         std::make_unique<ConsumptionSystem>(registry, event_dispatcher), "Consumption");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ContainerSystem>(registry, event_dispatcher), "Container");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ItemUsageSystem>(registry, event_dispatcher), "ItemUsage");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<SerializationSystem>(registry, event_dispatcher));
+                         std::make_unique<SerializationSystem>(registry, event_dispatcher), "Serialization");
     scheduler.add_system(SystemScheduler::Phase::Macro,
-                         std::make_unique<TurnManagerSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<LoggingSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::CrisisSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::CrisisDashboardSystem>(registry, event_dispatcher));
+                         std::make_unique<TurnManagerSystem>(registry, event_dispatcher), "TurnManager");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<LoggingSystem>(registry, event_dispatcher), "Logging");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::CrisisSystem>(registry, event_dispatcher), "Crisis");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::CrisisDashboardSystem>(registry, event_dispatcher), "CrisisDashboard");
     
     // Generation, Zoning & Streaming
     auto city_gen = std::make_unique<CityGenerationSystem>(registry, event_dispatcher);
     CityGenerationSystem& city_gen_ref = *city_gen;
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::move(city_gen));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ZoningSolverSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<InfrastructureNetworkSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<TransitSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ChunkStreamingSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::move(city_gen), "CityGen");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ZoningSolverSystem>(registry, event_dispatcher), "ZoningSolver");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<InfrastructureNetworkSystem>(registry, event_dispatcher), "InfraNetwork");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<TransitSystem>(registry, event_dispatcher), "Transit");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ChunkStreamingSystem>(registry, event_dispatcher), "ChunkStream");
 
     // [K.3] Demolition & Rebuilding
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<DemolitionSystem>(registry, event_dispatcher));
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<RebuildingSystem>(registry, event_dispatcher, city_gen_ref));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<DemolitionSystem>(registry, event_dispatcher), "Demolition");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<RebuildingSystem>(registry, event_dispatcher, city_gen_ref), "Rebuilding");
 
     // --- Output Phase ---
     scheduler.add_system(SystemScheduler::Phase::Output,
-                         std::make_unique<Systems::RenderingSystem>(registry, nc_context, event_dispatcher));
+                         std::make_unique<Systems::RenderingSystem>(registry, nc_context, event_dispatcher), "Rendering");
 }
 
 void register_simulation_systems(SimulationCoordinator& coordinator, entt::registry& registry,

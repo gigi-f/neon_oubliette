@@ -388,3 +388,7 @@ not for driving it.
     - [x] Pressure Mechanics: "Push your luck" leverage system with success rates tied to reputation, personality, and biological state (desperation/frustration).
     - [x] Visual Tension Layers: Barter UI with patience metaphors (☺/⚄/⚠), greed meters, and contextual NPC feedback.
     - [x] Social Feedback: Individual affinity shifts in `RelationshipComponent` based on trade success, insults, or failed pressure.
+
+#### Misc
+- [ ] Size/metric system: decide on the metric size of one world tile (ie 1 tile = 1 meter). Buildings, environment objects, etc. should be built to the real-world-equivalent scale.
+- [ ] Buildings on the overworld should be a 1:1 ratio with their interior counterparts. Research the real world ratios of human to skyscraper.

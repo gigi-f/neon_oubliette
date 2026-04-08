@@ -4,6 +4,7 @@
 #include <entt/entt.hpp>
 #include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace NeonOubliette {
@@ -52,7 +53,7 @@ public:
      * @param phase The phase during which the system should be updated.
      * @param system A unique pointer to the system to be added.
      */
-    void add_system(Phase phase, std::unique_ptr<ISystem> system);
+    void add_system(Phase phase, std::unique_ptr<ISystem> system, std::string name = "");
 
     /**
      * @brief Initializes all registered systems.
@@ -70,7 +71,11 @@ public:
     void run_phase(Phase phase, entt::registry& registry, entt::dispatcher& event_dispatcher, double delta_time);
 
 private:
-    std::map<Phase, std::vector<std::unique_ptr<ISystem>>> systems_;
+    struct NamedSystem {
+        std::string name;
+        std::unique_ptr<ISystem> system;
+    };
+    std::map<Phase, std::vector<NamedSystem>> systems_;
     entt::registry& registry_;
     entt::dispatcher& event_dispatcher_;
 
