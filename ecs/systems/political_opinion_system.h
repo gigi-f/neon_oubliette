@@ -52,7 +52,7 @@ public:
                 }
                 
                 if (count > 0) {
-                    opinion.faction_approval[faction_entity] = total_loyalty / static_cast<float>(count);
+                    opinion.faction_approval[faction.faction_id] = total_loyalty / static_cast<float>(count);
                 }
             }
         }

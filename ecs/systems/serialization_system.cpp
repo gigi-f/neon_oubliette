@@ -10,6 +10,7 @@
 #include "../components/infrastructure_components.h"
 #include "../components/transit_components.h"
 #include "../components/lod_components.h"
+#include "../components/religion_components.h"
 
 namespace NeonOubliette {
 
@@ -95,6 +96,9 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::HUDComponent>(archive)
         .get<NeonOubliette::GoalComponent>(archive)
         .get<NeonOubliette::AgentTaskComponent>(archive)
+        .get<NeonOubliette::ScheduleComponent>(archive)
+        .get<NeonOubliette::PersonalityComponent>(archive)
+        .get<NeonOubliette::InformationComponent>(archive)
         .get<NeonOubliette::ContainerComponent>(archive)
         .get<NeonOubliette::CurrentPathComponent>(archive)
         .get<NeonOubliette::BuildingEntranceComponent>(archive)
@@ -107,6 +111,7 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::MacroZoneComponent>(archive)
         .get<NeonOubliette::PropertyComponent>(archive)
         .get<NeonOubliette::HeatIslandComponent>(archive)
+        .get<NeonOubliette::BuildingHealthComponent>(archive)
         .get<NeonOubliette::WeatherComponent>(archive)
         .get<NeonOubliette::PatrolComponent>(archive)
         .get<NeonOubliette::InfrastructureArterialComponent>(archive)
@@ -118,6 +123,13 @@ void SerializationSystem::save_game(const std::string& filename) {
         .get<NeonOubliette::TransitVehicleComponent>(archive)
         .get<NeonOubliette::TransitRouteComponent>(archive)
         .get<NeonOubliette::TransitStationComponent>(archive)
+        .get<NeonOubliette::ConversationComponent>(archive)
+        .get<NeonOubliette::ReligiosityComponent>(archive)
+        .get<NeonOubliette::WorshipPlaceComponent>(archive)
+        .get<NeonOubliette::FactionInfluenceFieldComponent>(archive)
+        .get<NeonOubliette::ReligionInfluenceFieldComponent>(archive)
+        .get<NeonOubliette::PirateNodeComponent>(archive)
+        .get<NeonOubliette::DataSlabComponent>(archive)
         .get<NeonOubliette::ChunkComponent>(archive);
 }
 
@@ -200,6 +212,9 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::HUDComponent>(archive)
         .get<NeonOubliette::GoalComponent>(archive)
         .get<NeonOubliette::AgentTaskComponent>(archive)
+        .get<NeonOubliette::ScheduleComponent>(archive)
+        .get<NeonOubliette::PersonalityComponent>(archive)
+        .get<NeonOubliette::InformationComponent>(archive)
         .get<NeonOubliette::ContainerComponent>(archive)
         .get<NeonOubliette::CurrentPathComponent>(archive)
         .get<NeonOubliette::BuildingEntranceComponent>(archive)
@@ -212,6 +227,7 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::MacroZoneComponent>(archive)
         .get<NeonOubliette::PropertyComponent>(archive)
         .get<NeonOubliette::HeatIslandComponent>(archive)
+        .get<NeonOubliette::BuildingHealthComponent>(archive)
         .get<NeonOubliette::WeatherComponent>(archive)
         .get<NeonOubliette::PatrolComponent>(archive)
         .get<NeonOubliette::InfrastructureArterialComponent>(archive)
@@ -223,6 +239,13 @@ void SerializationSystem::load_game(const std::string& filename) {
         .get<NeonOubliette::TransitVehicleComponent>(archive)
         .get<NeonOubliette::TransitRouteComponent>(archive)
         .get<NeonOubliette::TransitStationComponent>(archive)
+        .get<NeonOubliette::ConversationComponent>(archive)
+        .get<NeonOubliette::ReligiosityComponent>(archive)
+        .get<NeonOubliette::WorshipPlaceComponent>(archive)
+        .get<NeonOubliette::FactionInfluenceFieldComponent>(archive)
+        .get<NeonOubliette::ReligionInfluenceFieldComponent>(archive)
+        .get<NeonOubliette::PirateNodeComponent>(archive)
+        .get<NeonOubliette::DataSlabComponent>(archive)
         .get<NeonOubliette::ChunkComponent>(archive)
         .orphans();
 }

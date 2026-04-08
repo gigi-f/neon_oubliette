@@ -41,9 +41,11 @@ private:
     void carve_river(int width, int height);
     void carve_primary_roads(int width, int height);
     void carve_rail_line(int width, int height);
+    void carve_electric_grid(int width, int height);
+    void carve_sewers(int width, int height);
     void carve_secondary_roads();
 
-    void create_arterial_segment(int x, int y, ArterialType type);
+    void create_arterial_segment(int x, int y, ArterialType type, int layer_id = 0);
 
     void subdivide_block_corporate(int start_x, int start_y, int end_x, int end_y);
     void subdivide_block_slum(int start_x, int start_y, int end_x, int end_y);

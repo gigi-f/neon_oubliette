@@ -370,6 +370,19 @@ struct FactionInfluenceFieldComponent {
     }
 };
 
+/**
+ * @brief [J.5] Chunk-level Religion Influence Field.
+ */
+struct ReligionInfluenceFieldComponent {
+    // religion_id -> influence value (0.0 to 100.0)
+    std::map<std::string, float> influence;
+    
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("influence", influence));
+    }
+};
+
 } // namespace NeonOubliette
 
 #endif // NEON_OUBLIETTE_ECS_COMPONENTS_SIMULATION_LAYERS_H

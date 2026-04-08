@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include "../components/components.h"
+#include "../components/simulation_layers.h"
 #include "../event_declarations.h"
 
 namespace NeonOubliette {
@@ -58,6 +59,60 @@ void ItemUsageSystem::handleUseItemEvent(const UseItemEvent& event) {
         } else if (usable.effect_id == "repair_tool") {
             feedback = "Tool active. No repairable target detected.";
             used = true; 
+        } else if (usable.effect_id == "propaganda_poster") {
+             // Find building at user position
+             if (registry.all_of<PositionComponent>(event.user_entity)) {
+                 auto& pos = registry.get<PositionComponent>(event.user_entity);
+                 auto building_view = registry.view<BuildingComponent, PositionComponent>();
+                 entt::entity target_building = entt::null;
+                 for (auto b_ent : building_view) {
+                     auto& b_pos = building_view.get<PositionComponent>(b_ent);
+                     // Buildings can be larger than 1x1, but let's check exact tile for now
+                     if (b_pos.x == pos.x && b_pos.y == pos.y && b_pos.layer_id == pos.layer_id) {
+                         target_building = b_ent; break;
+                     }
+                 }
+
+                 if (target_building != entt::null) {
+                     // Get player faction
+                     std::string faction_id = "NEUTRAL";
+                     if (auto* pol = registry.try_get<Layer4PoliticalComponent>(event.user_entity)) {
+                         faction_id = pol->primary_faction;
+                     }
+
+                     // Apply Graffiti/Propaganda
+                     auto& graffiti = registry.get_or_emplace<GraffitiComponent>(target_building);
+                     graffiti.type = GraffitiType::TAG;
+                     graffiti.glyph = '$'; // Symbol of influence
+                     graffiti.creator_faction = event.user_entity; // Set as player for tracking
+                     
+                     // [P.2] Reputation boost with the faction you are promoting
+                     dispatcher.enqueue<AgentFactionReputationEvent>({
+                         event.user_entity,
+                         faction_id,
+                         10.0f // High reward for risk
+                     });
+
+                     // [I.5] This is a crime (Vandalism)
+                     dispatcher.enqueue<CrimeReportEvent>({
+                        event.user_entity,
+                        target_building,
+                        pos.x, pos.y, pos.layer_id,
+                        "VANDALISM",
+                        0
+                     });
+
+                     feedback = "Poster plastered onto the wall. Your faction's influence grows.";
+                     used = true;
+                     
+                     // Consume the poster
+                     auto& inv = registry.get<InventoryComponent>(event.user_entity);
+                     inv.contained_items.erase(std::remove(inv.contained_items.begin(), inv.contained_items.end(), event.item_in_inventory_entity), inv.contained_items.end());
+                     registry.destroy(event.item_in_inventory_entity);
+                 } else {
+                     feedback = "Must be next to a building to plaster a poster.";
+                 }
+             }
         } else {
             feedback = "Used " + item_name + " with no effect.";
             used = true;

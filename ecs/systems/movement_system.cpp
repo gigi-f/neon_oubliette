@@ -31,6 +31,16 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
             return;
         }
 
+        // Block movement while speaking
+        if (m_registry.all_of<SpeechComponent>(event.entity)) return;
+
+        // Block movement if this entity is the active dialogue target of the player
+        auto dlg_view = m_registry.view<DialogueStateComponent>();
+        if (!dlg_view.empty()) {
+            const auto& dlg = dlg_view.get<DialogueStateComponent>(dlg_view.front());
+            if (dlg.is_open && dlg.target_agent == event.entity) return;
+        }
+
         auto& pos = m_registry.get<PositionComponent>(event.entity);
         
         int target_x = pos.x + event.dx;
@@ -186,6 +196,26 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
             const auto& p_pos = portal_view.get<PositionComponent>(portal_ent);
             if (p_pos.x == pos.x && p_pos.y == pos.y && p_pos.layer_id == pos.layer_id) {
                 const auto& portal = portal_view.get<PortalComponent>(portal_ent);
+                
+                // [M.2] Collision Check on Portal Destination
+                bool portal_blocked = false;
+                auto portal_obs_view = m_registry.view<PositionComponent, ObstacleComponent>();
+                for (auto p_obs : portal_obs_view) {
+                    if (p_obs == event.entity) continue;
+                    const auto& po_pos = portal_obs_view.get<PositionComponent>(p_obs);
+                    if (po_pos.x == portal.target_x && po_pos.y == portal.target_y && po_pos.layer_id == portal.target_layer) {
+                        portal_blocked = true;
+                        break;
+                    }
+                }
+                
+                if (portal_blocked) {
+                    if (m_registry.all_of<PlayerComponent>(event.entity)) {
+                        m_dispatcher.trigger(HUDNotificationEvent{"Portal blocked from the other side.", 2.0f, "#FF5555"});
+                    }
+                    break;
+                }
+
                 pos.x = portal.target_x;
                 pos.y = portal.target_y;
                 pos.layer_id = portal.target_layer;
@@ -195,9 +225,15 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 }
                 
                 if (m_registry.all_of<PlayerComponent>(event.entity)) {
-                    m_dispatcher.trigger(HUDNotificationEvent{"Exited to city level.", 2.0f, "#FFFF00"});
-                    // Remove interior state if we are back in overworld (layer 0)
-                    if (pos.layer_id == 0 && m_registry.all_of<InteriorStateComponent>(event.entity)) {
+                    std::string message = "Traversed to layer " + std::to_string(pos.layer_id) + ".";
+                    if (pos.layer_id == 0) message = "Exited to city level.";
+                    else if (pos.layer_id == -1) message = "Descended into the sewers.";
+                    else if (pos.layer_id == 5) message = "Accessed the elevated rail.";
+                    
+                    m_dispatcher.trigger(HUDNotificationEvent{message, 2.0f, "#FFFF00"});
+                    
+                    // Remove interior state if we are back in overworld (layer 0) or sewer
+                    if (pos.layer_id <= 0 && m_registry.all_of<InteriorStateComponent>(event.entity)) {
                         m_registry.remove<InteriorStateComponent>(event.entity);
                     }
                 }

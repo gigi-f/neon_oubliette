@@ -7,6 +7,7 @@
 #include "../components/simulation_layers.h"
 #include "../components/infrastructure_components.h"
 #include "../components/lod_components.h"
+#include "../components/broadcast_components.h"
 #include "../system_scheduler.h"
 #include <string>
 #include <set>
@@ -34,109 +35,10 @@ public:
     void initialize() override {}
     void update(double delta_time) override { (void)delta_time; }
 
-    void generate_chunk_content(entt::entity zone_entity) {
-        auto const& zone = m_registry.get<MacroZoneComponent>(zone_entity);
-        auto config_view = m_registry.view<WorldConfigComponent>();
-        if (config_view.empty()) return;
-        auto& config = config_view.get<WorldConfigComponent>(config_view.front());
+    void generate_chunk_content(entt::entity zone_entity);
 
-        // Find parent chunk for interior caching
-        entt::entity chunk_ent = entt::null;
-        auto chunk_view = m_registry.view<ChunkComponent>();
-        for (auto ce : chunk_view) {
-            const auto& c = chunk_view.get<ChunkComponent>(ce);
-            if (c.chunk_x == zone.macro_x / 2 && c.chunk_y == zone.macro_y / 2) {
-                chunk_ent = ce;
-                break;
-            }
-        }
-
-        // Deterministic Seed for this zone
-        uint32_t zone_seed = config.world_seed ^ (static_cast<uint32_t>(zone.macro_x) * 73856093) ^ (static_cast<uint32_t>(zone.macro_y) * 19349663);
-        std::mt19937 zone_gen(zone_seed);
-
-        std::map<std::pair<int, int>, ArterialType> arterial_map;
-        for (auto e : zone.arterial_entities) {
-            if (!m_registry.all_of<InfrastructureArterialComponent>(e)) continue;
-            const auto& pos = m_registry.get<PositionComponent>(e);
-            const auto& art = m_registry.get<InfrastructureArterialComponent>(e);
-            arterial_map[{pos.x, pos.y}] = art.type;
-        }
-
-        generateZoneInterior(zone, config.macro_cell_size, arterial_map, zone_gen, zone_entity, chunk_ent);
-
-        spawnCommerceHubExtras(zone, config.macro_cell_size, arterial_map, zone_gen);
-        
-        for (auto const& [pos_pair, type] : arterial_map) {
-            TerrainType t_type = TerrainType::VOID; char glyph = ' '; std::string color = "#000000";
-            MaterialType material = MaterialType::CONCRETE; bool is_obstacle = false; bool is_liquid = false;
-            int t_layer = 0;
-
-            switch(type) {
-                case ArterialType::WATERWAY_RIVER:
-                    t_type = TerrainType::VOID; glyph = '~'; color = "#4499DD";
-                    is_obstacle = true; material = MaterialType::WATER; is_liquid = true;
-                    break;
-                case ArterialType::ROAD_PRIMARY:
-                    t_type = TerrainType::STREET; glyph = '.'; color = "#6688AA";
-                    material = MaterialType::CONCRETE;
-                    break;
-                case ArterialType::ROAD_SECONDARY:
-                    t_type = TerrainType::STREET; glyph = '.'; color = "#556688";
-                    material = MaterialType::CONCRETE;
-                    break;
-                case ArterialType::ROAD_ALLEY:
-                    t_type = TerrainType::STREET; glyph = '.'; color = "#443355";
-                    material = MaterialType::CONCRETE;
-                    break;
-                case ArterialType::SIDEWALK:
-                    t_type = TerrainType::SIDEWALK; glyph = '.'; color = "#BBAA77";
-                    material = MaterialType::CONCRETE;
-                    break;
-                case ArterialType::RAIL_ELEVATED:
-                    t_type = TerrainType::RAIL; glyph = '='; color = "#FFCC00"; // [MOD] Slightly brighter gold
-                    material = MaterialType::STEEL; t_layer = 5; // Mid-air layer
-                    break;
-                default: break;
-            }
-
-            // Node check for bridges
-            for (auto ne : zone.arterial_entities) {
-                if (!m_registry.all_of<InfrastructureNodeComponent>(ne)) continue;
-                const auto& n_pos = m_registry.get<PositionComponent>(ne);
-                const auto& node = m_registry.get<InfrastructureNodeComponent>(ne);
-                if (n_pos.x == pos_pair.first && n_pos.y == pos_pair.second && node.is_bridge) {
-                    glyph = '='; color = "#AABB88";
-                    is_obstacle = false;
-                    material = MaterialType::STEEL;
-                    break;
-                }
-            }
-            
-            auto tile = m_registry.create();
-            m_registry.emplace<PositionComponent>(tile, pos_pair.first, pos_pair.second, t_layer);
-            m_registry.emplace<TerrainComponent>(tile, t_type);
-            m_registry.emplace<RenderableComponent>(tile, glyph, color, t_layer);
-            auto& phys = m_registry.emplace<Layer0PhysicsComponent>(tile);
-            phys.material = material;
-            phys.is_liquid = is_liquid;
-            if (is_obstacle) m_registry.emplace<ObstacleComponent>(tile);
-
-            if (type == ArterialType::ROAD_PRIMARY) {
-                std::uniform_real_distribution<> v_dis(0.0, 1.0);
-                if (v_dis(zone_gen) < 0.05) {
-                    PersonalVehicleType v_type = PersonalVehicleType::CAR;
-                    double r = v_dis(zone_gen);
-                    if (r < 0.3) v_type = PersonalVehicleType::SCOOTER;
-                    else if (r < 0.6) v_type = PersonalVehicleType::BIKE;
-                    else if (r < 0.9) v_type = PersonalVehicleType::CAR;
-                    else v_type = PersonalVehicleType::SCI_FI;
-                    spawnPersonalVehicle(pos_pair.first, pos_pair.second, t_layer, v_type);
-                }
-            }
-        }
-    }
 private:
+    void spawnFactoryExtras(const MacroZoneComponent& zone, int cell_size, std::mt19937& gen);
     void generateZoneInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, entt::entity zone_entity, entt::entity chunk_ent) {
         int start_x = zone.macro_x * cell_size;
         int start_y = zone.macro_y * cell_size;
@@ -171,27 +73,50 @@ private:
                         if (e_road) { for (int y = by; y < by + bh; ++y) arterials[{bx + bw - 1, y}] = ArterialType::SIDEWALK; bw--; }
                         if (bw > 1 && bh > 1) {
                             std::string b_name = "Building"; std::string b_color = "#778899"; int floors = 1;
-                            switch(zone.type) {
-                                case ZoneType::CORPORATE: b_name = "Highrise"; b_color = "#4488FF"; floors = 10; break;
-                                case ZoneType::SLUM: b_name = "Shanty"; b_color = "#CC7733"; floors = 1; break;
-                                case ZoneType::INDUSTRIAL: b_name = "Plant"; b_color = "#DD4422"; floors = 2; break;
-                                case ZoneType::RESIDENTIAL: 
-                                    b_name = "Apartments"; b_color = "#33AA55"; floors = std::max(1, 8 - (int)dist_to_core);
-                                    if (floors <= 2) b_name = "Row-house";
-                                    break;
-                                default: break;
-                            }
-                            uint8_t shared_sides = calculateSharedSides(lot, block);
-                            auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
-                            uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
-                            createBuildingShell(b_name, bx, by, bw, bh, floors, b_color, zone.type, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent);
-                            for (int fx = bx; fx < bx + bw; ++fx) {
-                                for (int fy = by; fy < by + bh; ++fy) {
-                                    if (arterials.count({fx, fy})) continue; // Skip if arterial present
-                                    structure_footprint.insert({fx, fy});
+                            
+                            std::uniform_real_distribution<> rel_dis(0.0, 1.0);
+                            bool placed_religious = false;
+                            if (rel_dis(gen) < 0.05) { // 5% chance
+                                ReligionRecord* rel = pickReligionForZone(zone.type, gen);
+                                if (rel) {
+                                    uint8_t shared_sides = calculateSharedSides(lot, block);
+                                    auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
+                                    uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
+                                    const_cast<LotComponent&>(lot).building_entity = createReligiousBuildingShell(rel, bx, by, bw, bh, doors, stable_id, chunk_ent);
+                                    placed_religious = true;
+                                    for (int fx = bx; fx < bx + bw; ++fx) {
+                                        for (int fy = by; fy < by + bh; ++fy) {
+                                            if (arterials.count({fx, fy})) continue;
+                                            structure_footprint.insert({fx, fy});
+                                        }
+                                    }
+                                    for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
                                 }
                             }
-                            for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
+
+                            if (!placed_religious) {
+                                switch(zone.type) {
+                                    case ZoneType::CORPORATE: b_name = "Highrise"; b_color = "#4488FF"; floors = 10; break;
+                                    case ZoneType::SLUM: b_name = "Shanty"; b_color = "#CC7733"; floors = 1; break;
+                                    case ZoneType::INDUSTRIAL: b_name = "Plant"; b_color = "#DD4422"; floors = 2; break;
+                                    case ZoneType::RESIDENTIAL: 
+                                        b_name = "Apartments"; b_color = "#33AA55"; floors = std::max(1, 8 - (int)dist_to_core);
+                                        if (floors <= 2) b_name = "Row-house";
+                                        break;
+                                    default: break;
+                                }
+                                uint8_t shared_sides = calculateSharedSides(lot, block);
+                                auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
+                                uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
+                                const_cast<LotComponent&>(lot).building_entity = createBuildingShell(b_name, bx, by, bw, bh, floors, b_color, zone.type, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
+                                for (int fx = bx; fx < bx + bw; ++fx) {
+                                    for (int fy = by; fy < by + bh; ++fy) {
+                                        if (arterials.count({fx, fy})) continue; // Skip if arterial present
+                                        structure_footprint.insert({fx, fy});
+                                    }
+                                }
+                                for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
+                            }
                         }
                     }
                 }
@@ -214,6 +139,17 @@ private:
                     default: break;
                 }
                 createTile(x, y, 0, t_type, glyph, color, MaterialType::CONCRETE);
+
+                // Layer -1 (Underground) filling: default to Rock/Wall if not an arterial
+                bool is_underground_arterial = false;
+                auto it = arterials.find({x, y});
+                if (it != arterials.end() && (it->second == ArterialType::SEWER || it->second == ArterialType::UNDERGROUND_TUNNEL)) {
+                    is_underground_arterial = true;
+                }
+                
+                if (!is_underground_arterial) {
+                    createTile(x, y, -1, TerrainType::WALL, '#', "#2A2A2A", MaterialType::CONCRETE);
+                }
             }
         }
     }
@@ -258,6 +194,30 @@ private:
     }
     void generateUrbanCoreInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& structure_footprint, entt::entity chunk_ent) {
         placeTrainTerminals(zone, arterials, gen, structure_footprint, chunk_ent);
+        
+        // [N.2] Random Broadcast Tower Placement in Urban Core
+        std::uniform_real_distribution<> tower_dis(0.0, 1.0);
+        if (tower_dis(gen) < 0.15) { // 15% chance per Urban Core macro cell
+            int tx = zone.macro_x * cell_size + 5 + (int)(tower_dis(gen) * (cell_size - 10));
+            int ty = zone.macro_y * cell_size + 5 + (int)(tower_dis(gen) * (cell_size - 10));
+            
+            // Ensure not on an arterial or existing structure
+            if (!arterials.count({tx, ty}) && !structure_footprint.count({tx, ty})) {
+                // Find a faction to assign
+                entt::entity faction = entt::null;
+                auto faction_view = m_registry.view<FactionComponent>();
+                if (!faction_view.empty()) {
+                    std::uniform_int_distribution<size_t> f_dist(0, faction_view.size() - 1);
+                    auto it = faction_view.begin();
+                    std::advance(it, f_dist(gen));
+                    faction = *it;
+                }
+                
+                spawnBroadcastTower(tx, ty, 0, faction);
+                structure_footprint.insert({tx, ty});
+            }
+        }
+
         for (auto b_entity : zone.block_entities) {
             const auto& block = m_registry.get<BlockComponent>(b_entity);
             for (auto l_entity : block.lots) {
@@ -270,7 +230,7 @@ private:
                     int floors = 20 + (int)(dis(gen) * 80); std::string color = (floors > 60) ? "#FFFFFF" : (floors > 40) ? "#CCCCFF" : "#8888FF";
                     uint8_t shared_sides = calculateSharedSides(lot, block); auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
                     uint32_t stable_id = bx * 10000 + by;
-                    createSkyscraperShell(name, bx, by, bw, bh, floors, color, ZoneType::URBAN_CORE, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent);
+                    const_cast<LotComponent&>(lot).building_entity = createSkyscraperShell(name, bx, by, bw, bh, floors, color, ZoneType::URBAN_CORE, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
                     for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) structure_footprint.insert({fx, fy});
                     for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
                 }
@@ -287,9 +247,9 @@ private:
         }
         int tw = 12, th = 10, tx = start_x + (cell_size - tw) / 2, ty = start_y + (cell_size - th) / 2;
         std::vector<DoorInfo> t_doors = {{tx + tw/2, ty + th - 1, true}};
-        createBuildingShell("Terminal", tx, ty, tw, th, 3, "#FFFF55", ZoneType::AIRPORT, 0, 0, 0, t_doors, tx * 10000 + ty, chunk_ent);
+        createBuildingShell("Terminal", tx, ty, tw, th, 3, "#FFFF55", ZoneType::AIRPORT, 0, 0, 0, t_doors, tx * 10000 + ty, chunk_ent, gen);
         generateAccessPath(tx + (tw/2), ty + th - 1, arterials);
-        createBuildingShell("Control Tower", start_x + 2, start_y + 2, 4, 4, 10, "#AAAAFF", ZoneType::AIRPORT, 0, 0, 0, {{start_x + 4, start_y + 5, true}}, (start_x+2)*10000+(start_y+2), chunk_ent);
+        createBuildingShell("Control Tower", start_x + 2, start_y + 2, 4, 4, 10, "#AAAAFF", ZoneType::AIRPORT, 0, 0, 0, {{start_x + 4, start_y + 5, true}}, (start_x+2)*10000+(start_y+2), chunk_ent, gen);
     }
     void generateParkInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint) {
         int start_x = zone.macro_x * cell_size, start_y = zone.macro_y * cell_size;
@@ -310,6 +270,13 @@ private:
                 if (roll < 0.08) { createNatureFeature(x, y, "Tree", 'Y', "#00AA00", true); footprint.insert({x, y}); }
                 else if (roll < 0.12) { createNatureFeature(x, y, "Bench", '=', "#884400", false); footprint.insert({x, y}); }
                 else if (roll < 0.13) { createNatureFeature(x, y, "Fountain", '~', "#00FFFF", true, TerrainType::WATER_FEATURE); footprint.insert({x, y}); }
+                else if (roll < 0.14) { // 1% chance for a small shrine in the park
+                    ReligionRecord* rel = pickReligionForZone(ZoneType::PARK, gen);
+                    if (rel) {
+                        createShrine(x, y, rel);
+                        footprint.insert({x, y});
+                    }
+                }
             }
         }
     }
@@ -325,7 +292,7 @@ private:
             else if (dist < arena_radius + 6) createTile(x, y, 0, TerrainType::ARENA_SEATING, '=', "#555555", MaterialType::CONCRETE);
             else createTile(x, y, 0, TerrainType::CONCRETE_FLOOR, '.', "#222222", MaterialType::CONCRETE);
         }
-        createBuildingShell("Colosseum Grand Entrance", center_x - 4, start_y + 2, 8, 6, 2, "#FFCC00", ZoneType::COLOSSEUM, 0, 0, 0, {{center_x, start_y + 7, true}}, (center_x-4)*10000+(start_y+2), chunk_ent);
+        createBuildingShell("Colosseum Grand Entrance", center_x - 4, start_y + 2, 8, 6, 2, "#FFCC00", ZoneType::COLOSSEUM, 0, 0, 0, {{center_x, start_y + 7, true}}, (center_x-4)*10000+(start_y+2), chunk_ent, gen);
         generateAccessPath(center_x, start_y + 7, arterials);
     }
     void generateMixedCommercialInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint, entt::entity chunk_ent) {
@@ -338,7 +305,7 @@ private:
                     if (bw >= 3 && bh >= 3) {
                         uint8_t shared_sides = calculateSharedSides(lot, block); auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
                         uint32_t stable_id = bx * 10000 + by;
-                        createBuildingShell("Shop", bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#FF00FF", ZoneType::MIXED_COMMERCIAL, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent);
+                        const_cast<LotComponent&>(lot).building_entity = createBuildingShell("Shop", bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#FF00FF", ZoneType::MIXED_COMMERCIAL, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
                         for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) footprint.insert({fx, fy});
                         spawnVendor(bx + (bw/2), by + (bh/2), 0, "Vendor " + std::to_string(bx));
                         for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
@@ -347,7 +314,7 @@ private:
             }
         }
     }
-    void generateAccessPath(int door_x, int door_y, std::map<std::pair<int, int>, ArterialType>& arterials) {
+    public: void generateAccessPath(int door_x, int door_y, std::map<std::pair<int, int>, ArterialType>& arterials) {
         std::queue<std::pair<int, int>> q; q.push({door_x, door_y}); std::set<std::pair<int, int>> visited; std::map<std::pair<int, int>, std::pair<int, int>> parent;
         visited.insert({door_x, door_y}); std::pair<int, int> target = {-1, -1};
         while(!q.empty()) {
@@ -370,10 +337,13 @@ private:
     void spawnVendor(int x, int y, int layer, std::string name) {
         auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, layer); m_registry.emplace<NameComponent>(e, name); m_registry.emplace<RenderableComponent>(e, 'V', "#FFAA33", layer); m_registry.emplace<AgentComponent>(e);
     }
-    void createSkyscraperShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent) {
+    public: entt::entity createSkyscraperShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent, std::mt19937& gen) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
         m_registry.emplace<BuildingComponent>(building, floors, ztype, 0, stable_id); m_registry.emplace<SizeComponent>(building, w, h); m_registry.emplace<PropertyComponent>(building);
         m_registry.emplace<ObstacleComponent>(building); // [B.1] Add ObstacleComponent to the entire footprint
+        m_registry.emplace<BuildingHealthComponent>(building); // [K.1] Physical integrity tracking
+        auto& health = m_registry.get<BuildingHealthComponent>(building);
+        health.maintenance_budget = 1000.0f; // [K.2] Highrise initial budget
         if (chunk_ent != entt::null) {
             auto& chunk = m_registry.get<ChunkComponent>(chunk_ent); auto it = chunk.building_interiors.find({x, y});
             if (it != chunk.building_interiors.end()) m_registry.emplace<BuildingInteriorComponent>(building, it->second);
@@ -420,14 +390,16 @@ private:
                 }
             } else createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#050505", MaterialType::CONCRETE);
         }
+        return building;
     }
+
     void placeTrainTerminals(const MacroZoneComponent& zone, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint, entt::entity chunk_ent) {
         std::map<std::pair<int, int>, int> intersection_check; for (auto const& [pos, type] : arterials) intersection_check[pos]++;
         for (auto const& [pos, count] : intersection_check) if (count >= 2) {
             std::uniform_real_distribution<> dis(0.0, 1.0);
             if (dis(gen) < 0.2) {
                 int tw = 10, th = 10, tx = pos.first - 5, ty = pos.second - 5; std::vector<DoorInfo> h_doors = {{pos.first, ty + th - 1, true}, {pos.first, ty, true}, {tx, pos.second, true}, {tx + tw - 1, pos.second, true}};
-                createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, (uint8_t)StreetFacingSide::ALL, 0, 0, h_doors, tx * 10000 + ty, chunk_ent);
+                createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, (uint8_t)StreetFacingSide::ALL, 0, 0, h_doors, tx * 10000 + ty, chunk_ent, gen);
                 auto hub = m_registry.create(); m_registry.emplace<PositionComponent>(hub, pos.first, pos.second, 0); m_registry.emplace<CommerceHubComponent>(hub, 20.0f, 1.6f);
                 for (int fx = tx; fx < tx + tw; ++fx) for (int fy = ty; fy < ty + th; ++fy) footprint.insert({fx, fy});
             }
@@ -438,14 +410,51 @@ private:
         m_registry.emplace<NatureEffectComponent>(e, 2.0f, -1.0f); if (is_obstacle) m_registry.emplace<ObstacleComponent>(e);
         createTile(x, y, 0, terrain, terrain == TerrainType::GRASS ? '"' : '~', terrain == TerrainType::GRASS ? "#004400" : "#0055FF", terrain == TerrainType::GRASS ? MaterialType::CONCRETE : MaterialType::WATER);
     }
-    void createTile(int x, int y, int layer, TerrainType type, char glyph, std::string color, MaterialType material = MaterialType::CONCRETE) {
-        // [MOD] Rail Continuity: Do not overwrite elevated rails with basic building tiles
+
+    /**
+     * @brief [NEW] Spawns a Broadcast Tower entity at the specified location.
+     */
+    void spawnBroadcastTower(int x, int y, int layer, entt::entity faction) {
+        auto tower = m_registry.create();
+        m_registry.emplace<PositionComponent>(tower, x, y, layer);
+        m_registry.emplace<NameComponent>(tower, "Broadcast Tower");
+        
+        // Visual representation (as per vision_artist spec)
+        m_registry.emplace<RenderableComponent>(tower, '^', "#AAAAAA", layer); 
+        m_registry.emplace<ObstacleComponent>(tower);
+        
+        auto& broadcast = m_registry.emplace<BroadcastTowerComponent>(tower);
+        broadcast.controlling_faction = faction;
+        broadcast.radius = 40;
+        broadcast.broadcast_interval = 25;
+
+        // Create an Information entity for this tower's active message
+        auto info_ent = m_registry.create();
+        auto& info = m_registry.emplace<InformationComponent>(info_ent);
+        
+        InformationRecord record;
+        record.type = InformationType::RUMOR;
+        record.content_tag = "URBAN_CORE_STABILITY";
+        record.source_faction = faction;
+        record.veracity = 1.0f;
+        info.records.push_back(record);
+        
+        broadcast.active_information_entity = info_ent;
+
+        // Add a base tile
+        createTile(x, y, layer, TerrainType::WALL, 'X', "#888888", MaterialType::STEEL);
+    }
+
+    public: void createTile(int x, int y, int layer, TerrainType type, char glyph, std::string color, MaterialType material = MaterialType::CONCRETE) {
+        // [MOD] Continuity: Do not overwrite specialized tiles with basic building tiles
         auto view = m_registry.view<PositionComponent, TerrainComponent>();
         for (auto ent : view) {
             const auto& p = view.get<PositionComponent>(ent);
-            if (p.x == x && p.y == y && p.layer_id == 5) {
+            if (p.x == x && p.y == y && p.layer_id == layer) {
                 const auto& terr = view.get<TerrainComponent>(ent);
-                if (terr.type == TerrainType::RAIL) return; // Keep the rail!
+                // Keep rails on L5 and Sewer tiles on L-1
+                if (layer == 5 && terr.type == TerrainType::RAIL) return;
+                if (layer == -1 && (terr.type == TerrainType::SEWER_FLOOR || terr.type == TerrainType::SEWER_WATER)) return;
             }
         }
 
@@ -464,7 +473,58 @@ private:
         }
         m_registry.emplace<RenderableComponent>(v, glyph, color, layer); m_registry.emplace<PersonalVehicleComponent>(v, type, entt::null, capacity, speed); m_registry.emplace<ObstacleComponent>(v);
     }
-    std::vector<DoorInfo> calculateDoorPositions(const LotComponent& lot, int bx, int by, int bw, int bh, uint8_t shared_sides, const std::map<std::pair<int, int>, ArterialType>& arterials) {
+
+    void spawnUndergroundMedia(const MacroZoneComponent& zone, std::mt19937& gen) {
+        // [N.3] Clandestine spawn logic
+        std::uniform_real_distribution<> dis(0.0, 1.0);
+        int cell_size = 20; // Default or read from config
+        
+        // 1. Pirate Nodes in Sewers or Slums
+        if (zone.type == ZoneType::SLUM) {
+             if (dis(gen) < 0.15) { // 15% chance per slum cell
+                int tx = zone.macro_x * cell_size + (int)(dis(gen) * cell_size);
+                int ty = zone.macro_y * cell_size + (int)(dis(gen) * cell_size);
+                
+                auto node = m_registry.create();
+                m_registry.emplace<PositionComponent>(node, tx, ty, 0);
+                m_registry.emplace<NameComponent>(node, "Pirate Node");
+                m_registry.emplace<RenderableComponent>(node, '!', "#FF00FF", 0);
+                
+                auto& pirate = m_registry.emplace<PirateNodeComponent>(node);
+                pirate.radius = 12;
+                pirate.is_hidden = true;
+                
+                // Assign a rumor
+                auto info_ent = m_registry.create();
+                auto& info = m_registry.emplace<InformationComponent>(info_ent);
+                InformationRecord record;
+                record.content_tag = "SLUM_REBELLION_RUMOR";
+                record.veracity = 0.6f;
+                info.records.push_back(record);
+                pirate.active_information_entity = info_ent;
+             }
+        }
+        
+        // 2. Data Slabs as random loot
+        if (dis(gen) < 0.2) { // 20% chance per macro cell
+             int tx = zone.macro_x * cell_size + (int)(dis(gen) * cell_size);
+             int ty = zone.macro_y * cell_size + (int)(dis(gen) * cell_size);
+             
+             auto slab = m_registry.create();
+             m_registry.emplace<PositionComponent>(slab, tx, ty, 0);
+             m_registry.emplace<NameComponent>(slab, "Encrypted Data Slab");
+             m_registry.emplace<RenderableComponent>(slab, '[', "#00FFFF", 0);
+             m_registry.emplace<ItemComponent>(slab, 500, "Data Slab");
+             m_registry.emplace<ItemMarketCategoryComponent>(slab, ItemMarketCategory::TECHNOLOGY);
+             m_registry.emplace<ItemMaterialComponent>(slab, RawMaterialType::ELECTRONIC);
+             
+             auto& slab_comp = m_registry.emplace<DataSlabComponent>(slab);
+             slab_comp.stored_record.content_tag = "SECRET_SYNDICATE_FREQUENCY";
+             slab_comp.stored_record.veracity = 1.0f;
+             slab_comp.is_encrypted = (dis(gen) < 0.3);
+        }
+    }
+    public: std::vector<DoorInfo> calculateDoorPositions(const LotComponent& lot, int bx, int by, int bw, int bh, uint8_t shared_sides, const std::map<std::pair<int, int>, ArterialType>& arterials) {
         std::vector<DoorInfo> doors; auto add_doors_to_wall = [&](StreetFacingSide side, bool is_primary) {
             uint8_t s = static_cast<uint8_t>(side); if (shared_sides & s) return;
             int door_count = 1; if (is_primary && (lot.zone_class == ZoneType::URBAN_CORE || lot.zone_class == ZoneType::MIXED_COMMERCIAL || lot.zone_class == ZoneType::TRANSIT)) {
@@ -493,7 +553,7 @@ private:
         int dx[] = {0, 0, 1, -1}, dy[] = {1, -1, 0, 0}; for (int i = 0; i < 4; ++i) if (arterials.count({x + dx[i], y + dy[i]})) return true;
         return false;
     }
-    uint8_t calculateSharedSides(const LotComponent& lot, const BlockComponent& block) {
+    public: uint8_t calculateSharedSides(const LotComponent& lot, const BlockComponent& block) {
         uint8_t shared_sides = 0; for (auto other_l_entity : block.lots) {
             auto* other_ptr = m_registry.try_get<LotComponent>(other_l_entity); if (!other_ptr || &lot == other_ptr) continue;
             const auto& other = *other_ptr; if (lot.x == other.x + other.width - 1) shared_sides |= (uint8_t)StreetFacingSide::WEST;
@@ -502,10 +562,33 @@ private:
         }
         return shared_sides;
     }
-    void createBuildingShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent) {
+    public: entt::entity createBuildingShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent, std::mt19937& gen) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
         m_registry.emplace<BuildingComponent>(building, floors, ztype, 0, stable_id); m_registry.emplace<SizeComponent>(building, w, h);
         m_registry.emplace<ObstacleComponent>(building); // [B.1] Add ObstacleComponent to the entire footprint
+        m_registry.emplace<BuildingHealthComponent>(building); // [K.1] Physical integrity tracking
+        auto& health = m_registry.get<BuildingHealthComponent>(building);
+        switch(ztype) {
+            case ZoneType::CORPORATE: health.maintenance_budget = 500.0f; break;
+            case ZoneType::INDUSTRIAL: health.maintenance_budget = 300.0f; break;
+            case ZoneType::RESIDENTIAL: health.maintenance_budget = 150.0f; break;
+            case ZoneType::SLUM: health.maintenance_budget = 20.0f; break;
+            default: health.maintenance_budget = 100.0f; break;
+        }
+        
+        // [I.4] Clandestine Lab designation
+        if (ztype == ZoneType::INDUSTRIAL || ztype == ZoneType::SLUM) {
+            std::uniform_real_distribution<> lab_dis(0.0, 1.0);
+            if (lab_dis(gen) < 0.15) { // 15% chance
+                auto& lab = m_registry.emplace<ClandestineLabComponent>(building);
+                lab.raw_chemicals_stored = 5; // Starting stock
+                lab.max_raw_chemicals = 20;
+                lab.drugs_produced_stored = 0;
+                lab.max_drugs_produced = 20;
+                lab.production_rate = 0.05f;
+            }
+        }
+
         auto& b_phys = m_registry.emplace<Layer0PhysicsComponent>(building); b_phys.material = MaterialType::STEEL; m_registry.emplace<PropertyComponent>(building);
         if (chunk_ent != entt::null) {
             auto& chunk = m_registry.get<ChunkComponent>(chunk_ent); auto it = chunk.building_interiors.find({x, y});
@@ -564,7 +647,162 @@ private:
                 }
             } else createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#1A1A1A", MaterialType::CONCRETE);
         }
+        return building;
     }
+
+    ReligionRecord* pickReligionForZone(ZoneType zone, std::mt19937& gen) {
+        auto* registry_ptr = m_registry.ctx().find<ReligionRegistryComponent>();
+        if (!registry_ptr || registry_ptr->religions.empty()) return nullptr;
+        
+        std::vector<ReligionRecord*> pool;
+        for (auto& [id, rel] : registry_ptr->religions) {
+            if (zone == ZoneType::URBAN_CORE || zone == ZoneType::CORPORATE) {
+                if (rel.home_building_type == "TEMPLE" || rel.home_building_type == "BROADCAST_TOWER") pool.push_back(&rel);
+            } else if (zone == ZoneType::SLUM || zone == ZoneType::INDUSTRIAL) {
+                if (rel.home_building_type == "UNDERGROUND_CHAPEL") pool.push_back(&rel);
+            } else if (zone == ZoneType::PARK) {
+                if (rel.home_building_type == "SHRINE") pool.push_back(&rel);
+            }
+        }
+        
+        if (pool.empty()) return nullptr;
+        std::uniform_int_distribution<size_t> dist(0, pool.size() - 1);
+        return pool[dist(gen)];
+    }
+
+    entt::entity createReligiousBuildingShell(const ReligionRecord* rel, int x, int y, int w, int h, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent) {
+        auto building = m_registry.create();
+        m_registry.emplace<NameComponent>(building, rel->name + " " + rel->home_building_type);
+        m_registry.emplace<PositionComponent>(building, x, y, 0);
+        int floors = (rel->home_building_type == "TEMPLE") ? 4 : 2;
+        m_registry.emplace<BuildingComponent>(building, floors, ZoneType::RELIGIOUS, 0, stable_id);
+        m_registry.emplace<SizeComponent>(building, w, h);
+        m_registry.emplace<ObstacleComponent>(building);
+        m_registry.emplace<PropertyComponent>(building);
+        m_registry.emplace<WorshipPlaceComponent>(building, rel->religion_id, 20); // [H.3]
+        auto& health = m_registry.emplace<BuildingHealthComponent>(building); // [K.1]
+        health.maintenance_budget = 400.0f; // Religious endowment
+        
+        if (chunk_ent != entt::null) {
+            auto& chunk = m_registry.get<ChunkComponent>(chunk_ent);
+            auto it = chunk.building_interiors.find({x, y});
+            if (it != chunk.building_interiors.end()) m_registry.emplace<BuildingInteriorComponent>(building, it->second);
+        }
+
+        std::string b_color = rel->color_hex;
+        char b_glyph = rel->glyph;
+
+        for (int cur_x = x; cur_x < x + w; ++cur_x) {
+            for (int cur_y = y; cur_y < y + h; ++cur_y) {
+                bool is_edge = (cur_x == x || cur_x == x + w - 1 || cur_y == y || cur_y == y + h - 1);
+                bool is_door = false;
+                for (const auto& d : doors) if (cur_x == d.x && cur_y == d.y) { is_door = true; break; }
+                
+                if (is_edge) {
+                    if (is_door) {
+                        auto door = m_registry.create();
+                        m_registry.emplace<PositionComponent>(door, cur_x, cur_y, 0);
+                        m_registry.emplace<RenderableComponent>(door, '+', "#FFFF00", 0);
+                        m_registry.emplace<BuildingEntranceComponent>(door, building, 0);
+                        auto& meta = m_registry.emplace<DoorMetadataComponent>(door);
+                        meta.building_entity = building;
+                        if (cur_y == y) { meta.wall_side = StreetFacingSide::NORTH; meta.wall_offset = cur_x - x; }
+                        else if (cur_y == y + h - 1) { meta.wall_side = StreetFacingSide::SOUTH; meta.wall_offset = cur_x - x; }
+                        else if (cur_x == x) { meta.wall_side = StreetFacingSide::WEST; meta.wall_offset = cur_y - y; }
+                        else if (cur_x == x + w - 1) { meta.wall_side = StreetFacingSide::EAST; meta.wall_offset = cur_y - y; }
+                        createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#1A1A1A", MaterialType::CONCRETE);
+                    } else {
+                        createTile(cur_x, cur_y, 0, TerrainType::WALL, b_glyph, b_color, MaterialType::CONCRETE);
+                    }
+                } else {
+                    createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#1A1A1A", MaterialType::CONCRETE);
+                }
+            }
+        }
+        return building;
+    }
+
+
+    void createShrine(int x, int y, const ReligionRecord* rel) {
+        auto e = m_registry.create();
+        m_registry.emplace<PositionComponent>(e, x, y, 0);
+        m_registry.emplace<NameComponent>(e, rel->name + " Shrine");
+        m_registry.emplace<RenderableComponent>(e, rel->glyph, rel->color_hex, 0);
+        m_registry.emplace<ObstacleComponent>(e);
+        m_registry.emplace<BuildingComponent>(e, 1, ZoneType::RELIGIOUS, 0, static_cast<uint32_t>(x * 10000 + y));
+        m_registry.emplace<WorshipPlaceComponent>(e, rel->religion_id, 5);
+        createTile(x, y, 0, TerrainType::CONCRETE_FLOOR, '.', "#1A1A1A", MaterialType::CONCRETE);
+    }
+
+    void generateResourceFields(const MacroZoneComponent& zone, int cell_size, std::mt19937& gen, entt::entity chunk_ent) {
+        if (chunk_ent == entt::null) return;
+        auto& field = m_registry.emplace_or_replace<RawMaterialFieldComponent>(chunk_ent);
+        
+        switch(zone.type) {
+            case ZoneType::INDUSTRIAL:
+                field.concentrations[RawMaterialType::METAL] = 0.8f;
+                field.concentrations[RawMaterialType::CHEMICAL] = 0.6f;
+                field.regen_rates[RawMaterialType::METAL] = 0.01f;
+                break;
+            case ZoneType::SLUM:
+                field.concentrations[RawMaterialType::METAL] = 0.4f;
+                field.concentrations[RawMaterialType::BIOMASS] = 0.3f;
+                break;
+            case ZoneType::PARK:
+                field.concentrations[RawMaterialType::BIOMASS] = 0.9f;
+                field.regen_rates[RawMaterialType::BIOMASS] = 0.05f;
+                break;
+            case ZoneType::CORPORATE:
+                field.concentrations[RawMaterialType::ELECTRONIC] = 0.7f;
+                field.concentrations[RawMaterialType::ENERGY] = 0.8f;
+                break;
+            default:
+                field.concentrations[RawMaterialType::METAL] = 0.1f;
+                break;
+        }
+
+        std::uniform_real_distribution<> noise(-0.1, 0.1);
+        for (auto& [type, conc] : field.concentrations) {
+             conc = std::clamp(conc + (float)noise(gen), 0.0f, 1.0f);
+        }
+
+        int start_x = zone.macro_x * cell_size, start_y = zone.macro_y * cell_size;
+        for (auto const& [type, conc] : field.concentrations) {
+            if (conc > 0.4f) {
+                int num_nodes = 1 + (int)(conc * 4);
+                for (int i = 0; i < num_nodes; ++i) {
+                    int nx = start_x + (gen() % cell_size), ny = start_y + (gen() % cell_size);
+                    spawnResourceNode(nx, ny, 0, type, gen);
+                }
+            }
+        }
+    }
+
+    void spawnResourceNode(int x, int y, int layer, RawMaterialType type, std::mt19937& gen) {
+        auto view = m_registry.view<PositionComponent, ObstacleComponent>();
+        for (auto ent : view) { 
+            const auto& p = view.get<PositionComponent>(ent); 
+            if (p.x == x && p.y == y && p.layer_id == layer) return; 
+        }
+
+        auto node = m_registry.create();
+        m_registry.emplace<PositionComponent>(node, x, y, layer);
+        char glyph = '%'; std::string color = "#FFFFFF"; std::string name = "Resource";
+        switch(type) {
+            case RawMaterialType::METAL: glyph = '%'; color = "#AAAAAA"; name = "Scrap Heap"; break;
+            case RawMaterialType::CHEMICAL: glyph = '!'; color = "#00FF00"; name = "Chemical Barrels"; break;
+            case RawMaterialType::BIOMASS: glyph = '"'; color = "#2D7044"; name = "Vat Growth"; break;
+            case RawMaterialType::ELECTRONIC: glyph = '&'; color = "#00FFFF"; name = "Electronic Salvage"; break;
+            case RawMaterialType::ENERGY: glyph = '*'; color = "#FFFF00"; name = "Energy Cell"; break;
+        }
+        m_registry.emplace<RenderableComponent>(node, glyph, color, layer);
+        m_registry.emplace<NameComponent>(node, name);
+        m_registry.emplace<ResourceNodeComponent>(node, type, 1.0f, 0.01f, false);
+        m_registry.emplace<ObstacleComponent>(node);
+        uint32_t item_id = 1001 + (uint32_t)type; 
+        m_registry.emplace<HarvestableComponent>(node, item_id, 1, 5, 50, WorkstationType::NONE);
+    }
+
     entt::registry& m_registry; entt::dispatcher& m_dispatcher;
 };
 } // namespace NeonOubliette

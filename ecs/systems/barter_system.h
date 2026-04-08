@@ -17,10 +17,16 @@ public:
     void update(double delta_time) override {}
 
     void handleBarterEvent(const BarterEvent& event);
+    void handleOpenBarterEvent(const OpenBarterEvent& event);
+    void handleCloseBarterEvent(const CloseBarterEvent& event);
+    void finalizeTrade(entt::entity initiator, entt::entity target, 
+                       const std::vector<entt::entity>& initiator_items, 
+                       const std::vector<entt::entity>& target_items);
 
 private:
-    float calculateUtilityValue(entt::entity agent_entity, const std::vector<entt::entity>& items);
-    float getBaseItemValue(entt::entity item_entity);
+    float calculateUtilityValue(entt::entity agent_entity, const std::vector<entt::entity>& items, const std::vector<InformationRecord>& records);
+    float calculateInformationUtility(const InformationRecord& record, entt::entity target_agent);
+    float getBaseItemValue(entt::entity item_entity, entt::entity perspective_agent);
     
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;

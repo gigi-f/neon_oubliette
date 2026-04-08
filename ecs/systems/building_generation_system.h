@@ -3,6 +3,7 @@
 
 #include <entt/entt.hpp>
 #include "../components/components.h"
+#include "../components/simulation_layers.h"
 #include "../event_declarations.h"
 #include "../system_scheduler.h"
 #include <random>
@@ -143,16 +144,37 @@ private:
         if (room_idx == 0) {
             if (zone == ZoneType::RESIDENTIAL || zone == ZoneType::SLUM) return RoomTag::LIVING_ROOM;
             if (zone == ZoneType::INDUSTRIAL) return RoomTag::FACTORY_FLOOR;
+            if (zone == ZoneType::RELIGIOUS) return RoomTag::NAVE;
             return RoomTag::LOBBY;
         }
         std::vector<RoomTag> pool;
         switch(zone) {
             case ZoneType::RESIDENTIAL: case ZoneType::SLUM: pool = {RoomTag::BEDROOM, RoomTag::KITCHEN, RoomTag::BATHROOM, RoomTag::STORAGE}; break;
-            case ZoneType::CORPORATE: case ZoneType::URBAN_CORE: pool = {RoomTag::OFFICE, RoomTag::SERVER_ROOM, RoomTag::EXECUTIVE_SUITE, RoomTag::STORAGE}; break;
+            case ZoneType::CORPORATE: case ZoneType::URBAN_CORE: pool = {RoomTag::OFFICE, RoomTag::SERVER_ROOM, RoomTag::EXECUTIVE_SUITE, RoomTag::STORAGE, RoomTag::SECURITY_HUB}; break;
             case ZoneType::INDUSTRIAL: pool = {RoomTag::FACTORY_FLOOR, RoomTag::STORAGE, RoomTag::SUPERVISOR_OFFICE}; break;
             case ZoneType::COMMERCIAL: case ZoneType::MIXED_COMMERCIAL: pool = {RoomTag::OFFICE, RoomTag::STORAGE, RoomTag::HALLWAY}; break;
+            case ZoneType::CIVIC: pool = {RoomTag::OFFICE, RoomTag::HOLDING_CELL, RoomTag::STORAGE, RoomTag::HALLWAY}; break;
+            case ZoneType::RELIGIOUS: pool = {RoomTag::ALTAR, RoomTag::SEATING_AREA, RoomTag::STORAGE, RoomTag::HALLWAY}; break;
             default: pool = {RoomTag::STORAGE, RoomTag::HALLWAY}; break;
         }
+
+        // [I.6] Holding Cells in Corporate/Security zones
+        if ((zone == ZoneType::CORPORATE || zone == ZoneType::URBAN_CORE) && room_idx > 0) {
+            std::uniform_real_distribution<> dis(0.0, 1.0);
+            if (dis(m_gen) < 0.05) return RoomTag::HOLDING_CELL;
+        }
+
+        // [I.3] Slum Back-alley Fences (10% chance in Slum building secondary rooms)
+        if (zone == ZoneType::SLUM && room_idx > 0) {
+            std::uniform_real_distribution<> dis(0.0, 1.0);
+            if (dis(m_gen) < 0.1) return RoomTag::FENCE;
+        }
+        // [I.4] Clandestine Labs in Industrial
+        if (zone == ZoneType::INDUSTRIAL && room_idx > 0) {
+            std::uniform_real_distribution<> dis(0.0, 1.0);
+            if (dis(m_gen) < 0.05) return RoomTag::CLANDESTINE_LAB;
+        }
+
         std::uniform_int_distribution<size_t> dist(0, pool.size() - 1);
         return pool[dist(m_gen)];
     }
@@ -291,6 +313,7 @@ private:
             for (auto const& room : floor_rooms) {
                 spawnRoomFurniture(room, layer_id, floor_comp.nav_grid);
                 spawnRoomItems(room, layer_id);
+                spawnRoomAgents(room, layer_id);
             }
             int sx = width - 2, sy = height - 2;
             if (i < b_data.height - 1) { spawnStairs(sx, sy, layer_id, layer_id + 1, true); if (i == 0) interior.stairs.push_back({sx, sy, layer_id}); }
@@ -521,11 +544,18 @@ private:
             case RoomTag::KITCHEN: glyph = 'K'; color = "#FFAA55"; name = "Kitchen Unit"; break;
             case RoomTag::BEDROOM: glyph = 'B'; color = "#55AAFF"; name = "Bed"; break;
             case RoomTag::SERVER_ROOM: glyph = 'S'; color = "#55FF55"; name = "Server Rack"; break;
-            case RoomTag::OFFICE: glyph = 'O'; color = "#AAAAAA"; name = "Desk"; break;
+            case RoomTag::OFFICE: glyph = 'O', color = "#AAAAAA"; name = "Desk"; break;
             case RoomTag::FACTORY_FLOOR: glyph = 'M'; color = "#FF5555"; name = "Machine"; break;
             case RoomTag::STORAGE: glyph = 'C'; color = "#AA8844"; name = "Crate"; break;
             case RoomTag::EXECUTIVE_SUITE: glyph = 'X'; color = "#FFFF55"; name = "Luxury Chair"; break;
             case RoomTag::LOBBY: glyph = 'R'; color = "#8888FF"; name = "Reception Desk"; break;
+            case RoomTag::NAVE: glyph = '='; color = "#AA88FF"; name = "Nave Bench"; break;
+            case RoomTag::ALTAR: glyph = '*'; color = "#FFD700"; name = "Holy Altar"; break;
+            case RoomTag::SEATING_AREA: glyph = '='; color = "#AA88FF"; name = "Pew"; break;
+            case RoomTag::FENCE: glyph = 'F'; color = "#AA00AA"; name = "Fence Counter"; break;
+            case RoomTag::CLANDESTINE_LAB: glyph = 'L'; color = "#00FF55"; name = "Chemical Processor"; break;
+            case RoomTag::SECURITY_HUB: glyph = 'H'; color = "#5555FF"; name = "Security Terminal"; break;
+            case RoomTag::HOLDING_CELL: glyph = 'C'; color = "#FF5555"; name = "Holding Cell Gate"; break;
             default: return;
         }
         auto ent = m_registry.create(); m_registry.emplace<PositionComponent>(ent, fx, fy, layer_id);
@@ -538,9 +568,55 @@ private:
         if (room.tag == RoomTag::KITCHEN) {
             auto food = m_registry.create(); m_registry.emplace<PositionComponent>(food, ix, iy, layer_id);
             m_registry.emplace<RenderableComponent>(food, '%', "#00FF00", layer_id); m_registry.emplace<ItemComponent>(food, 1, "Synthe-Food"); m_registry.emplace<ConsumableComponent>(food, 20, 0);
+            m_registry.emplace<ItemMarketCategoryComponent>(food, ItemMarketCategory::FOOD);
+            m_registry.emplace<ItemMaterialComponent>(food, RawMaterialType::BIOMASS);
         } else if (room.tag == RoomTag::SERVER_ROOM) {
             auto tech = m_registry.create(); m_registry.emplace<PositionComponent>(tech, ix, iy, layer_id);
             m_registry.emplace<RenderableComponent>(tech, '*', "#55FFFF", layer_id); m_registry.emplace<ItemComponent>(tech, 2, "Data Drive"); m_registry.emplace<ItemValueComponent>(tech, 500);
+            m_registry.emplace<ItemMarketCategoryComponent>(tech, ItemMarketCategory::TECHNOLOGY);
+            m_registry.emplace<ItemMaterialComponent>(tech, RawMaterialType::ELECTRONIC);
+        } else if (room.tag == RoomTag::ALTAR) {
+            auto relic = m_registry.create(); m_registry.emplace<PositionComponent>(relic, ix, iy, layer_id);
+            m_registry.emplace<RenderableComponent>(relic, '!', "#FFD700", layer_id); m_registry.emplace<ItemComponent>(relic, 100, "Sacred Relic"); m_registry.emplace<ItemValueComponent>(relic, 1000);
+            m_registry.emplace<ItemMarketCategoryComponent>(relic, ItemMarketCategory::LUXURY);
+            m_registry.emplace<ItemMaterialComponent>(relic, RawMaterialType::METAL);
+        }
+    }
+
+    void spawnRoomAgents(const RoomData& room, int layer_id) {
+        if (room.tag == RoomTag::FENCE) {
+            auto agent = m_registry.create();
+            m_registry.emplace<PositionComponent>(agent, room.x + room.width / 2 + 1, room.y + room.height / 2, layer_id);
+            m_registry.emplace<RenderableComponent>(agent, 'F', "#AA00AA", layer_id);
+            m_registry.emplace<NameComponent>(agent, "Fence");
+            m_registry.emplace<AgentComponent>(agent);
+            m_registry.emplace<InventoryComponent>(agent);
+            auto& econ = m_registry.emplace<Layer3EconomicComponent>(agent);
+            econ.cash_on_hand = 500;
+            m_registry.emplace<FenceComponent>(agent, 0.5f); // pays 50%
+            auto& pol = m_registry.emplace<Layer4PoliticalComponent>(agent);
+            pol.primary_faction = "SYNDICATE";
+            pol.faction_loyalty = 0.5f;
+        } else if (room.tag == RoomTag::CLANDESTINE_LAB) {
+            auto dealer = m_registry.create();
+            m_registry.emplace<PositionComponent>(dealer, room.x + room.width / 2, room.y + room.height / 2, layer_id);
+            m_registry.emplace<RenderableComponent>(dealer, 'D', "#00FF55", layer_id);
+            m_registry.emplace<NameComponent>(dealer, "Contraband Dealer");
+            m_registry.emplace<AgentComponent>(dealer);
+            m_registry.emplace<InventoryComponent>(dealer);
+            auto& econ = m_registry.emplace<Layer3EconomicComponent>(dealer);
+            econ.cash_on_hand = 200;
+            
+            // Spawn some contraband in their inventory
+            auto& inv = m_registry.get<InventoryComponent>(dealer);
+            auto medkit = m_registry.create();
+            m_registry.emplace<NameComponent>(medkit, "Military Medkit");
+            m_registry.emplace<ItemComponent>(medkit, 10, "MEDKIT");
+            m_registry.emplace<ContrabandComponent>(medkit);
+            m_registry.emplace<ItemValueComponent>(medkit, 300);
+            m_registry.emplace<ItemMarketCategoryComponent>(medkit, ItemMarketCategory::MEDICAL);
+            m_registry.emplace<ItemMaterialComponent>(medkit, RawMaterialType::CHEMICAL);
+            inv.contained_items.push_back(medkit);
         }
     }
 

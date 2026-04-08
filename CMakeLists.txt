@@ -11,6 +11,30 @@ endif()
 
 # --- Find External Dependencies ---
 
+include(FetchContent)
+
+FetchContent_Declare(
+    inkcpp
+    GIT_REPOSITORY https://github.com/JBenda/inkcpp.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(inkcpp)
+
+# Suppress warnings from inkcpp headers by marking them as system includes
+get_target_property(_inkcpp_includes inkcpp INTERFACE_INCLUDE_DIRECTORIES)
+if(_inkcpp_includes)
+    set_target_properties(inkcpp PROPERTIES
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_inkcpp_includes}"
+    )
+endif()
+
+FetchContent_Declare(
+    backward
+    GIT_REPOSITORY https://github.com/bombela/backward-cpp.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(backward)
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(NOTCURSES REQUIRED notcurses)
 
@@ -49,6 +73,7 @@ set(PROJECT_SOURCES
     ecs/systems/movement_system.cpp
     ecs/systems/interaction_system.cpp
     ecs/systems/dialogue_system.cpp
+    ecs/systems/grammar_engine.cpp
     ecs/systems/god_mode_system.cpp
     ecs/systems/inspection_system.cpp
     ecs/systems/crafting_system.cpp
@@ -65,6 +90,7 @@ set(PROJECT_SOURCES
     ecs/systems/activity_system.cpp
     ecs/systems/barter_system.cpp
     ecs/systems/faction_system.cpp
+    ecs/systems/religion_system.cpp
     ecs/systems/economic_system.cpp
     ecs/systems/stock_market_system.cpp
     ecs/systems/zoning_solver_system.cpp
@@ -74,12 +100,32 @@ set(PROJECT_SOURCES
     ecs/systems/macro_navigation_system.cpp
     ecs/systems/transit_system.cpp
     ecs/systems/social_interaction_system.cpp
+    ecs/systems/information_system.cpp
     ecs/systems/xeno_system.cpp
     ecs/systems/sound_system.cpp
+    ecs/systems/conversation_system.cpp
+    ecs/systems/crisis_system.cpp
+    ecs/systems/crisis_dashboard_system.cpp
+    ecs/systems/milestone_system.cpp
+    ecs/systems/drug_manufacturing_system.cpp
+    ecs/systems/wanted_level_system.cpp
+    ecs/systems/guard_response_system.cpp
+    ecs/systems/inheritance_system.cpp
+    ecs/systems/urban_decay_system.cpp
+    ecs/systems/city_generation_system.cpp
+    ecs/systems/broadcast_tower_system.cpp
+    ecs/systems/underground_media_system.cpp
+    ecs/systems/crisis_system.cpp
+    ecs/systems/power_grid_system.cpp
+    ecs/systems/demolition_system.cpp
+    ecs/systems/rebuilding_system.cpp
+    ecs/systems/production_system.cpp
+    ecs/systems/supply_chain_system.cpp
 )
 
 # --- Executable ---
 add_executable(neon_oubliette ${PROJECT_SOURCES})
+add_backward(neon_oubliette)
 
 target_include_directories(neon_oubliette PRIVATE
     ${CMAKE_SOURCE_DIR}/external/json-schema-validator
@@ -100,6 +146,8 @@ target_link_directories(neon_oubliette PRIVATE
 # --- Link Libraries ---
 target_link_libraries(neon_oubliette PRIVATE
     ${NOTCURSES_LIBRARIES}
+    inkcpp
+    inkcpp_compiler
 )
 
 # --- Post-Build: Copy Data ---

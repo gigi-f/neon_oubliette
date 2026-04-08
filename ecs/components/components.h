@@ -18,10 +18,17 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <memory>
+
+
 
 #include "../command_buffer.h"
+#include "base_types.h"
 #include "zoning_components.h"
 #include "transit_components.h"
+#include "religion_components.h"
+#include "crisis_components.h"
+#include "underground_media_components.h"
 
 namespace NeonOubliette {
 
@@ -34,85 +41,45 @@ enum class AgentTaskType : uint32_t {
     PICK_UP_ITEM, CONSUME_ITEM, MOVE_TO_TARGET, MOVE_ALONG_PATH,
     SEEK_HARVESTABLE, OPEN_CONTAINER, TAKE_ITEM_FROM_CONTAINER,
     CRAFT_ITEM, USE_ITEM, AWAITING_PATH, SHOVE, PATROL,
-    WAIT_FOR_TRANSIT, RIDE_TRANSIT
+    WAIT_FOR_TRANSIT, RIDE_TRANSIT, WORSHIP, VISIT_SHRINE,
+    FOLLOW_LEADER, PROCESSION,
+    // [I.1] Crime behaviors
+    STEAL_FROM_AGENT, MULE_GOODS, SELL_CONTRABAND,
+    // [I.2] Mugging behaviors
+    MUG_AGENT, AWAIT_MUGGING_COMPLIANCE, REACT_TO_MUGGING, FLEE,
+    // [I.3] Fencing behaviors
+    SEEK_FENCE, FENCE_ITEM,
+    // [I.6] Guard Response behaviors
+    PURSUE, INVESTIGATE, ARREST,
+    // [K.2] Maintenance & Squatting behaviors
+    REPAIR, SQUAT,
+    // [O.1] Raw Material Extraction
+    EXTRACT_RESOURCE,
+    // [O.2] Factory Production
+    PRODUCE_GOODS
 };
 
 enum class ActivityType : uint32_t {
-    NONE = 0, CRAFTING, HARVESTING, BUILDING, RESTING, MINING, RESEARCHING
+    NONE = 0, CRAFTING, HARVESTING, BUILDING, RESTING, MINING, RESEARCHING, WORKING
+};
+
+enum class GraffitiType : uint8_t {
+    TAG,         // Quick, small mark ('*', '~')
+    TERRITORY,   // Faction claim pattern ('#', '$', '^')
+    MURAL,       // Large artistic piece ('&', '@')
+    WARNING,     // Utility indicator ('!', '?')
+    SLUR         // Hostile towards other factions ('%', 'X')
 };
 
 enum class WorkstationType : uint32_t {
     NONE = 0, CRAFTING_BENCH, FORGE, LABORATORY
 };
 
-enum class TerrainType : uint8_t {
-    VOID = 0,
-    STREET,
-    SIDEWALK,
-    GRASS,
-    DIRT,
-    CONCRETE_FLOOR,
-    WOOD_FLOOR,
-    WALL,
-    WINDOW,
-    OFFICE_CARPET,
-    FLOWER_BED,
-    WATER_FEATURE,
-    ARENA_FLOOR,
-    ARENA_SEATING,
-    RAIL
-};
-
-enum class Direction : uint8_t {
-    NORTH, SOUTH, EAST, WEST
-};
-
-enum class WeatherState : uint8_t {
-    CLEAR, OVERCAST, RAIN, HEAVY_RAIN, ACID_RAIN, SMOG, ELECTRICAL_STORM
-};
-
-enum class TimeOfDay : uint8_t {
-    DAWN, DAY, DUSK, NIGHT
-};
-
-enum class RoutineState : uint8_t {
-    SLEEPING,
-    WORKING,
-    LEISURE,
-    COMMUTING
-};
-
-enum class SimulationMode : uint8_t {
-    STANDARD,   // Player-centric gameplay
-    GOD_MODE    // Observer/Director gameplay
-};
-
-enum class RoomTag : uint8_t {
-    LOBBY,
-    OFFICE,
-    SERVER_ROOM,
-    EXECUTIVE_SUITE,
-    BEDROOM,
-    KITCHEN,
-    BATHROOM,
-    LIVING_ROOM,
-    FACTORY_FLOOR,
-    STORAGE,
-    SUPERVISOR_OFFICE,
-    HALLWAY,
-    VOID
-};
-
-enum class AudibilityLevel : uint8_t {
-    CLEAR,      // 0 walls
-    MUFFLED,    // 1-2 walls
-    INAUDIBLE   // 3+ walls
-};
-
-enum class InteractionMode : uint8_t {
-    SPEAK,
-    OBSERVE,
-    TRADE
+struct InformationComponent {
+    std::vector<InformationRecord> records;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(records));
+    }
 };
 
 // =====================================================================
@@ -194,14 +161,59 @@ struct StandardCursorComponent {
 };
 
 struct SpeechComponent {
-    std::string text;
-    uint32_t ticks_remaining = 0;
+    std::string full_text;
+    std::vector<std::string> chunks;
+    uint32_t current_chunk_index = 0;
+    uint32_t ticks_remaining_in_chunk = 0;
+    uint32_t ticks_per_chunk = 2; // Default 2 simulation steps per chunk as per F.5 "one phrase segment per simulation step" (adjusting to 2 for readability)
+    
     entt::entity speaker = entt::null;
     AudibilityLevel audibility = AudibilityLevel::CLEAR;
     
+    float alpha = 1.0f; // For alpha ramping [F.5]
+
+    // [F.6] Overheard Intelligence
+    bool has_record = false;
+    InformationRecord record;
+
     template <class Archive> void serialize(Archive& ar) {
-        ar(CEREAL_NVP(text), CEREAL_NVP(ticks_remaining), CEREAL_NVP(speaker), CEREAL_NVP(audibility));
+        ar(CEREAL_NVP(full_text), CEREAL_NVP(chunks), CEREAL_NVP(current_chunk_index), 
+           CEREAL_NVP(ticks_remaining_in_chunk), CEREAL_NVP(ticks_per_chunk),
+           CEREAL_NVP(speaker), CEREAL_NVP(audibility), CEREAL_NVP(alpha),
+           CEREAL_NVP(has_record), CEREAL_NVP(record));
     }
+};
+
+/**
+ * @brief [F.6] Stores the history of overheard conversations for the player.
+ */
+struct DialogueLogEntry {
+    std::string speaker_name;
+    std::string text;
+    uint64_t tick = 0;
+    int x = 0, y = 0, layer = 0;
+    AudibilityLevel audibility = AudibilityLevel::CLEAR;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(speaker_name), CEREAL_NVP(text), CEREAL_NVP(tick), CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer), CEREAL_NVP(audibility));
+    }
+};
+
+struct DialogueLogComponent {
+    std::vector<DialogueLogEntry> entries;
+    bool visible = false;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(entries), CEREAL_NVP(visible));
+    }
+};
+
+/**
+ * @brief [F.3] Defines a specific speech style or dialect profile (e.g., CORPORATE, SYNDICATE).
+ *        Modifies grammar template selection and applies post-processing filters.
+ */
+struct SpeechProfileComponent {
+    std::string profile_id; // e.g., "CORPORATE", "SYNDICATE", "CACOGEN"
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(profile_id)); }
 };
 
 struct WorldConfigComponent {
@@ -209,66 +221,15 @@ struct WorldConfigComponent {
     int height = 0;
     int macro_cell_size = 20;
     uint32_t world_seed = 12345;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(width), CEREAL_NVP(height), CEREAL_NVP(macro_cell_size), CEREAL_NVP(world_seed)); }
+    uint64_t next_macro_id = 1000; // Start high to avoid collision with low-level stubs
+    template <class Archive> void serialize(Archive& ar) { ar(cereal::make_nvp("width", width), cereal::make_nvp("height", height), cereal::make_nvp("macro_cell_size", macro_cell_size), cereal::make_nvp("world_seed", world_seed), cereal::make_nvp("next_macro_id", next_macro_id)); }
 };
 
 struct NameComponent {
     std::string name;
     NameComponent() = default;
     NameComponent(std::string n) : name(n) {}
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(name)); }
-};
-
-struct PositionComponent {
-    int x = 0; int y = 0; int layer_id = 0;
-    PositionComponent() = default;
-    PositionComponent(int x, int y, int layer_id = 0) : x(x), y(y), layer_id(layer_id) {}
-    bool operator==(const PositionComponent& other) const {
-        return x == other.x && y == other.y && layer_id == other.layer_id;
-    }
-    bool operator<(const PositionComponent& other) const {
-        if (layer_id != other.layer_id) return layer_id < other.layer_id;
-        if (x != other.x) return x < other.x;
-        return y < other.y;
-    }
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer_id)); }
-};
-
-} // namespace NeonOubliette
-
-// std::hash specialization for PositionComponent (must be in namespace std)
-template<>
-struct std::hash<NeonOubliette::PositionComponent> {
-    size_t operator()(const NeonOubliette::PositionComponent& p) const noexcept {
-        // Combine x, y, layer_id into a single hash
-        size_t h = std::hash<int>()(p.x);
-        h ^= std::hash<int>()(p.y) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        h ^= std::hash<int>()(p.layer_id) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        return h;
-    }
-};
-
-namespace NeonOubliette {
-
-/**
- * @brief Defines the physical footprint of an entity in tiles.
- */
-struct SizeComponent {
-    int width = 1;
-    int height = 1;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(width), CEREAL_NVP(height)); }
-};
-
-struct OrientationComponent {
-    Direction facing = Direction::NORTH;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(facing)); }
-};
-
-struct RenderableComponent {
-    char glyph = '?'; std::string color = "#FFFFFF"; int layer_id = 0;
-    RenderableComponent() = default;
-    RenderableComponent(char g, std::string c, int lid = 0) : glyph(g), color(c), layer_id(lid) {}
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(glyph), CEREAL_NVP(color), CEREAL_NVP(layer_id)); }
+    template <class Archive> void serialize(Archive& ar) { ar(cereal::make_nvp("name", name)); }
 };
 
 struct PlayerInteractionComponent {
@@ -276,7 +237,10 @@ struct PlayerInteractionComponent {
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(current_mode)); }
 };
 
-struct PlayerComponent { template <class Archive> void serialize(Archive&) {} };
+struct PlayerComponent { 
+    uint64_t macro_id = 1; 
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(macro_id)); } 
+};
 
 struct HUDComponent {
     float health = 100.0f; int credits = 0; int current_layer_display = 0;
@@ -286,12 +250,22 @@ struct HUDComponent {
     int selected_inventory_index = 0;
     entt::entity held_item = entt::null; // [C.1]
     float held_item_flash_timer = 0.0f; // [C.2]
+    
+    // [L.2] Economic Crisis Display
+    float economic_stress_display = 0.0f;
+    std::string economy_status_label = "STABLE";
+    
+    // [I.5] Player Wanted Display
+    std::map<std::string, int> faction_wanted_levels; 
+    float global_notoriety = 0.0f;
 
     template <class Archive> void serialize(Archive& ar) {
         ar(CEREAL_NVP(health), CEREAL_NVP(credits), CEREAL_NVP(current_layer_display), 
            CEREAL_NVP(notifications), CEREAL_NVP(show_controls_help), 
            CEREAL_NVP(inventory_open), CEREAL_NVP(selected_inventory_index),
-           CEREAL_NVP(held_item), CEREAL_NVP(held_item_flash_timer));
+           CEREAL_NVP(held_item), CEREAL_NVP(held_item_flash_timer),
+           CEREAL_NVP(faction_wanted_levels), CEREAL_NVP(global_notoriety),
+           CEREAL_NVP(economic_stress_display), CEREAL_NVP(economy_status_label));
     }
 };
 
@@ -315,6 +289,16 @@ struct ItemComponent {
 struct ItemValueComponent {
     int value = 1;
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(value)); }
+};
+
+struct ItemMarketCategoryComponent {
+    ItemMarketCategory category = ItemMarketCategory::NONE;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(category)); }
+};
+
+struct ItemMaterialComponent {
+    RawMaterialType material = RawMaterialType::METAL;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(material)); }
 };
 
 struct TerrainComponent {
@@ -526,6 +510,50 @@ struct PortalComponent {
 // AI & Agent Components
 // =====================================================================
 
+/**
+ * @brief [J.1] Defines the life stage of an agent.
+ */
+enum class LifeStage : uint8_t {
+    INFANT,       // Metaphor: Small, fragile ('.')
+    CHILD,        // Metaphor: Maturing, lowercase
+    YOUNG_ADULT,  // Metaphor: Peak vibrancy
+    ADULT,        // Metaphor: Standard city dweller
+    ELDER,        // Metaphor: Fading, desaturated/dimmed
+    ANCIENT,      // Metaphor: Mythic, specialized glyphs
+    AGELESS       // Metaphor: Unchanging (Cacogens/Hierodules)
+};
+
+/**
+ * @brief [J.2] Tracks the biological reproduction process for an agent.
+ */
+struct ReproductionComponent {
+    bool is_pregnant = false;
+    uint32_t gestation_ticks_remaining = 0;
+    entt::entity partner = entt::null;
+    float genetic_health = 1.0f;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(is_pregnant), CEREAL_NVP(gestation_ticks_remaining), 
+           CEREAL_NVP(partner), CEREAL_NVP(genetic_health));
+    }
+};
+
+/**
+ * @brief [J.1] Tracks chronological and biological age.
+ */
+struct AgeComponent {
+    uint32_t current_age_ticks = 0;
+    uint32_t years = 0;
+    LifeStage stage = LifeStage::ADULT;
+    float biological_wear = 0.0f; // 0.0 (fresh) to 1.0 (critical decay)
+    uint32_t expected_lifespan_years = 120; // Default for enhanced humans
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(current_age_ticks), CEREAL_NVP(years), CEREAL_NVP(stage), 
+           CEREAL_NVP(biological_wear), CEREAL_NVP(expected_lifespan_years));
+    }
+};
+
 struct AgentComponent { template <class Archive> void serialize(Archive&) {} };
 struct NPCComponent { 
     int health = 100; uint64_t macro_id = 0;
@@ -544,14 +572,150 @@ struct GoalComponent {
 };
 struct NeedsComponent {
     float hunger = 100.0f; float thirst = 100.0f; float frustration = 0.0f;
+    float socialization = 100.0f; // [G.5]
     NeedsComponent() = default; NeedsComponent(float h, float t) : hunger(h), thirst(t) {}
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(hunger), CEREAL_NVP(thirst), CEREAL_NVP(frustration)); }
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(hunger), CEREAL_NVP(thirst), CEREAL_NVP(frustration), CEREAL_NVP(socialization)); }
 };
+
+/**
+ * @brief [I.1] Tracks an agent's propensity for criminal activity.
+ */
+struct CrimeRiskComponent {
+    float boldness = 50.0f; // 0-100
+    uint64_t last_crime_tick = 0;
+    bool is_active_criminal = false;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(boldness), CEREAL_NVP(last_crime_tick), CEREAL_NVP(is_active_criminal));
+    }
+};
+
+/**
+ * @brief [I.5] Tracks the player's wanted level per faction and global notoriety.
+ */
+struct WantedComponent {
+    std::unordered_map<std::string, int> faction_wanted_levels; // faction_id -> 0-5 stars
+    float global_notoriety = 0.0f; // 0-100 base notoriety
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(faction_wanted_levels), CEREAL_NVP(global_notoriety));
+    }
+};
+
+/**
+ * @brief [P.1] Tracks the player's social and political standing with city factions.
+ *        Distinct from 'Wanted' (legal/guards), this affects trade, dialogue, and access.
+ */
+struct ReputationComponent {
+    // Faction ID -> Standing (-100.0 to 100.0). 
+    // -100: Kill on Sight (Social), 0: Neutral, 100: Hero/Key Ally.
+    std::unordered_map<std::string, float> faction_standing;
+
+    // Fame (0.0 to 1.0): How widely recognized the player's actions are.
+    // Higher fame makes standing shifts propagate faster and affects NPC reactions.
+    float fame = 0.0f;
+
+    ReputationTier get_tier(const std::string& faction_id) const {
+        float standing = 0.0f;
+        if (faction_standing.contains(faction_id)) {
+            standing = faction_standing.at(faction_id);
+        }
+
+        if (standing <= -70.0f) return ReputationTier::EXCOMMUNICATED;
+        if (standing <= -30.0f) return ReputationTier::HOSTILE;
+        if (standing <= -10.0f) return ReputationTier::SUSPICIOUS;
+        if (standing >= 70.0f) return ReputationTier::ALLY;
+        if (standing >= 30.0f) return ReputationTier::FRIENDLY;
+        if (standing >= 10.0f) return ReputationTier::FAVORED;
+        return ReputationTier::NEUTRAL;
+    }
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(faction_standing), CEREAL_NVP(fame));
+    }
+};
+
+/**
+ * @brief [I.4] Tracks production in a clandestine lab.
+ */
+struct ClandestineLabComponent {
+    float production_progress = 0.0f;
+    float production_rate = 0.05f; // progress per simulation tick
+    int raw_chemicals_stored = 0;
+    int max_raw_chemicals = 20;
+    int drugs_produced_stored = 0;
+    int max_drugs_produced = 20;
+    entt::entity controlling_faction = entt::null;
+    bool is_raided = false;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(production_progress), CEREAL_NVP(production_rate),
+           CEREAL_NVP(raw_chemicals_stored), CEREAL_NVP(max_raw_chemicals),
+           CEREAL_NVP(drugs_produced_stored), CEREAL_NVP(max_drugs_produced),
+           CEREAL_NVP(controlling_faction), CEREAL_NVP(is_raided));
+    }
+};
+
+/**
+ * @brief [I.4] Tag for raw chemical inputs.
+ */
+struct RawChemicalComponent {
+    template <class Archive> void serialize(Archive& ar) {}
+};
+
+/**
+ * @brief [I.3] Flag for stolen items.
+ */
+struct StolenComponent {
+    entt::entity original_owner = entt::null;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(original_owner));
+    }
+};
+
+/**
+ * @brief [P.2] Marks an item dropped by the player to enable reputation from charity.
+ */
+struct DroppedByPlayerComponent {
+    uint64_t tick_dropped = 0;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(tick_dropped));
+    }
+};
+
+/**
+ * @brief [I.3] Flag for contraband items.
+ */
+struct ContrabandComponent {
+    template <class Archive> void serialize(Archive& ar) {}
+};
+
+/**
+ * @brief [I.3] Marks an entity as a Fence.
+ */
+struct FenceComponent {
+    float fee_multiplier = 0.5f; // Value paid to agent for stolen goods (40-60%)
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(fee_multiplier));
+    }
+};
+
 struct PatrolComponent {
     std::vector<PositionComponent> waypoints;
     size_t current_waypoint_index = 0;
     template <class Archive> void serialize(Archive& ar) {
         ar(CEREAL_NVP(waypoints), CEREAL_NVP(current_waypoint_index));
+    }
+};
+
+/**
+ * @brief [H.4] Used by agents to follow a leader in a group/procession.
+ */
+struct FollowComponent {
+    entt::entity target = entt::null;
+    int target_distance = 1;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(target), CEREAL_NVP(target_distance));
     }
 };
 
@@ -575,7 +739,8 @@ struct ScheduleComponent {
 struct HomeComponent { 
     int x = -1; int y = -1; int layer = 0;
     entt::entity building_entity = entt::null; 
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer)); } 
+    bool is_squatting = false; // [K.2]
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(layer), CEREAL_NVP(is_squatting)); } 
 };
 struct WorkplaceComponent { 
     int x = -1; int y = -1; int layer = 0;
@@ -588,6 +753,25 @@ struct WorkplaceComponent {
 // =====================================================================
 
 struct WasteComponent { float waste_level = 0.0f; template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(waste_level)); } };
+
+/**
+ * @brief [K.4] Graffiti and environmental textures applied to buildings.
+ */
+struct GraffitiComponent {
+    entt::entity creator_faction = entt::null;
+    GraffitiType type = GraffitiType::TAG;
+    float density = 0.5f;       // 0.0 to 1.0 (affects glyph selection/brightness)
+    uint32_t color = 0xFFFFFF;   // Faction-specific color
+    char glyph = '*';            // Visual metaphor
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(cereal::make_nvp("creator_faction", creator_faction), 
+           cereal::make_nvp("type", type), 
+           cereal::make_nvp("density", density), 
+           cereal::make_nvp("color", color), 
+           cereal::make_nvp("glyph", glyph));
+    }
+};
 
 /**
  * @brief [NEW CLASS] Nature effects reduce agent frustration.
@@ -635,16 +819,27 @@ struct WeatherComponent {
 // =====================================================================
 
 struct PublicOpinionComponent {
-    std::map<entt::entity, float> faction_approval;
+    std::map<std::string, float> faction_approval;
     template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(faction_approval)); }
 };
 struct FactionComponent {
-    std::string faction_id; int standing = 0; float influence = 0.0f;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(faction_id), CEREAL_NVP(standing), CEREAL_NVP(influence)); }
+    std::string faction_id; std::string speech_profile; int standing = 0; float influence = 0.0f;
+    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(faction_id), CEREAL_NVP(speech_profile), CEREAL_NVP(standing), CEREAL_NVP(influence)); }
 };
 struct MacroMarketComponent {
     double GDP = 0.0; float unemployment_rate = 0.0f; uint64_t tax_revenue = 0;
-    template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(GDP), CEREAL_NVP(unemployment_rate), CEREAL_NVP(tax_revenue)); }
+    float wage_index = 1.0f; // Multiplier for wages (EconomicSystem uses this)
+    float average_wealth = 100.0f; // [J.4] Average credits per agent in this chunk
+    float crime_rate = 0.0f;      // [J.4] Frequency of CrimeReportEvent in this chunk
+    
+    // [O.1] Resource Scarcity (1.0 = normal, >1.0 = scarce/expensive)
+    std::map<RawMaterialType, float> material_scarcity;
+
+    template <class Archive> void serialize(Archive& ar) { 
+        ar(CEREAL_NVP(GDP), CEREAL_NVP(unemployment_rate), CEREAL_NVP(tax_revenue), \
+           CEREAL_NVP(wage_index), CEREAL_NVP(average_wealth), CEREAL_NVP(crime_rate), \
+           CEREAL_NVP(material_scarcity)); 
+    }
 };
 struct TaxationComponent { float income_tax_rate = 0.1f; template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(income_tax_rate)); } };
 
@@ -712,7 +907,136 @@ struct ContainerComponent {
 
 struct CityComponent { uint64_t time_tick = 0; template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(time_tick)); } };
 struct RailNetworkComponent { template <class Archive> void serialize(Archive&) {} };
-struct ResourceNodeComponent { template <class Archive> void serialize(Archive&) {} };
+
+/**
+ * @brief [O.1] Chunk-level resource availability.
+ */
+struct RawMaterialFieldComponent {
+    std::map<RawMaterialType, float> concentrations; // 0.0 to 1.0
+    std::map<RawMaterialType, float> regen_rates;   // progress per tick
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(concentrations), CEREAL_NVP(regen_rates));
+    }
+};
+
+/**
+ * @brief [O.2] Defines a production process.
+ */
+struct ProductionRecipe {
+    std::string recipe_name = "Generic Widget";
+    std::map<RawMaterialType, float> inputs;
+    uint32_t output_item_type_id = 0;
+    std::string output_name = "Widget";
+    char output_glyph = '?';
+    std::string output_color = "#FFFFFF";
+    float work_required = 100.0f; // total progress points
+    float efficiency_base = 1.0f;
+    ItemMarketCategory output_category = ItemMarketCategory::NONE;
+    RawMaterialType output_material = RawMaterialType::METAL;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(recipe_name), CEREAL_NVP(inputs), CEREAL_NVP(output_item_type_id), 
+           CEREAL_NVP(output_name), CEREAL_NVP(output_glyph), CEREAL_NVP(output_color), 
+           CEREAL_NVP(work_required), CEREAL_NVP(efficiency_base),
+           CEREAL_NVP(output_category), CEREAL_NVP(output_material));
+    }
+};
+
+/**
+ * @brief [O.2] Building-scale industrial production.
+ */
+struct FactoryComponent {
+    std::vector<ProductionRecipe> available_recipes;
+    std::map<RawMaterialType, float> input_stockpile;
+    uint32_t active_recipe_index = 0;
+    float current_progress = 0.0f;
+    bool is_active = false;
+    entt::entity storage_container = entt::null; // Link to a STORAGE room container
+    std::string owning_faction = "CORPORATE"; // [O.3] Faction that owns/runs the factory
+    float base_efficiency = 1.0f;           // [O.3] Native efficiency (pre-disruption)
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(available_recipes), CEREAL_NVP(input_stockpile), CEREAL_NVP(active_recipe_index), CEREAL_NVP(current_progress), CEREAL_NVP(is_active), CEREAL_NVP(storage_container), CEREAL_NVP(owning_faction), CEREAL_NVP(base_efficiency));
+    }
+};
+
+/**
+ * @brief [O.3] Tracks supply chain disruption factors for a factory or chunk.
+ */
+struct SupplyChainDisruptionComponent {
+    float transport_bottleneck = 0.0f; // 0.0 to 1.0 (clogged logistics/infrastructure)
+    float labor_strike = 0.0f;         // 0.0 to 1.0 (unhappy workers)
+    float sabotage_risk = 0.0f;        // 0.0 to 1.0 (criminal/rival faction interference)
+    
+    // Recovery rate: how fast disruption clears naturally
+    float recovery_rate = 0.01f;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(transport_bottleneck), CEREAL_NVP(labor_strike), CEREAL_NVP(sabotage_risk), CEREAL_NVP(recovery_rate));
+    }
+};
+
+/**
+ * @brief [O.1] Specific point of extraction.
+ */
+struct ResourceNodeComponent {
+    RawMaterialType material_type = RawMaterialType::METAL;
+    float current_yield = 1.0f; // Yield per work unit
+    float depletion_rate = 0.01f; // How much field concentration drops per harvest
+    bool is_exhausted = false;
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(material_type), CEREAL_NVP(current_yield), CEREAL_NVP(depletion_rate), CEREAL_NVP(is_exhausted));
+    }
+};
+
+/**
+ * @brief [O.1] Tracks progress of an agent extracting resources.
+ */
+struct ExtractionProgressComponent {
+    float progress = 0.0f;
+    float work_rate = 0.05f; // progress per simulation tick
+    entt::entity target_node = entt::null;
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(progress), CEREAL_NVP(work_rate), CEREAL_NVP(target_node));
+    }
+};
+
+/**
+ * @brief [O.4] Tracks an agent's (or player's) employment at a factory.
+ */
+struct FactoryJobComponent {
+    entt::entity factory_entity = entt::null;
+    int shift_duration_ticks = 100; // Total duration of a work shift
+    int ticks_worked_current_shift = 0;
+    int wage_per_shift = 50;
+    bool is_currently_working = false;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(factory_entity), CEREAL_NVP(shift_duration_ticks), 
+           CEREAL_NVP(ticks_worked_current_shift), CEREAL_NVP(wage_per_shift), 
+           CEREAL_NVP(is_currently_working));
+    }
+};
+
+/**
+ * @brief [O.4] Tracks a logistic agent's current transport task.
+ */
+struct MuleComponent {
+    entt::entity source_entity = entt::null;
+    entt::entity destination_entity = entt::null;
+    RawMaterialType material_type = RawMaterialType::METAL;
+    bool is_carrying = false;
+    entt::entity carried_item = entt::null;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(source_entity), CEREAL_NVP(destination_entity), 
+           CEREAL_NVP(material_type), CEREAL_NVP(is_carrying), CEREAL_NVP(carried_item));
+    }
+};
+
 struct HousingPreferenceComponent { template <class Archive> void serialize(Archive&) {} };
 struct GlobalResourceStockpile { template <class Archive> void serialize(Archive&) {} };
 struct BudgetComponent { template <class Archive> void serialize(Archive&) {} };
@@ -763,17 +1087,26 @@ struct RelationshipRecord {
     float affinity = 0.0f; // -100 to 100
     uint64_t last_interaction_tick = 0;
     bool shared_home = false;
+    uint64_t target_macro_id = 0; // The stable ID of the other agent
+    std::vector<std::string> interaction_history; // [F.7] Memory of last 3 interactions
 
     template <class Archive> void serialize(Archive& ar) {
-        ar(CEREAL_NVP(tier), CEREAL_NVP(affinity), CEREAL_NVP(last_interaction_tick), CEREAL_NVP(shared_home));
+        ar(CEREAL_NVP(tier), CEREAL_NVP(affinity), CEREAL_NVP(last_interaction_tick), CEREAL_NVP(shared_home), CEREAL_NVP(target_macro_id), CEREAL_NVP(interaction_history));
     }
 };
 
 struct RelationshipComponent {
-    std::unordered_map<entt::entity, RelationshipRecord> records;
+    std::unordered_map<uint64_t, RelationshipRecord> records; // Key is target_macro_id
     template <class Archive> void serialize(Archive& ar) {
         ar(CEREAL_NVP(records));
     }
+};
+
+/**
+ * @brief [NEW] Singleton to map stable macro_ids to live entities.
+ */
+struct MacroIdMappingTag {
+    std::unordered_map<uint64_t, entt::entity> mapping;
 };
 
 /**
@@ -781,12 +1114,33 @@ struct RelationshipComponent {
  */
 struct ConversationComponent {
     entt::entity partner = entt::null;
-    std::vector<std::string> topic_stack;
+    std::string topic_atom_tag;
     uint32_t step_counter = 0;
     uint32_t duration_ticks = 0;
+    bool is_initiator = false;
 
     template <class Archive> void serialize(Archive& ar) {
-        ar(CEREAL_NVP(partner), CEREAL_NVP(topic_stack), CEREAL_NVP(step_counter), CEREAL_NVP(duration_ticks));
+        ar(CEREAL_NVP(partner), CEREAL_NVP(topic_atom_tag), CEREAL_NVP(step_counter), CEREAL_NVP(duration_ticks), CEREAL_NVP(is_initiator));
+    }
+};
+
+/**
+ * @brief [F.1] Handles authored branching dialogue via InkCPP.
+ *        Used for "Gold Paths" like AGI leaders and major NPCs.
+ */
+/**
+ * @brief [F.1] Handles authored branching dialogue via InkCPP.
+ *        Used for "Gold Paths" like AGI leaders and major NPCs.
+ */
+struct InkStoryComponent {
+    std::string story_path;
+    std::shared_ptr<void> story_obj;
+    std::shared_ptr<void> runner_obj;
+    bool is_initialized = false;
+    
+    // Non-serializable runtime data is reloaded on deserialize
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(story_path));
     }
 };
 
@@ -795,6 +1149,54 @@ struct DialogueStateComponent {
     entt::entity target_agent = entt::null;
     template <class Archive> void serialize(Archive& ar) {
         ar(CEREAL_NVP(is_open), CEREAL_NVP(target_agent));
+    }
+};
+
+enum class PersonalityTag : uint8_t {
+    NEUTRAL,
+    LACONIC,
+    VERBOSE,
+    PARANOID,
+    AGGRESSIVE,
+    SUBSERVIENT
+};
+
+/**
+ * @brief [F.1] Traits that modify an agent's dialogue style and grammar selection.
+ */
+struct PersonalityComponent {
+    std::vector<PersonalityTag> tags;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(tags));
+    }
+};
+
+/**
+ * @brief [T.1] Tracks the current barter UI state.
+ */
+struct BarterUIComponent {
+    bool is_open = false;
+    entt::entity target_agent = entt::null;
+    std::vector<entt::entity> player_offer;
+    std::vector<entt::entity> npc_offer;
+    std::vector<InformationRecord> player_info_offer;
+    std::vector<InformationRecord> npc_info_offer;
+    int selected_inventory_index = 0;
+    bool focusing_npc_inventory = false;
+    
+    // [T.3] Negotiation Mechanics
+    float npc_patience = 1.0f;     // 1.0 (calm) to 0.0 (walk away)
+    float npc_greed_margin = 1.1f; // Desired profit multiplier (e.g., 1.1 = 10% markup)
+    float current_leverage = 0.0f; // Reduction to greed margin from pressure
+    std::string npc_feedback = "Interested in a trade?";
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(is_open), CEREAL_NVP(target_agent), 
+           CEREAL_NVP(player_offer), CEREAL_NVP(npc_offer), 
+           CEREAL_NVP(player_info_offer), CEREAL_NVP(npc_info_offer),
+           CEREAL_NVP(selected_inventory_index), CEREAL_NVP(focusing_npc_inventory),
+           CEREAL_NVP(npc_patience), CEREAL_NVP(npc_greed_margin), 
+           CEREAL_NVP(current_leverage), CEREAL_NVP(npc_feedback));
     }
 };
 
@@ -818,11 +1220,27 @@ struct CreatureComponent { std::string species; int health = 100; template <clas
 struct ForageNodeComponent { int current_amount = 10; template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(current_amount)); } };
 struct PipeSegmentComponent { template <class Archive> void serialize(Archive&) {} };
 struct WaterQualityComponent { template <class Archive> void serialize(Archive&) {} };
-struct WorkOrderComponent { template <class Archive> void serialize(Archive&) {} };
+struct WorkOrderComponent {
+    entt::entity factory_entity = entt::null;
+    float contribution_per_tick = 1.0f;
+    bool is_fulfilled = false;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(factory_entity), CEREAL_NVP(contribution_per_tick), CEREAL_NVP(is_fulfilled));
+    }
+};
 struct RepairProgressComponent { template <class Archive> void serialize(Archive&) {} };
 struct SkillComponent { template <class Archive> void serialize(Archive&) {} };
 struct JobRequirementComponent { template <class Archive> void serialize(Archive&) {} };
-struct EmploymentContractComponent { template <class Archive> void serialize(Archive&) {} };
+struct EmploymentContractComponent {
+    int wage = 10;
+    int shift_length = 12;
+    entt::entity boss_entity = entt::null;
+    std::string job_title = "Assembler";
+    
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(wage), CEREAL_NVP(shift_length), CEREAL_NVP(boss_entity), CEREAL_NVP(job_title));
+    }
+};
 struct MicroPresenceComponent { bool is_active = false; entt::entity micro_entity = entt::null; template <class Archive> void serialize(Archive& ar) { ar(CEREAL_NVP(is_active), CEREAL_NVP(micro_entity)); } };
 struct ActivityComponent {
     ActivityType type = ActivityType::NONE; int turns_remaining = 0; int total_turns_required = 0;
@@ -888,6 +1306,56 @@ struct XenoInfluenceComponent {
     float gravity_local = 1.0f;      // Layer 0 Physics (new concept)
     template <class Archive> void serialize(Archive& ar) { 
         ar(CEREAL_NVP(radius), CEREAL_NVP(temperature_offset), CEREAL_NVP(frustration_delta), CEREAL_NVP(scarcity_modifier), CEREAL_NVP(gravity_local)); 
+    }
+};
+
+struct ActiveCrisis {
+    CrisisType type = CrisisType::NONE;
+    float severity = 0.0f; // 0.0 to 1.0
+    uint32_t ticks_remaining = 0;
+    std::string description;
+    entt::entity epicenter = entt::null; // Could be a chunk, building, or faction
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(type), CEREAL_NVP(severity), CEREAL_NVP(ticks_remaining), CEREAL_NVP(description), CEREAL_NVP(epicenter));
+    }
+};
+
+/**
+ * @brief [L.6] Singleton to track the state of the God Mode Crisis Dashboard.
+ */
+struct CrisisDashboardComponent {
+    bool visible = false;
+    int selected_crisis_index = 0;
+    
+    // Stress history for visualization (0.0 to 1.0)
+    std::vector<float> economic_stress_history;
+    std::vector<float> political_stress_history;
+    std::vector<float> biological_stress_history;
+    std::vector<float> environmental_stress_history;
+    
+    std::vector<std::string> propagation_vectors;
+    
+    size_t history_limit = 40; 
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(visible), CEREAL_NVP(selected_crisis_index),
+           CEREAL_NVP(economic_stress_history), CEREAL_NVP(political_stress_history),
+           CEREAL_NVP(biological_stress_history), CEREAL_NVP(environmental_stress_history),
+           CEREAL_NVP(propagation_vectors));
+    }
+};
+
+/**
+ * @brief [L.1] Singleton component to track active macro-scale crises in the city.
+ */
+struct CrisisComponent {
+    std::vector<ActiveCrisis> active_crises;
+    float stress_level = 0.0f; // Global "stress" that increases crisis probability
+    uint64_t last_crisis_tick = 0;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(active_crises), CEREAL_NVP(stress_level), CEREAL_NVP(last_crisis_tick));
     }
 };
 
@@ -970,7 +1438,10 @@ namespace ECS {
     using ContainerComponent = NeonOubliette::ContainerComponent;
     using CityComponent = NeonOubliette::CityComponent;
     using RailNetworkComponent = NeonOubliette::RailNetworkComponent;
+    using RawMaterialFieldComponent = NeonOubliette::RawMaterialFieldComponent;
     using ResourceNodeComponent = NeonOubliette::ResourceNodeComponent;
+    using ExtractionProgressComponent = NeonOubliette::ExtractionProgressComponent;
+    using RawMaterialType = NeonOubliette::RawMaterialType;
     using HousingPreferenceComponent = NeonOubliette::HousingPreferenceComponent;
     using GlobalResourceStockpile = NeonOubliette::GlobalResourceStockpile;
     using BudgetComponent = NeonOubliette::BudgetComponent;
@@ -1000,6 +1471,8 @@ namespace ECS {
     using ForageNodeComponent = NeonOubliette::ForageNodeComponent;
     using PipeSegmentComponent = NeonOubliette::PipeSegmentComponent;
     using WaterQualityComponent = NeonOubliette::WaterQualityComponent;
+    using FactoryComponent = NeonOubliette::FactoryComponent;
+    using ProductionRecipe = NeonOubliette::ProductionRecipe;
     using WorkOrderComponent = NeonOubliette::WorkOrderComponent;
     using RepairProgressComponent = NeonOubliette::RepairProgressComponent;
     using SkillComponent = NeonOubliette::SkillComponent;
@@ -1025,6 +1498,12 @@ namespace ECS {
     using ScheduleComponent = NeonOubliette::ScheduleComponent;
     using XenoComponent = NeonOubliette::XenoComponent;
     using XenoInfluenceComponent = NeonOubliette::XenoInfluenceComponent;
+    using CrimeRiskComponent = NeonOubliette::CrimeRiskComponent;
+    using WantedComponent = NeonOubliette::WantedComponent;
+    using ReputationComponent = NeonOubliette::ReputationComponent;
+    using StolenComponent = NeonOubliette::StolenComponent;
+    using ContrabandComponent = NeonOubliette::ContrabandComponent;
+    using FenceComponent = NeonOubliette::FenceComponent;
     using SimulationStateComponent = NeonOubliette::SimulationStateComponent;
     using GodCursorComponent = NeonOubliette::GodCursorComponent;
     using StandardCursorComponent = NeonOubliette::StandardCursorComponent;
@@ -1032,6 +1511,12 @@ namespace ECS {
     using AudibilityLevel = NeonOubliette::AudibilityLevel;
     using BuildingAcousticsComponent = NeonOubliette::BuildingAcousticsComponent;
     using DebugOverlayComponent = NeonOubliette::DebugOverlayComponent;
+    using CrisisComponent = NeonOubliette::CrisisComponent;
+    using CrisisDashboardComponent = NeonOubliette::CrisisDashboardComponent;
+    using CrisisType = NeonOubliette::CrisisType;
+    using ActiveCrisis = NeonOubliette::ActiveCrisis;
+    using InfectionComponent = NeonOubliette::InfectionComponent;
+    using EnvironmentalHazardComponent = NeonOubliette::EnvironmentalHazardComponent;
 }
 
 } // namespace NeonOubliette

@@ -68,13 +68,11 @@ void InspectionSystem::handleCloseInspectionWindowEvent(const CloseInspectionWin
 }
 
 void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
-    // Better Targeting: Check exact hit first, then proximity
     auto view = registry_.view<PositionComponent>();
     entt::entity target = entt::null;
 
-    // 1. Multi-Layer Exact Hit Scan (Prefer higher/interactive layers)
-    std::vector<int> levels_to_check = {event.layer_id, 5, 0}; // Current, Elevated Rail, Ground
-    if (event.layer_id >= 1000) levels_to_check = {event.layer_id}; // Interiors stay local
+    std::vector<int> levels_to_check = {event.layer_id, 5, 0};
+    if (event.layer_id >= 1000) levels_to_check = {event.layer_id};
 
     for (int lvl : levels_to_check) {
         for (auto entity : view) {
@@ -98,7 +96,6 @@ void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
         if (target != entt::null) break;
     }
 
-    // 2. Proximity Fallback (if no exact hit)
     if (target == entt::null) {
         float best_dist = 999.0f;
         for (auto entity : view) {
@@ -123,13 +120,7 @@ void InspectionSystem::handleInspectEvent(const InspectEvent& event) {
         return;
     }
 
-    if (event.mode == InspectionMode::GLANCE) {
-        std::string name = "Something";
-        if (registry_.all_of<NameComponent>(target)) {
-            name = registry_.get<NameComponent>(target).name;
-        }
-        return;
-    }
+    if (event.mode == InspectionMode::GLANCE) return;
 
     m_current_target = target;
     m_current_mode = event.mode;
@@ -142,7 +133,6 @@ void InspectionSystem::draw_inspection_window() {
 
     ncplane_erase(m_inspection_plane);
     
-    // Choose accent color based on mode
     uint32_t accent_color = 0xFFFFFF;
     switch(m_current_mode) {
         case InspectionMode::SURFACE_SCAN: accent_color = 0x55FFFF; break;
@@ -150,6 +140,7 @@ void InspectionSystem::draw_inspection_window() {
         case InspectionMode::COGNITIVE_PROFILE: accent_color = 0xFF00FF; break;
         case InspectionMode::FINANCIAL_FORENSICS: accent_color = 0xFFFF00; break;
         case InspectionMode::STRUCTURAL_ANALYSIS: accent_color = 0xFF5555; break;
+        case InspectionMode::HISTORY: accent_color = 0xAAAAAA; break;
         default: break;
     }
 
@@ -165,7 +156,6 @@ void InspectionSystem::draw_inspection_window() {
     ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
     ncplane_putstr_yx(m_inspection_plane, 1, 2, ("INSPECTING: " + name).c_str());
 
-    // Simulation Pulse
     const char pulse_chars[] = {'-', '\\', '|', '/'};
     char pulse = pulse_chars[(m_pulse_counter / 10) % 4];
     ncplane_set_fg_rgb(m_inspection_plane, accent_color);
@@ -190,6 +180,7 @@ void InspectionSystem::draw_tabs() {
         case InspectionMode::COGNITIVE_PROFILE: current_tab_idx = 2; break;
         case InspectionMode::FINANCIAL_FORENSICS: current_tab_idx = 3; break;
         case InspectionMode::STRUCTURAL_ANALYSIS: current_tab_idx = 4; break;
+        case InspectionMode::HISTORY: current_tab_idx = 5; break;
         default: current_tab_idx = 5; break;
     }
 
@@ -270,8 +261,8 @@ void InspectionSystem::draw_ascii_portrait() {
         case InspectionMode::FINANCIAL_FORENSICS:
             ncplane_putstr_yx(m_inspection_plane, start_y++, x, "  ________________");
             ncplane_putstr_yx(m_inspection_plane, start_y++, x, " |  BANK TRANS.  |");
-            ncplane_putstr_yx(m_inspection_plane, start_y++, x, " | [$$$$$$$$$$]  |");
-            ncplane_putstr_yx(m_inspection_plane, start_y++, x, " | [$$$$      ]  |");
+            ncplane_putstr_yx(m_inspection_plane, start_y++, x, " | [3896738967389673896738967]  |");
+            ncplane_putstr_yx(m_inspection_plane, start_y++, x, " | [3896738967      ]  |");
             ncplane_putstr_yx(m_inspection_plane, start_y++, x, " |________________|");
             break;
         case InspectionMode::STRUCTURAL_ANALYSIS:
@@ -317,7 +308,6 @@ void InspectionSystem::draw_content() {
         default: break;
     }
 
-    // Draw Cross-Layer Insights
     ncplane_set_fg_rgb(m_inspection_plane, 0x888888);
     ncplane_putstr_yx(m_inspection_plane, insight_y++, insight_x, "CAUSAL INSIGHTS:");
     auto insights = calculate_insights(m_current_target, current_layer);
@@ -336,35 +326,19 @@ void InspectionSystem::draw_content() {
         case InspectionMode::SURFACE_SCAN: {
             if (is_masked(SimulationLayer::L0_Physics)) {
                 draw_mask();
-            } else if (auto* p = registry_.try_get<Layer0PhysicsComponent>(m_current_target)) {
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Material: %s", get_material_name(p->material).c_str());
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Integrity: %.1f%%", p->structural_integrity * 100.0f);
-                
-                std::string temp_desc = "NORMAL";
-                if (p->temperature_celsius < -40.0f) temp_desc = "CRYO-CRITICAL";
-                else if (p->temperature_celsius < 0.0f) temp_desc = "SUB-ZERO";
-                else if (p->temperature_celsius < 15.0f) temp_desc = "COLD";
-                else if (p->temperature_celsius > 100.0f) temp_desc = "IGNITION";
-                else if (p->temperature_celsius > 60.0f) temp_desc = "SCALDING";
-                else if (p->temperature_celsius > 35.0f) temp_desc = "FEVER";
-
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Temp: %.1f C [%s]", p->temperature_celsius, temp_desc.c_str());
-                
-                // Add Local Weather
-                auto weather_view = registry_.view<WeatherComponent>();
-                if (!weather_view.empty()) {
-                    auto& weather = weather_view.get<WeatherComponent>(weather_view.front());
-                    std::string state_str = "Unknown";
-                    switch(weather.state) {
-                        case WeatherState::CLEAR: state_str = "Clear Skies"; break;
-                        case WeatherState::OVERCAST: state_str = "Overcast"; break;
-                        case WeatherState::RAIN: state_str = "Acidic Rain"; break;
-                        case WeatherState::HEAVY_RAIN: state_str = "Heavy Acid Downpour"; break;
-                        case WeatherState::ACID_RAIN: state_str = "ACID STORM"; break;
-                        case WeatherState::SMOG: state_str = "Industrial Smog"; break;
-                        case WeatherState::ELECTRICAL_STORM: state_str = "Lightning Grid"; break;
-                    }
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Weather: %s (Intens:%.2f)", state_str.c_str(), weather.intensity);
+            } else {
+                if (auto* p = registry_.try_get<Layer0PhysicsComponent>(m_current_target)) {
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Material: %s", get_material_name(p->material).c_str());
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Integrity: %.1f%%", p->structural_integrity * 100.0f);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Temp: %.1f C", p->temperature_celsius);
+                }
+                if (auto* haz = registry_.try_get<TileHazardComponent>(m_current_target)) {
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFF5555);
+                    ncplane_putstr_yx(m_inspection_plane, start_y++, x, "--- ACTIVE HAZARD ---");
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Type: %s", get_hazard_name(haz->type).c_str());
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Intensity: %.1f", haz->intensity);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Status: %s", haz->is_active ? "ACTIVE" : "DORMANT");
                 }
             }
             break;
@@ -374,42 +348,17 @@ void InspectionSystem::draw_content() {
                 draw_mask();
             } else if (auto* bio = registry_.try_get<Layer1BiologyComponent>(m_current_target)) {
                 ncplane_printf_yx(m_inspection_plane, start_y++, x, "Species: %s", get_species_name(bio->species).c_str());
-                if (auto* xeno = registry_.try_get<XenoComponent>(m_current_target)) {
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Source:  %s", xeno->origin.c_str());
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Sync:    %.1f%%", xeno->stability * 100.0f);
-                }
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Consciousness: %.1f%%", bio->consciousness_level * 100.0f);
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Pain: %d/10", bio->pain_level);
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Vitals: HR:%d BPM | O2:%.1f%%", (int)bio->vitals.heart_rate, bio->vitals.oxygen_saturation);
                 
+                if (auto* age = registry_.try_get<AgeComponent>(m_current_target)) {
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Age: %u Standard Years", age->years);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Life Stage: %s", get_life_stage_name(age->stage).c_str());
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Bio-Wear: %.1f%%", age->biological_wear * 100.0f);
+                }
+
+                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Consciousness: %.1f%%", bio->consciousness_level * 100.0f);
                 if (auto* needs = registry_.try_get<NeedsComponent>(m_current_target)) {
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Hydration: %.1f%%", needs->thirst);
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Nutrition: %.1f%%", needs->hunger);
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Frustration: %.1f%%", needs->frustration);
-                }
-
-                if (auto* task = registry_.try_get<AgentTaskComponent>(m_current_target)) {
-                    std::string t_str = "UNKNOWN";
-                    switch(task->task_type) {
-                        case AgentTaskType::IDLE: t_str = "IDLE"; break;
-                        case AgentTaskType::WANDER: t_str = "WANDERING"; break;
-                        case AgentTaskType::SEEK_FOOD: t_str = "SEEKING FOOD"; break;
-                        case AgentTaskType::SEEK_WATER: t_str = "SEEKING WATER"; break;
-                        case AgentTaskType::GO_TO_WORK: t_str = "GOING TO WORK"; break;
-                        case AgentTaskType::PATROL: t_str = "PATROLLING"; break;
-                        case AgentTaskType::WAIT_FOR_TRANSIT: t_str = "WAITING FOR TRANSIT"; break;
-                        case AgentTaskType::RIDE_TRANSIT: t_str = "RIDING TRANSIT"; break;
-                        default: t_str = "EXECUTING PROTOCOL"; break;
-                    }
-                    ncplane_set_fg_rgb(m_inspection_plane, 0xFFFF00);
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "ACTION: %s", t_str.c_str());
-                }
-
-                if (auto* path = registry_.try_get<CurrentPathComponent>(m_current_target)) {
-                    if (!path->path.empty()) {
-                        int remaining = (int)path->path.size() - (int)path->current_step_index;
-                        ncplane_printf_yx(m_inspection_plane, start_y++, x, "NAV: %d steps to target", std::max(0, remaining));
-                    }
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Hunger: %.1f%%", needs->hunger);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Thirst: %.1f%%", needs->thirst);
                 }
             }
             break;
@@ -418,172 +367,233 @@ void InspectionSystem::draw_content() {
             if (is_masked(SimulationLayer::L2_Cognitive)) {
                 draw_mask();
             } else if (auto* cog = registry_.try_get<Layer2CognitiveComponent>(m_current_target)) {
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Pleasure:   %+.2f", cog->pleasure);
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Arousal:    %+.2f", cog->arousal);
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Dominance:   %+.2f", cog->dominance);
-                
-                if (auto* hierarchy = registry_.try_get<SocialHierarchyComponent>(m_current_target)) {
-                    ncplane_set_fg_rgb(m_inspection_plane, 0xAAAAFF);
-                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Social Status: %.2f [%s]", hierarchy->status, hierarchy->class_title.c_str());
-                    if (hierarchy->currently_yielding_to != entt::null) {
-                        ncplane_set_fg_rgb(m_inspection_plane, 0xFFAA55);
-                        ncplane_putstr_yx(m_inspection_plane, start_y++, x, "STATE: DEFERRING / YIELDING");
-                    }
-                }
+                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Pleasure: %+.2f", cog->pleasure);
+                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Arousal:  %+.2f", cog->arousal);
             }
             break;
         }
         case InspectionMode::FINANCIAL_FORENSICS: {
             if (is_masked(SimulationLayer::L3_Economic)) {
                 draw_mask();
-            } else if (auto* econ = registry_.try_get<Layer3EconomicComponent>(m_current_target)) {
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Liquid Cash: %d CR", econ->cash_on_hand);
-                ncplane_printf_yx(m_inspection_plane, start_y++, x, "Credit Score: %d", econ->credit_score);
+            } else {
+                if (auto* econ = registry_.try_get<Layer3EconomicComponent>(m_current_target)) {
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Cash: %d CR", econ->cash_on_hand);
+                }
+                if (auto* node = registry_.try_get<ResourceNodeComponent>(m_current_target)) {
+                    ncplane_set_fg_rgb(m_inspection_plane, 0x00FFFF);
+                    ncplane_putstr_yx(m_inspection_plane, start_y++, x, "--- RESOURCE NODE ---");
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Type:  %s", get_raw_material_name(node->material_type).c_str());
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Yield: %.2f", node->current_yield);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Status: %s", node->is_exhausted ? "EXHAUSTED" : "AVAILABLE");
+                }
+                if (auto* lab = registry_.try_get<ClandestineLabComponent>(m_current_target)) {
+                    ncplane_set_fg_rgb(m_inspection_plane, 0x00FF00);
+                    ncplane_putstr_yx(m_inspection_plane, start_y++, x, "--- LAB INVENTORY ---");
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Raw: %d/%d", lab->raw_chemicals_stored, lab->max_raw_chemicals);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Drug: %d/%d", lab->drugs_produced_stored, lab->max_drugs_produced);
+                }
+
+                if (auto* factory = registry_.try_get<FactoryComponent>(m_current_target)) {
+                    ncplane_set_fg_rgb(m_inspection_plane, 0x55FFFF);
+                    ncplane_putstr_yx(m_inspection_plane, start_y++, x, "--- INDUSTRIAL FACILITY ---");
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Owner: %s", factory->owning_faction.c_str());
+                    
+                    if (!factory->available_recipes.empty()) {
+                        const auto& recipe = factory->available_recipes[factory->active_recipe_index];
+                        ncplane_printf_yx(m_inspection_plane, start_y++, x, "Active: %s", recipe.recipe_name.c_str());
+                        ncplane_printf_yx(m_inspection_plane, start_y++, x, "Progress: %.1f%%", (factory->current_progress / recipe.work_required) * 100.0f);
+                        
+                        ncplane_set_fg_rgb(m_inspection_plane, 0x888888);
+                        std::string inputs = "Inputs: ";
+                        for (auto const& [type, amt] : recipe.inputs) {
+                            inputs += get_raw_material_name(type).substr(0, 3) + "(" + std::to_string((int)factory->input_stockpile[type]) + "/" + std::to_string((int)amt) + ") ";
+                        }
+                        ncplane_putstr_yx(m_inspection_plane, start_y++, x, inputs.c_str());
+                    }
+                    
+                    if (auto* disruption = registry_.try_get<SupplyChainDisruptionComponent>(m_current_target)) {
+                        ncplane_set_fg_rgb(m_inspection_plane, 0xFF5555);
+                        if (disruption->labor_strike > 0.1f) ncplane_printf_yx(m_inspection_plane, start_y++, x, "STRIKE RISK: %.0f%%", disruption->labor_strike * 100.0f);
+                        if (disruption->transport_bottleneck > 0.1f) ncplane_printf_yx(m_inspection_plane, start_y++, x, "LOGISTICS DELAY: %.0f%%", disruption->transport_bottleneck * 100.0f);
+                    }
+                }
+                
+                // [J.4] Show Zone Economic Data
+                if (auto* pos = registry_.try_get<PositionComponent>(m_current_target)) {
+                    draw_zone_data(pos->x, pos->y);
+                }
             }
             break;
         }
         case InspectionMode::STRUCTURAL_ANALYSIS: {
-             if (is_masked(SimulationLayer::L4_Political)) {
-                 draw_mask();
-             } else if (auto* pol = registry_.try_get<Layer4PoliticalComponent>(m_current_target)) {
-                 ncplane_printf_yx(m_inspection_plane, start_y++, x, "Primary Faction: %s", pol->primary_faction.c_str());
-                 ncplane_printf_yx(m_inspection_plane, start_y++, x, "Loyalty: %.1f%%", pol->faction_loyalty * 100.0f);
-                 ncplane_printf_yx(m_inspection_plane, start_y++, x, "Clearance Rank: %s", pol->rank.empty() ? "NONE" : pol->rank.c_str());
-                 ncplane_printf_yx(m_inspection_plane, start_y++, x, "Compliance: %.1f%%", pol->directive_compliance * 100.0f);
-                 
-                 // Show active directive if applicable
-                 auto leader_view = registry_.view<FactionLeaderComponent, FactionDirectiveComponent, FactionComponent>();
-                 for (auto leader_ent : leader_view) {
-                     auto& f_comp = leader_view.get<FactionComponent>(leader_ent);
-                     if (f_comp.faction_id == pol->primary_faction) {
-                         auto& directive = leader_view.get<FactionDirectiveComponent>(leader_ent);
-                         auto& leader = leader_view.get<FactionLeaderComponent>(leader_ent);
-                         
-                         std::string dir_str = "NONE";
-                         switch(directive.active_directive) {
-                             case DirectiveType::ROUTINE_ENFORCEMENT: dir_str = "ROUTINE ENFORCEMENT"; break;
-                             case DirectiveType::UTILITY_BURST: dir_str = "UTILITY BURST"; break;
-                             case DirectiveType::BIOLOGICAL_OVERRIDE: dir_str = "BIO-OVERRIDE"; break;
-                             case DirectiveType::SYNCHRONICITY: dir_str = "SYNCHRONICITY"; break;
-                             case DirectiveType::CRACKDOWN: dir_str = "CRACKDOWN"; break;
-                             default: break;
-                         }
-                         
-                         ncplane_set_fg_rgb(m_inspection_plane, 0xAAAAAA);
-                         ncplane_printf_yx(m_inspection_plane, start_y++, x, "Leader: %s", leader.leader_name.c_str());
-                         ncplane_set_fg_rgb(m_inspection_plane, 0xFFAA55);
-                         ncplane_printf_yx(m_inspection_plane, start_y++, x, "DIRECTIVE: %s", dir_str.c_str());
-                         break;
-                     }
-                 }
-             }
-             if (auto* park = registry_.try_get<ParkComponent>(m_current_target)) {
-                 ncplane_printf_yx(m_inspection_plane, start_y++, x, "Park Quality: %d/100", park->quality);
-             }
-             break;
+            if (is_masked(SimulationLayer::L4_Political)) {
+                draw_mask();
+            } else {
+                if (auto* health = registry_.try_get<BuildingHealthComponent>(m_current_target)) {
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFF5555);
+                    ncplane_putstr_yx(m_inspection_plane, start_y++, x, "--- STRUCTURAL INTEGRITY ---");
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Integrity: %.1f%%", health->integrity);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Squatters: %d", health->num_squatters);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Urgency:   %.1f%%", health->maintenance_urgency * 100.0f);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Maint. Budget: %.0f CR", health->maintenance_budget);
+                    if (health->is_condemned) {
+                        ncplane_set_fg_rgb(m_inspection_plane, 0xFF0000);
+                        ncplane_putstr_yx(m_inspection_plane, start_y++, x, "STATUS: CONDEMNED");
+                        ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                    }
+                }
+
+                if (auto* pol = registry_.try_get<Layer4PoliticalComponent>(m_current_target)) {
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Faction: %s", pol->primary_faction.c_str());
+                    
+                    // [P.3] Reputation Feedback in Inspection
+                    auto player_view = registry_.view<PlayerComponent>();
+                    if (!player_view.empty()) {
+                        auto player = player_view.front();
+                        if (auto* rep = registry_.try_get<ReputationComponent>(player)) {
+                            float standing = 0.0f;
+                            if (rep->faction_standing.contains(pol->primary_faction)) {
+                                standing = rep->faction_standing.at(pol->primary_faction);
+                            }
+                            ReputationTier tier = rep->get_tier(pol->primary_faction);
+                            
+                            ncplane_set_fg_rgb(m_inspection_plane, 0x888888);
+                            ncplane_putstr_yx(m_inspection_plane, start_y, x, "Your Standing: ");
+                            
+                            uint32_t standing_color = 0xFFFFFF;
+                            std::string tier_name = "NEUTRAL";
+                            switch(tier) {
+                                case ReputationTier::EXCOMMUNICATED: standing_color = 0xFF3333; tier_name = "EXCOMMUNICATED"; break;
+                                case ReputationTier::HOSTILE: standing_color = 0xFF5555; tier_name = "HOSTILE"; break;
+                                case ReputationTier::SUSPICIOUS: standing_color = 0xFFAA00; tier_name = "SUSPICIOUS"; break;
+                                case ReputationTier::NEUTRAL: standing_color = 0xAAAAAA; tier_name = "NEUTRAL"; break;
+                                case ReputationTier::FAVORED: standing_color = 0xAAFF00; tier_name = "FAVORED"; break;
+                                case ReputationTier::FRIENDLY: standing_color = 0x55FF55; tier_name = "FRIENDLY"; break;
+                                case ReputationTier::ALLY: standing_color = 0x00FFFF; tier_name = "ALLY"; break;
+                            }
+                            ncplane_set_fg_rgb(m_inspection_plane, standing_color);
+                            ncplane_printf(m_inspection_plane, "%s (%.1f)", tier_name.c_str(), standing);
+                            start_y++;
+                            ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                        }
+                    }
+
+                    auto leader_view = registry_.view<FactionLeaderComponent, FactionComponent>();
+                    for (auto leader_ent : leader_view) {
+                        auto& f_comp = leader_view.get<FactionComponent>(leader_ent);
+                        if (f_comp.faction_id == pol->primary_faction) {
+                            auto& leader = leader_view.get<FactionLeaderComponent>(leader_ent);
+                            ncplane_printf_yx(m_inspection_plane, start_y++, x, "Leader: %s", leader.leader_name.c_str());
+                            break;
+                        }
+                    }
+                }
+                if (auto* lab = registry_.try_get<ClandestineLabComponent>(m_current_target)) {
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFF55FF);
+                    ncplane_putstr_yx(m_inspection_plane, start_y++, x, "--- CLANDESTINE OPERATION ---");
+                    ncplane_set_fg_rgb(m_inspection_plane, 0xFFFFFF);
+                    ncplane_printf_yx(m_inspection_plane, start_y++, x, "Status: %s", lab->is_raided ? "RAIDED" : "ACTIVE");
+                }
+
+                // [J.4] Show Zone Demographic Data
+                if (auto* pos = registry_.try_get<PositionComponent>(m_current_target)) {
+                    draw_zone_data(pos->x, pos->y);
+                }
+            }
+            break;
+        }
+        case InspectionMode::HISTORY: {
+            ncplane_set_fg_rgb(m_inspection_plane, 0xAAAAAA);
+            ncplane_putstr_yx(m_inspection_plane, start_y++, x, "--- INFORMATION RECORDS ---");
+            if (auto* info = registry_.try_get<InformationComponent>(m_current_target)) {
+                if (info->records.empty()) {
+                    ncplane_putstr_yx(m_inspection_plane, start_y++, x, "No records found.");
+                } else {
+                    for (const auto& record : info->records) {
+                        std::string type_str = "RUMOR";
+                        if (record.type == InformationType::PRICE_TIP) type_str = "TIP";
+                        else if (record.type == InformationType::GOSSIP) type_str = "GOSSIP";
+                        else if (record.type == InformationType::PROPAGANDA) type_str = "PROP";
+
+                        ncplane_printf_yx(m_inspection_plane, start_y++, x, "[%s] %s", type_str.c_str(), record.content_tag.c_str());
+                        ncplane_set_fg_rgb(m_inspection_plane, 0x666666);
+                        ncplane_printf_yx(m_inspection_plane, start_y++, x, "  Veracity: %.0f%%  Hops: %d", record.veracity * 100.0f, record.hops);
+                        ncplane_set_fg_rgb(m_inspection_plane, 0xAAAAAA);
+                        if (start_y > 23) break; // Avoid overflow
+                    }
+                }
+            } else {
+                ncplane_putstr_yx(m_inspection_plane, start_y++, x, "No information profile.");
+            }
+            break;
         }
         default: break;
     }
 }
 
+void InspectionSystem::draw_zone_data(int world_x, int world_y) {
+    auto config_view = registry_.view<WorldConfigComponent>();
+    if (config_view.empty()) return;
+    int macro_cell_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+
+    int mx = world_x / macro_cell_size;
+    int my = world_y / macro_cell_size;
+
+    auto zone_view = registry_.view<MacroZoneComponent, MacroMarketComponent>();
+    for (auto entity : zone_view) {
+        const auto& zone = zone_view.get<MacroZoneComponent>(entity);
+        if (zone.macro_x == mx && zone.macro_y == my) {
+            const auto& market = zone_view.get<MacroMarketComponent>(entity);
+            int start_y = 20;
+            int x_pos = 2;
+            ncplane_set_fg_rgb(m_inspection_plane, 0x00FFCC);
+            ncplane_printf_yx(m_inspection_plane, start_y++, x_pos, "DISTRICT: %s", zone.district_name.c_str());
+            ncplane_set_fg_rgb(m_inspection_plane, 0x88FFFF);
+            ncplane_printf_yx(m_inspection_plane, start_y++, x_pos, "Pressure: %.1f  Attraction: %.1f", zone.pressure, zone.attractiveness);
+            ncplane_set_fg_rgb(m_inspection_plane, 0xFFFF88);
+            ncplane_printf_yx(m_inspection_plane, start_y++, x_pos, "Avg Wealth: %.1f CR  Crime: %.1f", market.average_wealth, market.crime_rate);
+            
+            if (!market.material_scarcity.empty()) {
+                ncplane_set_fg_rgb(m_inspection_plane, 0xFFAA55);
+                std::string scarcity_str = "Scarcity: ";
+                for (auto const& [type, val] : market.material_scarcity) {
+                    if (val > 1.2f) { 
+                        scarcity_str += get_raw_material_name(type).substr(0, 3) + " ";
+                    }
+                }
+                ncplane_putstr_yx(m_inspection_plane, start_y++, x_pos, scarcity_str.c_str());
+            }
+            break;
+        }
+    }
+}
+
 std::vector<LayerInsight> InspectionSystem::calculate_insights(entt::entity target, SimulationLayer current_view) {
     std::vector<LayerInsight> insights;
-    
-    auto* l0 = registry_.try_get<Layer0PhysicsComponent>(target);
-    auto* l1 = registry_.try_get<Layer1BiologyComponent>(target);
-    auto* l2 = registry_.try_get<Layer2CognitiveComponent>(target);
-    auto* l3 = registry_.try_get<Layer3EconomicComponent>(target);
-    auto* l4 = registry_.try_get<Layer4PoliticalComponent>(target);
-    auto* xeno = registry_.try_get<XenoComponent>(target);
-
-    switch (current_view) {
-        case SimulationLayer::L0_Physics:
-            if (xeno) {
-                if (xeno->type == XenoType::HIERODULE) insights.push_back({"[CAUSAL REALIGNMENT: CALM]", "#55FFFF"});
-                else if (xeno->type == XenoType::CACOGEN) insights.push_back({"[CAUSAL INTERFERENCE: CHAOS]", "#FF55FF"});
-            }
-            if (l0) {
-                if (l0->material == MaterialType::FLESH && l0->temperature_celsius > 42.0f)
-                    insights.push_back({"[BIOLOGICAL FEVER: CRITICAL]", "#FF5555"});
-                if (l0->material == MaterialType::ELECTRONICS && l0->temperature_celsius > 80.0f)
-                    insights.push_back({"[CIRCUIT DEGRADATION: THERMAL]", "#FFAA00"});
-                if (l0->structural_integrity < 0.5f)
-                    insights.push_back({"[STRUCTURAL FAILURE IMMINENT]", "#FF0000"});
-            }
-            if (auto* t = registry_.try_get<TerrainComponent>(target)) {
-                if (t->type == TerrainType::RAIL) {
-                    insights.push_back({"[MAG-LEV GUIDANCE RAIL: HIGH VOLTAGE]", "#FFD700"});
-                }
-            }
-            if (l1 && l1->pain_level > 5) 
-                insights.push_back({"[STRESS: NEURO-TRAUMA DETECTED]", "#FF5555"});
-            break;
-        case SimulationLayer::L1_Biology:
-            if (l0 && l0->temperature_celsius > 42.0f)
-                insights.push_back({"[HYPERTHERMIA: L0 HEAT STRESS]", "#FF0000"});
-            if (l0 && l0->temperature_celsius < 30.0f && l0->material == MaterialType::FLESH)
-                insights.push_back({"[HYPOTHERMIA: L0 COLD STRESS]", "#5555FF"});
-            if (l1 && l1->pain_level > 7)
-                insights.push_back({"[SHOCK: L1 TRAUMATIC INTERFACE]", "#FF5555"});
-            if (l3 && l3->cash_on_hand < 10)
-                insights.push_back({"[MALNUTRITION: L3 RESOURCE DEFICIT]", "#FFAA00"});
-            break;
-        case SimulationLayer::L2_Cognitive:
-            if (l0 && l0->temperature_celsius > 35.0f)
-                insights.push_back({"[IRRITABILITY: L0 THERMAL DISCOMFORT]", "#FFAA00"});
-            if (l1 && l1->pain_level > 3)
-                insights.push_back({"[COGNITIVE LOAD: L1 CHRONIC PAIN]", "#FFAA00"});
-            if (auto* needs = registry_.try_get<NeedsComponent>(target)) {
-                if (needs->frustration > 70.0f) insights.push_back({"[VOLATILE: HIGH FRUSTRATION]", "#FF5555"});
-            }
-            if (l3 && l3->credit_score < 400)
-                insights.push_back({"[ANXIETY: L3 DEBT BURDEN]", "#FF00FF"});
-            break;
-        case SimulationLayer::L3_Economic:
-            if (l0 && l0->structural_integrity < 0.8f)
-                insights.push_back({"[VALUATION DROP: L0 DAMAGE]", "#FFAA00"});
-            if (l2 && l2->pleasure < -0.5f)
-                insights.push_back({"[STAGNATION: L2 DEPRESSIVE STATE]", "#AAAAAA"});
-            break;
-        case SimulationLayer::L4_Political:
-            if (l3 && l3->cash_on_hand > 1000)
-                insights.push_back({"[POWER: L3 CAPITAL DENSITY]", "#FFFF00"});
-            if (l2 && l2->arousal > 0.6f)
-                insights.push_back({"[VOLATILITY: L2 EMOTIONAL INSTABILITY]", "#FF5555"});
-            if (auto* hierarchy = registry_.try_get<SocialHierarchyComponent>(target)) {
-                if (hierarchy->status < 0.3f) insights.push_back({"[SYSTEMIC SUBJUGATION]", "#AAAAAA"});
-                else if (hierarchy->status > 0.8f) insights.push_back({"[HIGH CASTE PRIVILEGE]", "#FFFF55"});
-                if (hierarchy->currently_yielding_to != entt::null) insights.push_back({"[SOCIAL DEFERENCE: ACTIVE]", "#FFAA55"});
-            }
-            if (l4) {
-                 // Check for active directive
-                 auto leader_view = registry_.view<FactionLeaderComponent, FactionDirectiveComponent, FactionComponent>();
-                 for (auto leader_ent : leader_view) {
-                     auto& f_comp = leader_view.get<FactionComponent>(leader_ent);
-                     if (f_comp.faction_id == l4->primary_faction) {
-                         auto& directive = leader_view.get<FactionDirectiveComponent>(leader_ent);
-                         if (directive.active_directive != DirectiveType::NONE) {
-                             insights.push_back({"[EXTRINSIC CONTROL: ACTIVE DIRECTIVE]", "#FFAA55"});
-                         }
-                         break;
-                     }
-                 }
-            }
-            break;
-        default: break;
-    }
+    (void)target; (void)current_view;
     return insights;
 }
 
 std::string InspectionSystem::get_material_name(MaterialType type) {
     switch(type) {
         case MaterialType::CONCRETE: return "Concrete";
-        case MaterialType::FLESH: return "Biological Matter";
-        case MaterialType::STEEL: return "Hardened Steel";
-        case MaterialType::PLASTIC: return "Polymer";
-        case MaterialType::GLASS: return "Glass";
-        case MaterialType::ELECTRONICS: return "Silicon/Components";
-        case MaterialType::WATER: return "Liquid/Water";
+        case MaterialType::FLESH: return "Flesh";
+        case MaterialType::STEEL: return "Steel";
+        default: return "Unknown";
+    }
+}
+
+std::string InspectionSystem::get_raw_material_name(RawMaterialType type) {
+    switch(type) {
+        case RawMaterialType::METAL: return "Metal";
+        case RawMaterialType::CHEMICAL: return "Chemical";
+        case RawMaterialType::BIOMASS: return "Biomass";
+        case RawMaterialType::ELECTRONIC: return "Electronic";
+        case RawMaterialType::ENERGY: return "Energy";
         default: return "Unknown";
     }
 }
@@ -591,22 +601,40 @@ std::string InspectionSystem::get_material_name(MaterialType type) {
 std::string InspectionSystem::get_species_name(SpeciesType type) {
     switch(type) {
         case SpeciesType::HUMAN: return "Human";
-        case SpeciesType::RAT: return "Rodent";
-        case SpeciesType::SYNTHETIC: return "Android";
-        case SpeciesType::CANINE: return "Canine";
-        case SpeciesType::FELINE: return "Feline";
-        case SpeciesType::CACOGEN: return "Cacogen (Post-Solar)";
-        case SpeciesType::HIERODULE: return "Hierodule (Solar-Sacred)";
-        default: return "Unclassified";
+        case SpeciesType::SYNTHETIC: return "Synthetic";
+        case SpeciesType::CACOGEN: return "Cacogen";
+        case SpeciesType::HIERODULE: return "Hierodule";
+        default: return "Unknown";
+    }
+}
+
+std::string InspectionSystem::get_life_stage_name(LifeStage stage) {
+    switch(stage) {
+        case LifeStage::INFANT: return "Infant";
+        case LifeStage::CHILD: return "Child";
+        case LifeStage::YOUNG_ADULT: return "Young Adult";
+        case LifeStage::ADULT: return "Adult";
+        case LifeStage::ELDER: return "Elder";
+        case LifeStage::ANCIENT: return "Ancient";
+        case LifeStage::AGELESS: return "Ageless";
+        default: return "Unknown";
     }
 }
 
 uint32_t InspectionSystem::hex_to_rgb(const std::string& hex) {
     if (hex.empty() || hex[0] != '#') return 0xFFFFFF;
-    try {
-        return std::stoul(hex.substr(1), nullptr, 16);
-    } catch (...) {
-        return 0xFFFFFF;
+    try { return std::stoul(hex.substr(1), nullptr, 16); } catch (...) { return 0xFFFFFF; }
+}
+
+std::string InspectionSystem::get_hazard_name(HazardType type) {
+    switch(type) {
+        case HazardType::TOXIC_GAS: return "Toxic Gas";
+        case HazardType::ELECTRICAL: return "Electrical Arc";
+        case HazardType::STEAM_VENT: return "Steam Vent";
+        case HazardType::BIO_HAZARD: return "Bio-Hazard";
+        case HazardType::RAD_ZONE: return "Radiation Zone";
+        case HazardType::FIRE: return "Fire";
+        default: return "Unknown";
     }
 }
 

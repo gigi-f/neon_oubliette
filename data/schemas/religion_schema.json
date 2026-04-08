@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Religion Definition Schema",
+  "type": "object",
+  "properties": {
+    "religions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "religion_id": { "type": "string" },
+          "name": { "type": "string" },
+          "primary_deity": { "type": "string" },
+          "dogma_tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ASCETIC",
+                "HEDONIST",
+                "HIERARCHICAL",
+                "EGALITARIAN",
+                "XENO_REVERENT",
+                "TECHNOLOGICAL",
+                "NATURALISTIC",
+                "NIHILISTIC"
+              ]
+            }
+          },
+          "faction_affinity_modifiers": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          },
+          "holy_day_ticks": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "home_building_type": { "type": "string" },
+          "color_hex": { "type": "string" },
+          "glyph": { "type": "string", "maxLength": 1 }
+        },
+        "required": ["religion_id", "name", "primary_deity", "dogma_tags", "home_building_type"]
+      }
+    }
+  },
+  "required": ["religions"]
+}

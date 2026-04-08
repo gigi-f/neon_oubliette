@@ -18,13 +18,19 @@ public:
     SimulationLayer simulation_layer() const override { return SimulationLayer::L3_Economic; }
 
     void handlePurchase(const PurchaseEvent& event);
+    void handleResourceExtracted(const ResourceExtractedEvent& event);
+    void handleCrisisEffect(const CrisisEffectEvent& event);
+    void handleCrisisResolved(const CrisisResolvedEvent& event);
 
 private:
     void calculateLocalMarketConditions();
     void processAgentWages();
+    void updatePropertyValues();
 
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;
+    
+    float m_active_economic_crisis_severity = 0.0f;
 };
 
 } // namespace NeonOubliette

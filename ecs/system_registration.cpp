@@ -44,11 +44,31 @@
 #include "systems/political_system.h"
 #include "systems/infrastructure_system.h"
 #include "systems/environmental_system.h"
+#include "systems/hazard_system.h"
+#include "systems/power_grid_system.h"
 #include "systems/ecosystem_system.h"
 #include "systems/economic_market_system.h"
+#include "systems/resource_distribution_system.h"
 #include "systems/political_opinion_system.h"
 #include "systems/infrastructure_influence_system.h"
 #include "systems/xeno_system.h"
+#include "systems/information_system.h"
+#include "systems/conversation_system.h"
+#include "systems/crisis_system.h"
+#include "systems/crisis_dashboard_system.h"
+#include "systems/drug_manufacturing_system.h"
+#include "systems/milestone_system.h"
+#include "systems/religion_system.h"
+#include "systems/wanted_level_system.h"
+#include "systems/guard_response_system.h"
+#include "systems/inheritance_system.h"
+#include "systems/urban_decay_system.h"
+#include "systems/demolition_system.h"
+#include "systems/rebuilding_system.h"
+#include "systems/broadcast_tower_system.h"
+#include "systems/underground_media_system.h"
+#include "systems/supply_chain_system.h"
+#include "systems/production_system.h"
 
 namespace NeonOubliette {
 
@@ -67,6 +87,8 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
                          std::make_unique<AgentDecisionSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<AgentActionSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro,
+                         std::make_unique<GuardResponseSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<AgentSpawnSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<MovementSystem>(registry, event_dispatcher));
@@ -99,13 +121,21 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<TurnManagerSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<LoggingSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::CrisisSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::CrisisDashboardSystem>(registry, event_dispatcher));
     
     // Generation, Zoning & Streaming
-    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<CityGenerationSystem>(registry, event_dispatcher));
+    auto city_gen = std::make_unique<CityGenerationSystem>(registry, event_dispatcher);
+    CityGenerationSystem& city_gen_ref = *city_gen;
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::move(city_gen));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ZoningSolverSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<InfrastructureNetworkSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<TransitSystem>(registry, event_dispatcher));
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ChunkStreamingSystem>(registry, event_dispatcher));
+
+    // [K.3] Demolition & Rebuilding
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<DemolitionSystem>(registry, event_dispatcher));
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<RebuildingSystem>(registry, event_dispatcher, city_gen_ref));
 
     // --- Output Phase ---
     scheduler.add_system(SystemScheduler::Phase::Output,
@@ -118,7 +148,9 @@ void register_simulation_systems(SimulationCoordinator& coordinator, entt::regis
     coordinator.add_simulation_system(std::make_unique<PhysicsSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<InfrastructureSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<EnvironmentalSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<HazardSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<InfrastructureInfluenceSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<Systems::PowerGridSystem>(registry, event_dispatcher));
     
     coordinator.add_simulation_system(std::make_unique<BiologySystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<EcosystemSystem>(registry, event_dispatcher));
@@ -126,14 +158,27 @@ void register_simulation_systems(SimulationCoordinator& coordinator, entt::regis
     coordinator.add_simulation_system(std::make_unique<CognitiveSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<XenoSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<SocialInteractionSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<ConversationSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<Systems::InformationSystem>(registry, event_dispatcher));
     
     coordinator.add_simulation_system(std::make_unique<EconomicSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<SupplyChainSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<ProductionSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<DrugManufacturingSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<StockMarketSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<EconomicMarketSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<ResourceDistributionSystem>(registry, event_dispatcher));
     
     coordinator.add_simulation_system(std::make_unique<FactionSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<ReligionSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<PoliticalSystem>(registry, event_dispatcher));
     coordinator.add_simulation_system(std::make_unique<PoliticalOpinionSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<Systems::BroadcastTowerSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<Systems::UndergroundMediaSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<MilestoneSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<WantedLevelSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<InheritanceSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<UrbanDecaySystem>(registry, event_dispatcher));
 }
 
 } // namespace NeonOubliette

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <entt/entt.hpp>
+#include "components/base_types.h"
 
 namespace NeonOubliette {
 // Forward declaration of the RegistryManager
@@ -15,7 +16,9 @@ entt::entity createPlayerEntity(RegistryManager &rm, int start_x, int start_y,
 // Function to create a generic item entity
 entt::entity createItemEntity(RegistryManager &rm, int start_x, int start_y,
                               int start_z, const std::string &name, char glyph,
-                              uint32_t fg_color, entt::registry &registry);
+                              uint32_t fg_color, entt::registry &registry,
+                              ItemMarketCategory category = ItemMarketCategory::NONE,
+                              RawMaterialType material = RawMaterialType::METAL);
 
 // Function to create the Inspection Panel UI entity
 entt::entity createInspectionPanelEntity(RegistryManager &rm,

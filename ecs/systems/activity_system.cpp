@@ -1,4 +1,5 @@
 #include "activity_system.h"
+#include "../components/simulation_layers.h"
 
 namespace NeonOubliette {
 
@@ -22,6 +23,19 @@ void ActivitySystem::handleTurnEvent(const TurnEvent& event)
         {
             activity.turns_remaining--;
             
+            // [O.4] Factory Labor Contribution
+            if (activity.type == ActivityType::WORKING && m_registry.valid(activity.target_entity) && m_registry.all_of<FactoryComponent>(activity.target_entity)) {
+                auto& factory = m_registry.get<FactoryComponent>(activity.target_entity);
+                if (factory.is_active && !factory.available_recipes.empty()) {
+                    float contribution = 1.0f; // Could scale with skills
+                    // Apply efficiency factors
+                    auto* disruption = m_registry.try_get<SupplyChainDisruptionComponent>(activity.target_entity);
+                    float efficiency = (disruption) ? (1.0f - disruption->labor_strike) : 1.0f;
+                    
+                    factory.current_progress += contribution * efficiency * factory.base_efficiency;
+                }
+            }
+
             // Dispatch progress event
             m_dispatcher.enqueue<ActivityProgressEvent>({
                 entity, activity.type, activity.turns_remaining, activity.total_turns_required
@@ -102,6 +116,35 @@ void ActivitySystem::handleStartActivityEvent(const StartActivityEvent& event)
 
 void ActivitySystem::handleActivityCompletedEvent(const ActivityCompletedEvent& event)
 {
+    if (event.type == ActivityType::WORKING && m_registry.valid(event.target_entity) && m_registry.all_of<FactoryComponent>(event.target_entity)) {
+        // [O.4] Pay the worker
+        int wage = 50; // Default wage
+        if (auto* job = m_registry.try_get<EmploymentContractComponent>(event.actor_entity)) {
+            wage = job->wage;
+        }
+
+        if (auto* econ = m_registry.try_get<Layer3EconomicComponent>(event.actor_entity)) {
+            econ->cash_on_hand += wage;
+        }
+        
+        if (m_registry.all_of<PlayerComponent>(event.actor_entity)) {
+            if (auto* hud = m_registry.try_get<HUDComponent>(event.actor_entity)) {
+                hud->credits += wage;
+            }
+            m_dispatcher.trigger<HUDNotificationEvent>({"Shift complete. Earned " + std::to_string(wage) + " CR.", 3.0f, "#00FF00"});
+        }
+
+        // [P.2] Reputation boost for working for a faction
+        auto& factory = m_registry.get<FactoryComponent>(event.target_entity);
+        if (!factory.owning_faction.empty()) {
+            m_dispatcher.enqueue<AgentFactionReputationEvent>({
+                event.actor_entity,
+                factory.owning_faction,
+                1.0f // Small consistent boost per shift
+            });
+        }
+    }
+
     if (event.type == ActivityType::CRAFTING)
     {
         // Re-dispatch the CraftItemEvent

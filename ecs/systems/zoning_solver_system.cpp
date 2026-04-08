@@ -1,4 +1,5 @@
 #include "zoning_solver_system.h"
+#include "../components/components.h"
 #include <random>
 #include <algorithm>
 #include <iostream>
@@ -133,7 +134,8 @@ void ZoningSolverSystem::solve_zoning(int macro_width, int macro_height) {
                 commit_type = ZoneType::RESIDENTIAL;
             }
             if (commit_type == ZoneType::URBAN_CORE) density = 0.9f;
-            m_registry.emplace<MacroZoneComponent>(entity, commit_type, x, y, density, "District " + std::to_string(x) + "-" + std::to_string(y));
+            auto& mzc = m_registry.emplace<MacroZoneComponent>(entity, commit_type, x, y, density, "District " + std::to_string(x) + "-" + std::to_string(y));
+            m_registry.emplace<MacroMarketComponent>(entity);
         }
     }
 }

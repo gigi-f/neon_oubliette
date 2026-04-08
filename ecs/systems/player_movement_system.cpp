@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "../../ecs/component_declarations.h"
+#include "../../ecs/components/lod_components.h"
 #include "../../ecs/events.h"
 
 namespace NeonOubliette::Systems {
@@ -24,6 +25,13 @@ void PlayerMovementSystem::update(double delta_time) {
 }
 
 void PlayerMovementSystem::handlePlayerMoveEvent(const ECS::PlayerMoveEvent& event) {
+    // Block player movement while in dialogue
+    auto dlg_view = registry_.view<NeonOubliette::DialogueStateComponent>();
+    if (!dlg_view.empty()) {
+        const auto& dlg = dlg_view.get<NeonOubliette::DialogueStateComponent>(dlg_view.front());
+        if (dlg.is_open) return;
+    }
+
     auto view = registry_.view<ECS::PositionComponent, ECS::PlayerCurrentLayerComponent>();
     for (auto entity : view) {
         auto& pos = view.get<ECS::PositionComponent>(entity);
@@ -47,6 +55,30 @@ void PlayerMovementSystem::handlePlayerLayerChangeEvent(const ECS::PlayerLayerCh
     for (auto entity : view) {
         auto& pos = view.get<ECS::PositionComponent>(entity);
         auto& layer = view.get<ECS::PlayerCurrentLayerComponent>(entity);
+
+        // [L.5] Power Grid Check for Elevators (Layer Change)
+        if (pos.layer_id != 0 || (pos.layer_id == 0 && event.dz > 0)) {
+            // Determine chunk
+            int cx = pos.x / 40;
+            int cy = pos.y / 40;
+            
+            auto grid_view = registry_.view<NeonOubliette::PowerGridComponent, NeonOubliette::ChunkComponent>();
+            bool has_power = true;
+            for (auto g_ent : grid_view) {
+                const auto& chunk = grid_view.get<NeonOubliette::ChunkComponent>(g_ent);
+                if (chunk.chunk_x == cx && chunk.chunk_y == cy) {
+                    if (grid_view.get<NeonOubliette::PowerGridComponent>(g_ent).power_level < 0.2f) {
+                        has_power = false;
+                    }
+                    break;
+                }
+            }
+            
+            if (!has_power) {
+                event_dispatcher_.trigger(NeonOubliette::HUDNotificationEvent{"Elevator systems offline: No power.", 2.0f, "#FF0000"});
+                return;
+            }
+        }
 
         pos.layer_id += event.dz;
         layer.current_z = pos.layer_id;

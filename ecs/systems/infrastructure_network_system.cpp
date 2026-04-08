@@ -4,6 +4,7 @@
 #include <map>
 #include <algorithm>
 #include "../components/zoning_components.h"
+#include "../components/lod_components.h"
 
 namespace NeonOubliette {
 
@@ -52,6 +53,87 @@ void InfrastructureNetworkSystem::generate_skeleton(int width, int height) {
     carve_river(width, height);
     carve_primary_roads(width, height);
     carve_rail_line(width, height);
+    carve_electric_grid(width, height);
+    carve_sewers(width, height);
+}
+
+void InfrastructureNetworkSystem::carve_electric_grid(int width, int height) {
+    // High-voltage lines follow the primary road grid but with fewer nodes
+    for (int y = 20; y < height; y += 40) {
+        for (int x = 0; x < width; ++x) {
+            create_arterial_segment(x, y, ArterialType::ELECTRIC_GRID);
+            
+            // Substations at every other intersection
+            if (x % 80 == 0) {
+                auto junction = m_registry.create();
+                m_registry.emplace<PositionComponent>(junction, x, y, 0);
+                auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
+                node.node_name = "Power Substation";
+                node.is_substation = true;
+                
+                // Mark chunk as a source if it's near the edge (simulating external supply)
+                if (x == 0 || y == 20) {
+                    // Find chunk entity for this position
+                    auto chunk_view = m_registry.view<ChunkComponent>();
+                    for (auto entity : chunk_view) {
+                        const auto& chunk = chunk_view.get<ChunkComponent>(entity);
+                        // Assuming 40x40 chunks for now based on roadmap
+                        if (x / 40 == chunk.chunk_x && y / 40 == chunk.chunk_y) {
+                            if (!m_registry.all_of<PowerGridComponent>(entity)) {
+                                m_registry.emplace<PowerGridComponent>(entity, 1.0f, 1.0f, true);
+                            } else {
+                                m_registry.get<PowerGridComponent>(entity).is_grid_source = true;
+                            }
+                        }
+                    }
+                }
+                
+                link_arterial_to_zone(junction, x, y);
+            }
+        }
+    }
+}
+
+void InfrastructureNetworkSystem::carve_sewers(int width, int height) {
+    // Sewers follow the main road grid but on Layer -1.
+    // They also branch out into industrial and slum zones more heavily.
+    for (int y = 20; y < height; y += 40) {
+        for (int x = 0; x < width; ++x) {
+            create_arterial_segment(x, y, ArterialType::SEWER, -1);
+            
+            // Access points (manholes) at intersections
+            if (x % 40 == 20) {
+                auto junction = m_registry.create();
+                m_registry.emplace<PositionComponent>(junction, x, y, -1);
+                auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
+                node.node_name = "Sewer Access (Underground)";
+                link_arterial_to_zone(junction, x, y);
+            }
+        }
+    }
+    for (int x = 20; x < width; x += 40) {
+        for (int y = 0; y < height; ++y) {
+            create_arterial_segment(x, y, ArterialType::SEWER, -1);
+        }
+    }
+    
+    // Some random cross-connections and maintenance tunnels
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> disX(0, width - 1);
+    std::uniform_int_distribution<> disY(0, height - 1);
+    
+    for (int i = 0; i < 50; ++i) {
+        int sx = disX(gen), sy = disY(gen);
+        int length = 20 + (disX(gen) % 30);
+        bool horizontal = (disX(gen) % 2 == 0);
+        
+        for (int l = 0; l < length; ++l) {
+            int cx = horizontal ? std::clamp(sx + l, 0, width - 1) : sx;
+            int cy = horizontal ? sy : std::clamp(sy + l, 0, height - 1);
+            create_arterial_segment(cx, cy, ArterialType::UNDERGROUND_TUNNEL, -1);
+        }
+    }
 }
 
 void InfrastructureNetworkSystem::generate_capillaries() {
@@ -109,10 +191,10 @@ void InfrastructureNetworkSystem::carve_primary_roads(int width, int height) {
 void InfrastructureNetworkSystem::carve_rail_line(int width, int height) {
     for (int y = 0; y < height; y += 80) {
         for (int x = 0; x < width; ++x) {
-            create_arterial_segment(x, y, ArterialType::RAIL_ELEVATED);
+            create_arterial_segment(x, y, ArterialType::RAIL_ELEVATED, 5);
             if (x % 40 == 0) {
                 auto junction = m_registry.create();
-                m_registry.emplace<PositionComponent>(junction, x, y, 0);
+                m_registry.emplace<PositionComponent>(junction, x, y, 5);
                 auto& node = m_registry.emplace<InfrastructureNodeComponent>(junction);
                 node.node_name = "Rail Station Node";
                 m_registry.emplace<CommerceHubComponent>(junction, 15.0f, 1.8f);
@@ -273,9 +355,9 @@ void InfrastructureNetworkSystem::resolve_junctions() {
     }
 }
 
-void InfrastructureNetworkSystem::create_arterial_segment(int x, int y, ArterialType type) {
+void InfrastructureNetworkSystem::create_arterial_segment(int x, int y, ArterialType type, int layer_id) {
     auto entity = m_registry.create();
-    m_registry.emplace<PositionComponent>(entity, x, y, 0);
+    m_registry.emplace<PositionComponent>(entity, x, y, layer_id);
     m_registry.emplace<InfrastructureArterialComponent>(entity, type, 2.0f, true);
     
     auto& field = m_registry.emplace<ConduitFieldComponent>(entity);
@@ -303,6 +385,15 @@ void InfrastructureNetworkSystem::create_arterial_segment(int x, int y, Arterial
         case ArterialType::RAIL_ELEVATED:
             field.radius = 3.0f;
             field.economic_multiplier = 1.5f; 
+            break;
+        case ArterialType::SEWER:
+            field.radius = 2.0f;
+            field.temperature_offset = -2.0f; // Damp/Cool
+            field.crime_modifier = 0.3f;      // Underground is shady
+            break;
+        case ArterialType::UNDERGROUND_TUNNEL:
+            field.radius = 1.0f;
+            field.crime_modifier = 0.5f;
             break;
         default: break;
     }

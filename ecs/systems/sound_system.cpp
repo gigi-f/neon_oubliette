@@ -19,13 +19,29 @@ void SoundSystem::update(double delta_time) {
     std::vector<entt::entity> to_remove;
     for (auto entity : view) {
         auto& speech = view.get<SpeechComponent>(entity);
-        if (speech.ticks_remaining > 0) {
-            speech.ticks_remaining--;
-            // [B.5] Sound attenuation data recalculated lazily when room doors open/close; cached per room pair until topology changes.
-            // Simplified: Recalculate each tick for currently active speech.
+        if (speech.ticks_remaining_in_chunk > 0) {
+            speech.ticks_remaining_in_chunk--;
+        }
+        
+        if (speech.ticks_remaining_in_chunk == 0) {
+            speech.current_chunk_index++;
+            if (speech.current_chunk_index >= speech.chunks.size()) {
+                to_remove.push_back(entity);
+            } else {
+                speech.ticks_remaining_in_chunk = speech.ticks_per_chunk;
+            }
+        }
+        
+        if (registry_.valid(entity)) {
+            // Alpha ramping [F.5] over last 2 chunks
+            if (speech.chunks.size() >= 2) {
+                if (speech.current_chunk_index == speech.chunks.size() - 2) {
+                    speech.alpha = 0.5f;
+                } else if (speech.current_chunk_index == speech.chunks.size() - 1) {
+                    speech.alpha = 0.2f;
+                }
+            }
             propagateSound(entity);
-        } else {
-            to_remove.push_back(entity);
         }
     }
     for (auto entity : to_remove) {
@@ -35,12 +51,74 @@ void SoundSystem::update(double delta_time) {
 
 void SoundSystem::handleSpeechEvent(const SpeechEvent& event) {
     auto& speech = registry_.get_or_emplace<SpeechComponent>(event.speaker);
-    speech.text = event.text;
-    speech.ticks_remaining = event.duration_ticks;
+    speech.full_text = event.text;
     speech.speaker = event.speaker;
-    speech.audibility = AudibilityLevel::CLEAR;
+    speech.audibility = event.audibility;
+    speech.current_chunk_index = 0;
+    speech.alpha = 1.0f;
+    speech.ticks_per_chunk = 1; // "one phrase segment per simulation step" [F.5]
+    speech.ticks_remaining_in_chunk = speech.ticks_per_chunk;
+
+    // [F.6] Overheard Intelligence
+    speech.has_record = event.has_record;
+    if (event.has_record) speech.record = event.record;
+
+    // Chunking logic [F.5]: max 20 chars; ellipsis for continuation
+    speech.chunks.clear();
+    std::string text = event.text;
+    size_t pos = 0;
+    while (pos < text.length()) {
+        if (text.length() - pos <= 20) {
+            speech.chunks.push_back(text.substr(pos));
+            break;
+        } else {
+            speech.chunks.push_back(text.substr(pos, 17) + "...");
+            pos += 17;
+        }
+    }
+    if (speech.chunks.empty()) speech.chunks.push_back("...");
 
     propagateSound(event.speaker);
+
+    // [F.6] Dialogue Log & Intel Interception
+    if (speech.audibility != AudibilityLevel::INAUDIBLE) {
+        auto player_view = registry_.view<PlayerComponent>();
+        if (!player_view.empty()) {
+            auto player = player_view.front();
+            auto& log = registry_.get_or_emplace<DialogueLogComponent>(player);
+
+            DialogueLogEntry entry;
+            entry.speaker_name = "Agent";
+            if (registry_.all_of<NameComponent>(event.speaker)) {
+                entry.speaker_name = registry_.get<NameComponent>(event.speaker).name;
+            }
+            entry.text = event.text;
+            entry.tick = 0; // Tick index not easily accessible without a dedicated event component, but 0 is placeholder
+            if (const auto* pos = registry_.try_get<PositionComponent>(event.speaker)) {
+                entry.x = pos->x; entry.y = pos->y; entry.layer = pos->layer_id;
+            }
+            entry.audibility = speech.audibility;
+
+            log.entries.insert(log.entries.begin(), entry);
+            if (log.entries.size() > 20) log.entries.pop_back();
+
+            // Intelligence Interception [F.6]
+            if (event.has_record && (speech.audibility == AudibilityLevel::OVERHEARD || speech.audibility == AudibilityLevel::CLEAR)) {
+                auto& p_info = registry_.get_or_emplace<InformationComponent>(player);
+                bool duplicate = false;
+                for (const auto& r : p_info.records) {
+                    if (r.content_tag == event.record.content_tag) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    p_info.records.push_back(event.record);
+                    dispatcher_.trigger(HUDNotificationEvent{"You overheard a rumor: " + event.record.content_tag, 3.0f, "#00FFFF"});
+                }
+            }
+        }
+    }
 }
 
 void SoundSystem::propagateSound(entt::entity speaker) {
@@ -56,12 +134,18 @@ void SoundSystem::propagateSound(entt::entity speaker) {
 
     auto& speech = registry_.get<SpeechComponent>(speaker);
 
+    // [F.6] Determine if direct address (player is partner in a conversation)
+    bool direct = false;
+    if (auto* conv = registry_.try_get<ConversationComponent>(speaker)) {
+        if (conv->partner == player) direct = true;
+    }
+
     // Same layer
     if (s_pos.layer_id == p_pos.layer_id) {
         // Overworld (L0)
         if (s_pos.layer_id == 0) {
-            int dist = std::abs(s_pos.x - p_pos.x) + std::abs(s_pos.y - p_pos.y);
-            if (dist <= 5) speech.audibility = AudibilityLevel::CLEAR;
+            int dist = std::max(std::abs(s_pos.x - p_pos.x), std::abs(s_pos.y - p_pos.y));
+            if (dist <= 5) speech.audibility = direct ? AudibilityLevel::CLEAR : AudibilityLevel::OVERHEARD;
             else if (dist <= 10) speech.audibility = AudibilityLevel::MUFFLED;
             else speech.audibility = AudibilityLevel::INAUDIBLE;
             return;
@@ -120,7 +204,7 @@ void SoundSystem::propagateSound(entt::entity speaker) {
                     }
                 }
 
-                if (min_walls == 0) speech.audibility = AudibilityLevel::CLEAR;
+                if (min_walls == 0) speech.audibility = direct ? AudibilityLevel::CLEAR : AudibilityLevel::OVERHEARD;
                 else if (min_walls <= 2) speech.audibility = AudibilityLevel::MUFFLED;
                 else speech.audibility = AudibilityLevel::INAUDIBLE;
             } else {
@@ -144,7 +228,7 @@ void SoundSystem::propagateSound(entt::entity speaker) {
                       const auto& b_size = registry_.get<SizeComponent>(building);
                       int dist_x = std::max(0, std::max(b_pos.x - p_pos.x, p_pos.x - (b_pos.x + b_size.width - 1)));
                       int dist_y = std::max(0, std::max(b_pos.y - p_pos.y, p_pos.y - (b_pos.y + b_size.height - 1)));
-                      if (dist_x + dist_y <= 2) speech.audibility = AudibilityLevel::MUFFLED;
+                      if (std::max(dist_x, dist_y) <= 2) speech.audibility = AudibilityLevel::MUFFLED;
                       else speech.audibility = AudibilityLevel::INAUDIBLE;
                  } else {
                       speech.audibility = AudibilityLevel::INAUDIBLE;

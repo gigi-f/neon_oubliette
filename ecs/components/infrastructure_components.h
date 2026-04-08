@@ -17,7 +17,28 @@ enum class ArterialType : uint8_t {
     RAIL_ELEVATED,
     RAIL_SUBWAY,
     WATERWAY_CANAL,
-    WATERWAY_RIVER
+    WATERWAY_RIVER,
+    ELECTRIC_GRID,
+    SEWER,
+    UNDERGROUND_TUNNEL
+};
+
+/**
+ * @brief [NEW CLASS] Tracks power state for a chunk or building.
+ */
+struct PowerGridComponent {
+    float power_level = 1.0f; // 0.0 to 1.0
+    float voltage_stability = 1.0f;
+    bool is_grid_source = false; // Power plant or major substation
+    uint32_t ticks_since_failure = 0;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("power_level", power_level),
+           cereal::make_nvp("voltage_stability", voltage_stability),
+           cereal::make_nvp("is_grid_source", is_grid_source),
+           cereal::make_nvp("ticks_since_failure", ticks_since_failure));
+    }
 };
 
 /**
@@ -62,12 +83,16 @@ struct ConduitFieldComponent {
 struct InfrastructureNodeComponent {
     std::string node_name;
     bool is_bridge = false;
+    bool is_substation = false; // [L.5] Power distribution point
+    float power_load = 0.0f; // Cumulative demand downstream
     entt::entity controlling_faction = entt::null; // L4 link
 
     template <class Archive>
     void serialize(Archive& ar) {
         ar(cereal::make_nvp("node_name", node_name),
            cereal::make_nvp("is_bridge", is_bridge),
+           cereal::make_nvp("is_substation", is_substation),
+           cereal::make_nvp("power_load", power_load),
            cereal::make_nvp("controlling_faction", controlling_faction));
     }
 };

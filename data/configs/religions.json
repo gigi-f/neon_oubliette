@@ -1,0 +1,89 @@
+{
+  "religions": [
+    {
+      "religion_id": "SOL_INVICTUS",
+      "name": "Church of Sol Invictus",
+      "primary_deity": "The Eternal Sun",
+      "dogma_tags": ["HIERARCHICAL", "XENO_REVERENT"],
+      "faction_affinity_modifiers": {
+        "GOVERNMENT": 10.0,
+        "VOID": 20.0
+      },
+      "holy_day_ticks": [1000, 5000, 9000],
+      "home_building_type": "TEMPLE",
+      "color_hex": "#FFD700",
+      "glyph": "☼"
+    },
+    {
+      "religion_id": "THE_VOID_EYE",
+      "name": "The Void Eye",
+      "primary_deity": "The Great Silence",
+      "dogma_tags": ["NIHILISTIC", "TECHNOLOGICAL"],
+      "faction_affinity_modifiers": {
+        "MAW": 15.0,
+        "REBEL": -10.0
+      },
+      "holy_day_ticks": [2000, 6000],
+      "home_building_type": "UNDERGROUND_CHAPEL",
+      "color_hex": "#4B0082",
+      "glyph": "👁"
+    },
+    {
+      "religion_id": "SYNTH_GOSPEL",
+      "name": "Gospel of the Machine",
+      "primary_deity": "Aura-9",
+      "dogma_tags": ["TECHNOLOGICAL", "HIERARCHICAL"],
+      "faction_affinity_modifiers": {
+        "GOVERNMENT": 30.0,
+        "SYNDICATE": -15.0
+      },
+      "holy_day_ticks": [500, 2500, 4500, 6500, 8500],
+      "home_building_type": "BROADCAST_TOWER",
+      "color_hex": "#00FFFF",
+      "glyph": "⚙"
+    },
+    {
+      "religion_id": "STREET_PANTHEON",
+      "name": "The Street Pantheon",
+      "primary_deity": "The City Itself",
+      "dogma_tags": ["EGALITARIAN", "HEDONIST"],
+      "faction_affinity_modifiers": {
+        "SYNDICATE": 20.0,
+        "REBEL": 10.0,
+        "GOVERNMENT": -20.0
+      },
+      "holy_day_ticks": [3000, 7000],
+      "home_building_type": "SHRINE",
+      "color_hex": "#FF4500",
+      "glyph": "⚓"
+    },
+    {
+      "religion_id": "ASCETICS_OF_WIRE",
+      "name": "Ascetics of the Wire",
+      "primary_deity": "The Network",
+      "dogma_tags": ["ASCETIC", "NIHILISTIC"],
+      "faction_affinity_modifiers": {
+        "REBEL": 15.0,
+        "MAW": -10.0
+      },
+      "holy_day_ticks": [4000, 8000],
+      "home_building_type": "UNDERGROUND_CHAPEL",
+      "color_hex": "#00FF00",
+      "glyph": "∿"
+    },
+    {
+      "religion_id": "HIERODULE_CULT",
+      "name": "Cult of the Hierodules",
+      "primary_deity": "The Hierodules",
+      "dogma_tags": ["XENO_REVERENT", "NATURALISTIC"],
+      "faction_affinity_modifiers": {
+        "VOID": 30.0,
+        "GOVERNMENT": -30.0
+      },
+      "holy_day_ticks": [0, 10000],
+      "home_building_type": "SHRINE",
+      "color_hex": "#FF00FF",
+      "glyph": "⚜"
+    }
+  ]
+}

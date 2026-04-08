@@ -69,9 +69,8 @@ void InputSystem::update(double delta_time) {
 
         // Dialogue Navigation
         if (active_dialogue && active_dialogue->is_open) {
-            if (key_id == 'a' || key_id == 'b' || key_id == 'c') {
-                m_dispatcher.trigger(HUDNotificationEvent{"Dialogue choice acknowledged.", 1.5f, "#00FFFF"});
-                m_dispatcher.trigger<CloseDialogueWindowEvent>();
+            if (key_id >= 'a' && key_id <= 'z') {
+                m_dispatcher.trigger(DialogueChoiceEvent{static_cast<int>(key_id - 'a')});
                 m_dispatcher.trigger<AdvanceTurnRequestEvent>();
                 continue;
             } else if (key_id == NCKEY_ESC) {
@@ -80,6 +79,97 @@ void InputSystem::update(double delta_time) {
             }
             // Swallow other keys if dialogue is open
             continue;
+        }
+
+        // Barter Navigation [Phase T.1]
+        auto barter_view = m_registry.view<BarterUIComponent>();
+        if (barter_view.begin() != barter_view.end()) {
+            auto& ui = barter_view.get<BarterUIComponent>(*barter_view.begin());
+            if (ui.is_open) {
+                if (key_id == NCKEY_ESC) {
+                    m_dispatcher.trigger<CloseBarterEvent>();
+                    continue;
+                } else if (key_id == NCKEY_TAB || key_id == '\t') {
+                    ui.focusing_npc_inventory = !ui.focusing_npc_inventory;
+                    ui.selected_inventory_index = 0;
+                    continue;
+                } else if (key_id == NCKEY_UP) {
+                    ui.selected_inventory_index = std::max(0, ui.selected_inventory_index - 1);
+                    continue;
+                } else if (key_id == NCKEY_DOWN) {
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    entt::entity target = ui.focusing_npc_inventory ? ui.target_agent : p_ent;
+                    if (m_registry.valid(target) && m_registry.all_of<InventoryComponent>(target)) {
+                        auto& inv = m_registry.get<InventoryComponent>(target);
+                        if (!inv.contained_items.empty())
+                            ui.selected_inventory_index = std::min((int)inv.contained_items.size() - 1, ui.selected_inventory_index + 1);
+                    }
+                    continue;
+                } else if (key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    entt::entity target_ent = ui.focusing_npc_inventory ? ui.target_agent : p_ent;
+                    auto& offer = ui.focusing_npc_inventory ? ui.npc_offer : ui.player_offer;
+                    if (m_registry.valid(target_ent) && m_registry.all_of<InventoryComponent>(target_ent)) {
+                        auto& inv = m_registry.get<InventoryComponent>(target_ent);
+                        if (!inv.contained_items.empty() && ui.selected_inventory_index < (int)inv.contained_items.size()) {
+                            entt::entity item = inv.contained_items[ui.selected_inventory_index];
+                            auto it = std::find(offer.begin(), offer.end(), item);
+                            if (it != offer.end()) offer.erase(it);
+                            else offer.push_back(item);
+                        }
+                    }
+                    continue;
+                } else if (key_id == 's' || key_id == 'S') {
+                    // [T.3] REQUEST Trade
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    if (m_registry.valid(p_ent)) {
+                        m_dispatcher.trigger(BarterEvent{p_ent, ui.target_agent, ui.player_offer, ui.npc_offer, ui.player_info_offer, ui.npc_info_offer, 0, 0, BarterState::REQUEST});
+                        m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                    }
+                    continue;
+                } else if (key_id == 'p' || key_id == 'P') {
+                    // [T.3] PRESSURE NPC
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    if (m_registry.valid(p_ent)) {
+                        m_dispatcher.trigger(BarterEvent{p_ent, ui.target_agent, ui.player_offer, ui.npc_offer, ui.player_info_offer, ui.npc_info_offer, 0, 0, BarterState::PRESSURE});
+                        m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                    }
+                    continue;
+                } else if (key_id == 'x' || key_id == 'X') {
+                    // [T.3] Add Information to Offer
+                    auto p_view = m_registry.view<PlayerComponent>();
+                    entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
+                    if (m_registry.valid(p_ent) && m_registry.all_of<InformationComponent>(p_ent)) {
+                        auto& info = m_registry.get<InformationComponent>(p_ent);
+                        if (!info.records.empty()) {
+                            // Simplified: toggle first record for now, or use index if we had one
+                            const auto& record = info.records.front();
+                            auto it = std::find_if(ui.player_info_offer.begin(), ui.player_info_offer.end(), [&](const InformationRecord& r) {
+                                return r.content_tag == record.content_tag;
+                            });
+                            if (it != ui.player_info_offer.end()) ui.player_info_offer.erase(it);
+                            else ui.player_info_offer.push_back(record);
+                        }
+                    }
+                    continue;
+                }
+                // Swallow other keys if barter is open
+                continue;
+            }
+        }
+
+        // Dialogue Log Toggling [F.6]
+        if (key_id == 'l' || key_id == 'L') {
+            auto player_view = m_registry.view<PlayerComponent>();
+            if (!player_view.empty()) {
+                auto& log = m_registry.get_or_emplace<DialogueLogComponent>(player_view.front());
+                log.visible = !log.visible;
+                continue;
+            }
         }
 
         // 1. Global Commands
@@ -182,6 +272,10 @@ void InputSystem::update(double delta_time) {
                 }
                 
                 // UI Toggles
+                else if (key_id == 'v' || key_id == 'V') {
+                    m_dispatcher.trigger<ToggleCrisisDashboardEvent>();
+                    continue;
+                }
                 else if (key_id == NCKEY_ESC) {
                     auto state_view = m_registry.view<SimulationStateComponent>();
                     if (state_view.begin() != state_view.end()) {
@@ -282,6 +376,16 @@ void InputSystem::update(double delta_time) {
                             m_dispatcher.trigger(HUDNotificationEvent{"Holding " + item_name, 1.5f, "#00FFFF"});
 
                             m_dispatcher.trigger(UseItemEvent{player_entity, item_ent});
+                            m_dispatcher.trigger<AdvanceTurnRequestEvent>();
+                        }
+                    }
+                    continue;
+                } else if (key_id == 'd' || key_id == 'D') {
+                    if (m_registry.all_of<InventoryComponent>(player_entity)) {
+                        auto& inv = m_registry.get<InventoryComponent>(player_entity);
+                        if (!inv.contained_items.empty() && hud.selected_inventory_index < (int)inv.contained_items.size()) {
+                            entt::entity item_ent = inv.contained_items[hud.selected_inventory_index];
+                            m_dispatcher.trigger(DropItemEvent{player_entity, item_ent, pos.x, pos.y, pos.layer_id});
                             m_dispatcher.trigger<AdvanceTurnRequestEvent>();
                         }
                     }
@@ -424,8 +528,15 @@ void InputSystem::update(double delta_time) {
         }
 
         // Inspection
-        else if (key_id == 'i' || key_id == 'I' || key_id == 'c' || key_id == 'f' || key_id == 't') { 
+        else if (key_id == 'i' || key_id == 'I' || key_id == 'c' || key_id == 'f' || key_id == 't' || key_id == 'n' || key_id == 'N') { 
             int tx = pos.x; int ty = pos.y; int tl = pos.layer_id;
+            
+            // For 'n' (Intel Log), we always target the player
+            if (key_id == 'n' || key_id == 'N') {
+                m_dispatcher.trigger(InspectEvent{player_entity, pos.layer_id, pos.x, pos.y, InspectionMode::HISTORY});
+                continue;
+            }
+
             auto cursor_view = m_registry.view<StandardCursorComponent>();
             if (cursor_view.begin() != cursor_view.end()) {
                 auto& sc = cursor_view.get<StandardCursorComponent>(*cursor_view.begin());

@@ -5,36 +5,9 @@
 #include <vector>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
+#include "base_types.h"
 
 namespace NeonOubliette {
-
-enum class ZoneType : uint8_t {
-    VOID = 0,
-    CORPORATE,
-    COMMERCIAL,
-    RESIDENTIAL,
-    SLUM,
-    INDUSTRIAL,
-    PARK,
-    TRANSIT,
-    AIRPORT,
-    COLOSSEUM,
-    URBAN_CORE,
-    MIXED_COMMERCIAL,
-    Count
-};
-
-/**
- * @brief [NEW ENUM] Defines which edges of a lot face a street.
- */
-enum class StreetFacingSide : uint8_t {
-    NONE  = 0,
-    NORTH = 1 << 0,
-    SOUTH = 1 << 1,
-    EAST  = 1 << 2,
-    WEST  = 1 << 3,
-    ALL   = 0x0F
-};
 
 /**
  * @brief [NEW CLASS] Defines a surveyed lot within a city block.
@@ -46,6 +19,7 @@ struct LotComponent {
     int height = 0;
     ZoneType zone_class = ZoneType::VOID;
     entt::entity ownership_entity = entt::null;
+    entt::entity building_entity = entt::null; // [K.3] The active building on this lot
     StreetFacingSide facing = StreetFacingSide::NONE;
     StreetFacingSide alley_facing = StreetFacingSide::NONE;
     entt::entity parent_block = entt::null;
@@ -58,6 +32,7 @@ struct LotComponent {
            cereal::make_nvp("height", height),
            cereal::make_nvp("zone_class", zone_class),
            cereal::make_nvp("ownership_entity", ownership_entity),
+           cereal::make_nvp("building_entity", building_entity),
            cereal::make_nvp("facing", facing),
            cereal::make_nvp("alley_facing", alley_facing),
            cereal::make_nvp("parent_block", parent_block));
@@ -100,6 +75,10 @@ struct MacroZoneComponent {
     std::vector<entt::entity> arterial_entities; // Links to global skeleton entities in this zone
     std::vector<entt::entity> block_entities; // [NEW] Link to city blocks in this zone
     
+    // [J.4] Demographic Pressure & Attractiveness
+    float attractiveness = 0.0f;
+    float pressure = 0.0f;
+    
     template <class Archive>
     void serialize(Archive& ar) {
         ar(cereal::make_nvp("type", type),
@@ -108,7 +87,9 @@ struct MacroZoneComponent {
            cereal::make_nvp("density", density),
            cereal::make_nvp("district_name", district_name),
            cereal::make_nvp("arterial_entities", arterial_entities),
-           cereal::make_nvp("block_entities", block_entities));
+           cereal::make_nvp("block_entities", block_entities),
+           cereal::make_nvp("attractiveness", attractiveness),
+           cereal::make_nvp("pressure", pressure));
     }
 };
 
@@ -127,6 +108,33 @@ struct PropertyComponent {
            cereal::make_nvp("current_market_value", current_market_value),
            cereal::make_nvp("owner_faction", owner_faction),
            cereal::make_nvp("last_tax_payment_turn", last_tax_payment_turn));
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Tracks the physical health and maintenance state of a building.
+ *        Part of Phase K.1 - Building Health & Decay.
+ */
+struct BuildingHealthComponent {
+    float integrity = 100.0f;    // 0.0 to 100.0
+    float max_integrity = 100.0f;
+    float base_decay_rate = 0.01f; // Per L4 tick (20 simulation steps)
+    float maintenance_budget = 0.0f; // Credits assigned for repair
+    uint64_t last_repair_turn = 0;
+    bool is_condemned = false;
+    int num_squatters = 0; // [K.2]
+    float maintenance_urgency = 0.0f; // [K.2] 0-1, higher means more attractive for REPAIR task
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("integrity", integrity),
+           cereal::make_nvp("max_integrity", max_integrity),
+           cereal::make_nvp("base_decay_rate", base_decay_rate),
+           cereal::make_nvp("maintenance_budget", maintenance_budget),
+           cereal::make_nvp("last_repair_turn", last_repair_turn),
+           cereal::make_nvp("is_condemned", is_condemned),
+           cereal::make_nvp("num_squatters", num_squatters),
+           cereal::make_nvp("maintenance_urgency", maintenance_urgency));
     }
 };
 

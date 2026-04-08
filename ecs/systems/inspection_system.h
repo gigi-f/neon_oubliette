@@ -54,6 +54,7 @@ private:
     // UI Helpers
     void draw_tabs();
     void draw_content();
+    void draw_zone_data(int world_x, int world_y);
     void draw_ascii_portrait();
     
     // Cross-Layer Logic
@@ -61,7 +62,10 @@ private:
     
     // String Converters
     std::string get_material_name(MaterialType type);
+    std::string get_raw_material_name(RawMaterialType type);
     std::string get_species_name(SpeciesType type);
+    std::string get_life_stage_name(LifeStage stage);
+    std::string get_hazard_name(HazardType type);
     uint32_t hex_to_rgb(const std::string& hex);
 };
 

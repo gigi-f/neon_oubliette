@@ -12,12 +12,17 @@
 #include <clocale>
 #include <cstring>
 
+#define BACKWARD_HAS_DW 0
+#include <backward.hpp>
+namespace backward { backward::SignalHandling sh; }
+
 #include "config/ConfigLoader.h"
 #include "ecs/component_registration.h"
 #include "ecs/system_registration.h"
 #include "ecs/system_scheduler.h"
 #include "ecs/simulation_coordinator.h"
 #include "ecs/components/components.h"
+#include "ecs/components/milestone_components.h"
 #include "ecs/components/simulation_layers.h"
 #include "ecs/components/lod_components.h"
 #include "ecs/event_declarations.h"
@@ -136,6 +141,7 @@ int main(int argc, char** argv) {
     macro_registry.emplace<NeonOubliette::GodCursorComponent>(config_entity);
     macro_registry.emplace<NeonOubliette::StandardCursorComponent>(config_entity);
     macro_registry.emplace<NeonOubliette::DebugOverlayComponent>(config_entity);
+    macro_registry.emplace<NeonOubliette::MilestoneComponent>(config_entity);
 
     // --- Phase 2: Global Infrastructure Skeleton ---
     show_loading("Carving infrastructure...");

@@ -9,6 +9,7 @@
 | `BeliefComponent` (NPC) | NPC's stance on issues | `political_stance`, `economic_stance` |
 | `VoterComponent` (NPC) | NPC's voting behavior | `vote_propensity`, `candidate_preference` |
 | `FactionAffiliationComponent` (NPC) | NPC's link to factions | `faction_id`, `loyalty_level` |
+| `ConversationComponent` (NPC) | Agent-to-agent conversation state | `partner`, `topic_atom_tag`, `step_counter`, `duration_ticks` |
 | `CandidateComponent` | NPC running for office | `platform`, `funding`, `endorsements` |
 | `CampaignEvent` | Campaign activities | `type`, `target_faction`, `message` |
 | `PromiseComponent` | Campaign promise | `candidate_id`, `description`, `fulfilled_status` |
@@ -20,6 +21,9 @@
 | `BlackMarketComponent` | Illicit goods/services | `type`, `risk_level`, `goods_available` |
 | `BackroomDealComponent` | Secret agreements | `participants`, `terms`, `hidden_effects` |
 | `ScandalEvent` | Exposure of illicit activity | `type`, `involved_entities`, `impact` |
+| `AgeComponent` | [J.1] Biological age and life stage | `years`, `stage`, `biological_wear` |
+| `ReproductionComponent` | [J.2] Gestation and reproduction state | `is_pregnant`, `gestation_ticks_remaining`, `partner` |
+| `SocialHierarchyComponent` | NPC's status in the city | `status`, `class_title`, `is_autonomous` |
 
 
 ## Spatial and Verticality Components

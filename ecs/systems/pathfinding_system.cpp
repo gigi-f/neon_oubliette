@@ -55,7 +55,19 @@ bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity reques
                 break;
             }
         }
-        if (!found_floor) return false;
+        // [M.2] Dynamic Layer Traversal: If no FloorComponent, check for Terrain (e.g. Sewer -1, Rail 5)
+        if (!found_floor) {
+            auto terrain_view = registry.view<PositionComponent, TerrainComponent>();
+            bool found_terrain = false;
+            for (auto entity : terrain_view) {
+                const auto& t_pos = terrain_view.get<PositionComponent>(entity);
+                if (t_pos.x == pos.x && t_pos.y == pos.y && t_pos.layer_id == pos.layer_id) {
+                    found_terrain = true;
+                    break;
+                }
+            }
+            if (!found_terrain) return false;
+        }
     }
 
     // 2. Check Volumetric Obstacles (SizeComponent) - e.g. Buildings [B.1]
@@ -116,7 +128,7 @@ int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity reque
     auto arterial_view = registry.view<PositionComponent, InfrastructureArterialComponent>();
     for (auto entity : arterial_view) {
         const auto& a_pos = arterial_view.get<PositionComponent>(entity);
-        if (a_pos.x == pos.x && a_pos.y == pos.y) {
+        if (a_pos.x == pos.x && a_pos.y == pos.y && a_pos.layer_id == pos.layer_id) {
             const auto& art = arterial_view.get<InfrastructureArterialComponent>(entity);
             switch (art.type) {
                 case ArterialType::SIDEWALK: return 5;
@@ -125,6 +137,8 @@ int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity reque
                 case ArterialType::ROAD_SECONDARY: return 15; // Prefer sidewalk over road
                 case ArterialType::RAIL_ELEVATED: return 50;
                 case ArterialType::WATERWAY_RIVER: return 200;
+                case ArterialType::SEWER: return 12; // Sewer water is slightly slower
+                case ArterialType::UNDERGROUND_TUNNEL: return 8; // Maintenance tunnels are fast
                 default: break;
             }
         }
@@ -133,13 +147,15 @@ int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity reque
     auto terrain_view = registry.view<PositionComponent, TerrainComponent>();
     for (auto entity : terrain_view) {
         const auto& t_pos = terrain_view.get<PositionComponent>(entity);
-        if (t_pos.x == pos.x && t_pos.y == pos.y) {
+        if (t_pos.x == pos.x && t_pos.y == pos.y && t_pos.layer_id == pos.layer_id) {
             const auto& terrain = terrain_view.get<TerrainComponent>(entity);
             switch (terrain.type) {
                 case TerrainType::SIDEWALK: return 5;
                 case TerrainType::STREET: return 15;
                 case TerrainType::GRASS: return 12;
                 case TerrainType::DIRT: return 10;
+                case TerrainType::SEWER_FLOOR: return 8;
+                case TerrainType::SEWER_WATER: return 15;
                 default: break;
             }
         }
@@ -426,7 +442,29 @@ void PathfindingSystem::processPathfindingRequest(const PathfindingRequestEvent&
                 next_layer_pos.layer_id = stairs.connects_to_layer;
                 
                 if (isTraversable(next_layer_pos, event.entity)) {
-                    int move_cost = 10; // Fixed cost for switching floors
+                    int move_cost = 15; // Increased cost for stairs
+                    int new_g_cost = current_node->g_cost + move_cost;
+                    auto it = nodes_in_open_or_closed.find(next_layer_pos);
+                    if (it == nodes_in_open_or_closed.end() || new_g_cost < it->second->g_cost) {
+                        Node* neighbor_node = new Node(next_layer_pos, new_g_cost, getHeuristic(next_layer_pos, target), current_node);
+                        open_set.push(neighbor_node);
+                        all_nodes.push_back(neighbor_node);
+                        nodes_in_open_or_closed[next_layer_pos] = neighbor_node;
+                    }
+                }
+            }
+        }
+
+        // [M.2] Layer Transitions (Portals / Manholes / Ladders)
+        auto portal_view = registry.view<PositionComponent, PortalComponent>();
+        for (auto portal_ent : portal_view) {
+            const auto& p_pos = portal_view.get<PositionComponent>(portal_ent);
+            if (p_pos.x == current_node->pos.x && p_pos.y == current_node->pos.y && p_pos.layer_id == current_node->pos.layer_id) {
+                const auto& portal = portal_view.get<PortalComponent>(portal_ent);
+                PositionComponent next_layer_pos(portal.target_x, portal.target_y, portal.target_layer);
+                
+                if (isTraversable(next_layer_pos, event.entity)) {
+                    int move_cost = 20; // Higher cost for a sewer ladder
                     int new_g_cost = current_node->g_cost + move_cost;
                     auto it = nodes_in_open_or_closed.find(next_layer_pos);
                     if (it == nodes_in_open_or_closed.end() || new_g_cost < it->second->g_cost) {

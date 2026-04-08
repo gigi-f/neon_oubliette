@@ -17,8 +17,26 @@ namespace NeonOubliette {
  * @brief Statistical record for an agent that is currently out-of-range (Warm/Cold).
  *        Used to "materialize" the agent back into an ECS entity when the player approaches.
  */
+struct MacroRelationshipRecord {
+    std::string target_name; // Fallback
+    uint64_t target_macro_id = 0;
+    RelationshipTier tier = RelationshipTier::STRANGER;
+    float affinity = 0.0f;
+    bool shared_home = false;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("target_name", target_name),
+           cereal::make_nvp("target_macro_id", target_macro_id),
+           cereal::make_nvp("tier", tier),
+           cereal::make_nvp("affinity", affinity),
+           cereal::make_nvp("shared_home", shared_home));
+    }
+};
+
 struct MacroAgentRecord {
     std::string name;
+    uint64_t macro_id = 0;
     std::string archetype; // "Citizen", "Guard", etc.
     SpeciesType species = SpeciesType::HUMAN;
     int x = 0;
@@ -27,11 +45,22 @@ struct MacroAgentRecord {
     float hunger = 100.0f;
     float thirst = 100.0f;
     float frustration = 0.0f;
+    float socialization = 100.0f;
     float consciousness = 1.0f;
     int cash_on_hand = 100;
     std::string faction_id;
+    std::string speech_profile; // [F.3]
     uint64_t last_tick_turn = 0;
     
+    // Age & Life Stage (Phase J.1)
+    uint32_t age_years = 25;
+    uint32_t age_ticks = 0;
+    LifeStage life_stage = LifeStage::ADULT;
+    float biological_wear = 0.0f;
+
+    // Relationships (Phase 4.4 Social Graph)
+    std::vector<MacroRelationshipRecord> relationships;
+
     // Xeno Data (Phase 4.5)
     bool is_xeno = false;
     XenoType xeno_type = XenoType::CACOGEN;
@@ -51,10 +80,17 @@ struct MacroAgentRecord {
     int work_layer = 0;
 
     std::map<std::string, uint64_t> portfolio; // Ticker -> Shares
+    std::vector<PersonalityTag> personality_tags; // [F.1]
+    std::vector<InformationRecord> records; // [F.8]
+
+    // Crime Data (Phase 6.1) [I.1]
+    float boldness = 50.0f;
+    bool is_active_criminal = false;
 
     template <class Archive>
     void serialize(Archive& ar) {
         ar(cereal::make_nvp("name", name),
+           cereal::make_nvp("macro_id", macro_id),
            cereal::make_nvp("archetype", archetype),
            cereal::make_nvp("species", species),
            cereal::make_nvp("x", x),
@@ -63,10 +99,17 @@ struct MacroAgentRecord {
            cereal::make_nvp("hunger", hunger),
            cereal::make_nvp("thirst", thirst),
            cereal::make_nvp("frustration", frustration),
+           cereal::make_nvp("socialization", socialization),
            cereal::make_nvp("consciousness", consciousness),
            cereal::make_nvp("cash_on_hand", cash_on_hand),
            cereal::make_nvp("faction_id", faction_id),
+           cereal::make_nvp("speech_profile", speech_profile),
            cereal::make_nvp("last_tick_turn", last_tick_turn),
+           cereal::make_nvp("age_years", age_years),
+           cereal::make_nvp("age_ticks", age_ticks),
+           cereal::make_nvp("life_stage", life_stage),
+           cereal::make_nvp("biological_wear", biological_wear),
+           cereal::make_nvp("relationships", relationships),
            cereal::make_nvp("is_xeno", is_xeno),
            cereal::make_nvp("xeno_type", xeno_type),
            cereal::make_nvp("xeno_origin", xeno_origin),
@@ -79,7 +122,11 @@ struct MacroAgentRecord {
            cereal::make_nvp("work_x", work_x),
            cereal::make_nvp("work_y", work_y),
            cereal::make_nvp("work_layer", work_layer),
-           cereal::make_nvp("portfolio", portfolio));
+           cereal::make_nvp("portfolio", portfolio),
+           cereal::make_nvp("personality_tags", personality_tags),
+           cereal::make_nvp("records", records),
+           cereal::make_nvp("boldness", boldness),
+           cereal::make_nvp("is_active_criminal", is_active_criminal));
     }
 };
 

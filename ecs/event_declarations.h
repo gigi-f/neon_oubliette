@@ -21,6 +21,7 @@ enum class InspectionMode {
     COGNITIVE_PROFILE,
     FINANCIAL_FORENSICS,
     STRUCTURAL_ANALYSIS,
+    HISTORY,
     FORENSIC,
     SURVEILLANCE
 };
@@ -28,7 +29,9 @@ enum class InspectionMode {
 enum class BarterState : uint32_t {
     REQUEST,
     ACCEPT,
-    REJECT
+    REJECT,
+    COUNTER_OFFER,
+    PRESSURE
 };
 
 enum class ContainerInteractionType {
@@ -73,6 +76,14 @@ struct PickupItemEvent {
     int layer_id = 0;
 };
 
+struct DropItemEvent {
+    entt::entity dropper_entity;
+    entt::entity item_entity;
+    int x = 0;
+    int y = 0;
+    int layer_id = 0;
+};
+
 struct HUDNotificationEvent {
     std::string message;
     float duration = 2.0f;
@@ -83,6 +94,9 @@ struct SpeechEvent {
     entt::entity speaker;
     std::string text;
     uint32_t duration_ticks = 20;
+    AudibilityLevel audibility = AudibilityLevel::CLEAR;
+    bool has_record = false;
+    InformationRecord record;
 };
 
 // --- System Events ---
@@ -99,6 +113,7 @@ struct AdvanceTurnRequestEvent {};
 
 struct ToggleGodModeEvent {};
 struct TogglePauseEvent {};
+struct ToggleCrisisDashboardEvent {};
 struct AdjustGodModeSpeedEvent { float delta = 0.5f; };
 struct GodModeFocusBuildingEvent { entt::entity building_entity; };
 struct GodModeExitFocusEvent {};
@@ -134,6 +149,13 @@ struct CloseInspectionWindowEvent {};
 
 struct CloseDialogueWindowEvent {};
 
+struct OpenBarterEvent {
+    entt::entity initiator;
+    entt::entity target;
+};
+
+struct CloseBarterEvent {};
+
 struct ToggleControlsHelpEvent {
     entt::entity entity;
 };
@@ -149,6 +171,10 @@ struct InspectEvent {
 struct DialogueEvent {
     entt::entity player_entity;
     entt::entity target_agent;
+};
+
+struct DialogueChoiceEvent {
+    int choice_index;
 };
 
 struct InteractEvent {
@@ -240,6 +266,45 @@ struct AgentFactionReputationEvent {
     float change_amount;
 };
 
+struct AgentDeathEvent {
+    entt::entity entity = entt::null;
+    uint64_t macro_id = 0;
+    
+    // Macro data (if macro_id > 0)
+    int credits = 0;
+    std::string faction_id = "CITIZEN";
+    std::map<std::string, uint64_t> portfolio;
+    std::unordered_map<uint64_t, RelationshipRecord> relationships;
+    std::vector<entt::entity> items;
+};
+
+/**
+ * @brief [J.2] Fired when a new agent is born into the simulation.
+ */
+struct BirthEvent {
+    entt::entity child;
+    entt::entity parent_a;
+    entt::entity parent_b = entt::null;
+    int x, y, layer;
+};
+
+// --- Crime & Security Events ---
+struct CrimeReportEvent {
+    entt::entity perpetrator;
+    entt::entity victim;
+    int x = 0;
+    int y = 0;
+    int layer = 0;
+    std::string crime_type = "UNKNOWN";
+    uint64_t tick = 0;
+};
+
+struct WantedAlertEvent {
+    entt::entity target;
+    std::string reporting_faction_id;
+    int wanted_level;
+};
+
 // --- Barter Events ---
 
 struct BarterEvent {
@@ -247,10 +312,28 @@ struct BarterEvent {
     entt::entity target_entity;
     std::vector<entt::entity> offered_items;
     std::vector<entt::entity> requested_items;
+    std::vector<InformationRecord> offered_info;
+    std::vector<InformationRecord> requested_info;
+    int credit_offered = 0;
+    int credit_requested = 0;
     BarterState state;
 };
 
 // --- Infrastructure & Environmental Events ---
+
+/**
+ * @brief [K.3] Fired when a building is slated for removal due to decay or renewal.
+ */
+struct DemolitionEvent {
+    entt::entity building_entity;
+};
+
+/**
+ * @brief [K.3] Fired when a vacant lot is ready for new construction.
+ */
+struct RebuildEvent {
+    entt::entity lot_entity;
+};
 
 struct InfrastructureDegradationEvent {
     entt::entity infrastructure_entity_id;
@@ -318,11 +401,53 @@ struct CommerceEvent {
     uint32_t resource;
 };
 
+struct InformationPropagationEvent {
+    entt::entity source;
+    entt::entity target;
+    InformationRecord record;
+};
+
+struct InformationCreatedEvent {
+    InformationRecord record;
+};
+
 struct RawMaterialDeliveryEvent {
     entt::entity supplier;
     entt::entity receiver;
     uint32_t resource_type;
     uint64_t amount;
+};
+
+/**
+ * @brief [O.1] Fired when an agent successfully extracts resources from a node.
+ */
+struct ResourceExtractedEvent {
+    entt::entity actor;
+    entt::entity node;
+    RawMaterialType material_type;
+    float amount;
+    int x, y, layer;
+};
+
+/**
+ * @brief [O.2] Fired when a factory completes a production cycle.
+ */
+struct ProductionCompletedEvent {
+    entt::entity factory_entity = entt::null;
+    uint32_t output_item_type_id = 0;
+    std::string item_name;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(CEREAL_NVP(factory_entity), CEREAL_NVP(output_item_type_id), CEREAL_NVP(item_name));
+    }
+};
+
+/**
+ * @brief [O.3] Fired when a factory's supply chain is significantly disrupted.
+ */
+struct SupplyChainDisruptedEvent {
+    entt::entity factory_entity;
+    std::string reason; // "LOGISTICS", "STRIKE", "SABOTAGE"
+    float intensity;    // 0.0 to 1.0
 };
 
 struct JobOpeningEvent {
@@ -395,6 +520,79 @@ struct DiseaseEvent {
 
 struct PlayerLayerChangeEvent {
     int dz = 0;
+};
+
+struct MilestoneEvent {
+    std::string type;
+    std::string description;
+    std::string faction_a_id = "";
+    std::string faction_b_id = "";
+    entt::entity actor = entt::null;
+    float importance = 1.0f;
+};
+
+// --- Religion Events ---
+
+struct WorshipEvent {
+    entt::entity worshipper;
+    std::string religion_id;
+    entt::entity place_of_worship;
+    uint64_t tick;
+};
+
+struct HolyDayEvent {
+    std::string religion_id;
+    uint32_t holy_day_id;
+    std::string description;
+};
+
+struct ReligiousTensionEvent {
+    std::string religion_a_id;
+    std::string religion_b_id;
+    entt::entity location;
+    float tension_increase;
+};
+
+struct RaidEvent {
+    entt::entity instigator_faction;
+    std::string target_religion_id;
+    entt::entity target_building;
+    int x = 0;
+    int y = 0;
+};
+
+struct ProselytizingEvent {
+    entt::entity initiator;
+    entt::entity target;
+    std::string religion_id;
+    bool success;
+};
+
+// --- Crisis Events [L.1] ---
+
+struct CrisisStartedEvent {
+    CrisisType type;
+    float severity;
+    std::string description;
+};
+
+struct CrisisResolvedEvent {
+    CrisisType type;
+};
+
+struct CrisisEffectEvent {
+    CrisisType type;
+    float intensity; // current pulse strength
+};
+
+/**
+ * @brief [NEW CLASS] Event fired when a broadcast pulse occurs.
+ */
+struct BroadcastPulseEvent {
+    entt::entity tower_entity;
+    int x, y, layer;
+    int radius;
+    entt::entity faction_entity;
 };
 
 // =====================================================================

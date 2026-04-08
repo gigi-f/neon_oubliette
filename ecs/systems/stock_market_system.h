@@ -24,6 +24,8 @@ public:
 
     void handleStockPurchase(const StockPurchaseEvent& event);
     void handleStockSale(const StockSaleEvent& event);
+    void handleCrisisEffect(const CrisisEffectEvent& event);
+    void handleCrisisResolved(const CrisisResolvedEvent& event);
 
     /**
      * @brief Process trades for agents in cold storage.
@@ -36,6 +38,8 @@ private:
 
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;
+    
+    float m_active_economic_crisis_severity = 0.0f;
 };
 
 } // namespace NeonOubliette

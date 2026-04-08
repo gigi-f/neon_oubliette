@@ -19,3 +19,24 @@ The player views the world through **corporate-issue inspection hardware**—fun
 ### Primary Glyphs by Function
 
 #### Biological Indicators (Organic Set)
+
+### Faction Color Palette (Hex-Precise)
+
+| Faction | Color (Hex) | Vibe |
+| :--- | :--- | :--- |
+| **Aura-9 (Consensus)** | `#55AAFF` | Order, routine, medical blue |
+| **Malware-Alpha (Entropic)** | `#FF5555` | Chaos, stolen data, warning red |
+| **The Architect (Maw)** | `#55FF55` | Bio-digital hybrid, energy green |
+| **The Signal (Void)** | `#AA55FF` | Synchronicity, ritual purple |
+| **The Arbiter (Syndicate)** | `#FFCC33` | Combat, gambling, gold |
+| **Neutral/Un-Aligned** | `#AAAAAA` | Grey-scale, utility-only |
+
+### Portrait Frame Metaphors
+
+The portrait frame should be more than a box. It should reflect the **interface\'s diagnostic layer**.
+
+- **Consensus (Medical Frame)**: Double-line borders with intermittent "heartbeat" peaks (`-^-`).
+- **Entropic (Glitch Frame)**: Single-line borders with random glyph artifacts (`#`, `%`, `*`) on the corners.
+- **Maw (Biological Frame)**: Rounded borders (`(`, `)`) with "tendril" extensions (`~`).
+- **Void (Geometric Frame)**: Thick blocks (`█`, `▓`) forming geometric corners.
+- **Syndicate (Industrial Frame)**: Industrial pipes (`╔`, `═`, `╗`) with "rivet" dots (`.`).

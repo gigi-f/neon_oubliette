@@ -10,6 +10,8 @@ StockMarketSystem::StockMarketSystem(entt::registry& registry, entt::dispatcher&
 {
     m_dispatcher.sink<StockPurchaseEvent>().connect<&StockMarketSystem::handleStockPurchase>(*this);
     m_dispatcher.sink<StockSaleEvent>().connect<&StockMarketSystem::handleStockSale>(*this);
+    m_dispatcher.sink<CrisisEffectEvent>().connect<&StockMarketSystem::handleCrisisEffect>(*this);
+    m_dispatcher.sink<CrisisResolvedEvent>().connect<&StockMarketSystem::handleCrisisResolved>(*this);
 }
 
 void StockMarketSystem::initialize() {
@@ -76,7 +78,14 @@ void StockMarketSystem::updateStockPrices() {
         // Note: faction.influence is currently a float in FactionComponent
         float influence_factor = 1.0f + (faction.influence - 1.0f) / 10.0f; // Simplified: 1.0 influence is baseline
         
-        std::normal_distribution<double> dist(0, stock.volatility * stock.current_price);
+        float current_volatility = stock.volatility;
+        // [L.2] Economic Crisis impact on volatility and momentum
+        if (m_active_economic_crisis_severity > 0.0f) {
+            current_volatility += m_active_economic_crisis_severity * 0.1f;
+            stock.momentum -= m_active_economic_crisis_severity * 2.0f;
+        }
+
+        std::normal_distribution<double> dist(0, current_volatility * stock.current_price);
         double random_walk = dist(gen);
         
         stock.current_price *= influence_factor;
@@ -94,6 +103,23 @@ void StockMarketSystem::updateStockPrices() {
         
         // Clamp momentum
         stock.momentum = std::clamp(stock.momentum, -10.0f, 10.0f);
+
+        // Milestone for major market moves
+        double change_pct = (stock.current_price - stock.previous_price) / stock.previous_price;
+        if (std::abs(change_pct) >= 0.15) { // 15% move in one L3 tick (10 turns)
+            std::string type = (change_pct > 0) ? "MARKET_SURGE" : "MARKET_CRASH";
+            std::string desc = "Ticker " + stock.ticker + " (" + stock.company_name + ") " + 
+                               (change_pct > 0 ? "soared " : "plummeted ") + std::to_string((int)(std::abs(change_pct) * 100)) + "% this cycle.";
+            
+            m_dispatcher.enqueue(MilestoneEvent{
+                type,
+                desc,
+                "",
+                "",
+                entity,
+                2.5f
+            });
+        }
     }
 }
 
@@ -235,6 +261,18 @@ void StockMarketSystem::processMacroTrades(entt::registry& registry, std::vector
                 }
             }
         }
+    }
+}
+
+void StockMarketSystem::handleCrisisEffect(const CrisisEffectEvent& event) {
+    if (event.type == CrisisType::ECONOMIC_COLLAPSE) {
+        m_active_economic_crisis_severity = event.intensity;
+    }
+}
+
+void StockMarketSystem::handleCrisisResolved(const CrisisResolvedEvent& event) {
+    if (event.type == CrisisType::ECONOMIC_COLLAPSE) {
+        m_active_economic_crisis_severity = 0.0f;
     }
 }
 

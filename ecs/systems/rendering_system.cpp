@@ -6,28 +6,36 @@
 #include <random>
 #include "../components/components.h"
 #include "../components/simulation_layers.h"
+#include "../components/lod_components.h"
 #include "../components/physics_colors.h"
 #include "../event_declarations.h"
 
 namespace NeonOubliette::Systems {
 
+// [L.6] Forward declaration for internal dashboard rendering
+static void render_sparkline(struct ncplane* plane, int y, int x, const std::vector<float>& history, uint32_t color);
+
 RenderingSystem::RenderingSystem(entt::registry& registry, struct notcurses* nc_context,
                                  entt::dispatcher& event_dispatcher)
     : registry_(registry), nc_context_(nc_context), event_dispatcher_(event_dispatcher), 
       world_plane_(nullptr), entity_plane_(nullptr), range_ring_plane_(nullptr), hud_plane_(nullptr), 
-      inventory_plane_(nullptr), interior_overlay_plane_(nullptr), 
-      minimap_plane_(nullptr), cursor_plane_(nullptr), context_menu_plane_(nullptr),
+      inventory_plane_(nullptr), barter_plane_(nullptr), interior_overlay_plane_(nullptr), 
+      minimap_plane_(nullptr), speech_plane_(nullptr), dialogue_log_plane_(nullptr), cursor_plane_(nullptr), context_menu_plane_(nullptr),
       debug_overlay_plane_(nullptr), inventory_visible_(false) {
 }
 
 RenderingSystem::~RenderingSystem() {
     if (hud_plane_) ncplane_destroy(hud_plane_);
     if (inventory_plane_) ncplane_destroy(inventory_plane_);
+    if (barter_plane_) ncplane_destroy(barter_plane_);
     if (world_plane_) ncplane_destroy(world_plane_);
     if (entity_plane_) ncplane_destroy(entity_plane_);
     if (range_ring_plane_) ncplane_destroy(range_ring_plane_);
     if (interior_overlay_plane_) ncplane_destroy(interior_overlay_plane_);
     if (minimap_plane_) ncplane_destroy(minimap_plane_);
+    if (speech_plane_) ncplane_destroy(speech_plane_);
+    if (dialogue_log_plane_) ncplane_destroy(dialogue_log_plane_);
+    if (crisis_dashboard_plane_) ncplane_destroy(crisis_dashboard_plane_);
     if (cursor_plane_) ncplane_destroy(cursor_plane_);
     if (context_menu_plane_) ncplane_destroy(context_menu_plane_);
     if (debug_overlay_plane_) ncplane_destroy(debug_overlay_plane_);
@@ -97,6 +105,21 @@ void RenderingSystem::initialize() {
             ncplane_move_below(inventory_plane_, world_plane_);
         }
 
+        // Barter Plane [Phase T.1]
+        nopts.name = "BarterPanel";
+        nopts.rows = (unsigned)(term_y * 0.8);
+        nopts.cols = (unsigned)(term_x * 0.8);
+        nopts.y = (term_y - nopts.rows) / 2;
+        nopts.x = (term_x - nopts.cols) / 2;
+        barter_plane_ = ncplane_create(stdp, &nopts);
+        if (barter_plane_) {
+            uint64_t barter_channels = 0;
+            ncchannels_set_bg_rgb(&barter_channels, 0x101010);
+            ncchannels_set_fg_rgb(&barter_channels, 0xFFD700);
+            ncplane_set_base(barter_plane_, " ", 0, barter_channels);
+            ncplane_move_below(barter_plane_, world_plane_);
+        }
+
         // Interior Overlay Plane [B.3]
         nopts.name = "InteriorOverlay";
         nopts.rows = 20;
@@ -113,6 +136,48 @@ void RenderingSystem::initialize() {
         }
 
         // Minimap disabled — not needed
+
+        // Speech Plane [F.5]
+        nopts.name = "Speech";
+        nopts.rows = term_y;
+        nopts.cols = term_x;
+        nopts.y = 0;
+        nopts.x = 0;
+        speech_plane_ = ncplane_create(stdp, &nopts);
+        if (speech_plane_) {
+            ncplane_set_base(speech_plane_, "", 0, transp_channels);
+            ncplane_move_above(speech_plane_, entity_plane_);
+        }
+
+        // Dialogue Log Plane [F.6]
+        nopts.name = "DialogueLog";
+        nopts.rows = (unsigned)(term_y * 0.7);
+        nopts.cols = (unsigned)(term_x * 0.7);
+        nopts.y = (term_y - nopts.rows) / 2;
+        nopts.x = (term_x - nopts.cols) / 2;
+        dialogue_log_plane_ = ncplane_create(stdp, &nopts);
+        if (dialogue_log_plane_) {
+            uint64_t log_channels = 0;
+            ncchannels_set_bg_rgb(&log_channels, 0x101010);
+            ncchannels_set_fg_rgb(&log_channels, 0xAAAAAA);
+            ncplane_set_base(dialogue_log_plane_, " ", 0, log_channels);
+            ncplane_move_below(dialogue_log_plane_, world_plane_);
+        }
+
+        // Crisis Dashboard Plane [L.6]
+        nopts.name = "CrisisDashboard";
+        nopts.rows = (unsigned)(term_y * 0.85);
+        nopts.cols = (unsigned)(term_x * 0.9);
+        nopts.y = (term_y - nopts.rows) / 2;
+        nopts.x = (term_x - nopts.cols) / 2;
+        crisis_dashboard_plane_ = ncplane_create(stdp, &nopts);
+        if (crisis_dashboard_plane_) {
+            uint64_t dash_channels = 0;
+            ncchannels_set_bg_rgb(&dash_channels, 0x050510);
+            ncchannels_set_fg_rgb(&dash_channels, 0x00FF00);
+            ncplane_set_base(crisis_dashboard_plane_, " ", 0, dash_channels);
+            ncplane_move_below(crisis_dashboard_plane_, world_plane_);
+        }
 
         // Cursor Plane [D.1]
         nopts.name = "Cursor";
@@ -163,6 +228,28 @@ void RenderingSystem::initialize() {
     event_dispatcher_.sink<InventoryToggleEvent>().connect<&RenderingSystem::handleInventoryToggleEvent>(this);
     event_dispatcher_.sink<HUDNotificationEvent>().connect<&RenderingSystem::handleHUDNotificationEvent>(this);
     event_dispatcher_.sink<ToggleControlsHelpEvent>().connect<&RenderingSystem::handleToggleControlsHelpEvent>(this);
+    event_dispatcher_.sink<ToggleCrisisDashboardEvent>().connect<&RenderingSystem::handleToggleCrisisDashboardEvent>(this);
+    event_dispatcher_.sink<BroadcastPulseEvent>().connect<&RenderingSystem::handleBroadcastPulseEvent>(this);
+}
+
+void RenderingSystem::handleBroadcastPulseEvent(const BroadcastPulseEvent& event) {
+    uint32_t color = 0xAAAAAA; // Default Neutral Gray
+    
+    bool is_pirate = false;
+    if (registry_.valid(event.tower_entity) && registry_.all_of<PirateNodeComponent>(event.tower_entity)) {
+        is_pirate = true;
+        color = 0xFF00FF; // Magenta for Pirate Node
+    } else if (registry_.valid(event.faction_entity) && registry_.all_of<FactionComponent>(event.faction_entity)) {
+        const auto& faction = registry_.get<FactionComponent>(event.faction_entity);
+        if (faction.faction_id == "CONSENSUS") color = 0x55AAFF;
+        else if (faction.faction_id == "ENTROPIC_DRIFT") color = 0xFF5555;
+        else if (faction.faction_id == "SILICON_MAW") color = 0x55FF55;
+        else if (faction.faction_id == "VOID_WALKERS") color = 0xAA55FF;
+        else if (faction.faction_id == "SYNDICATE") color = 0xFFCC33;
+    }
+
+    int max_ticks = is_pirate ? 6 : 10; // Pirate pulses are shorter/sharper
+    active_pulses_.push_back({event.x, event.y, event.layer, event.radius, 0, max_ticks, color});
 }
 
 void RenderingSystem::update(double delta_time) {
@@ -349,7 +436,7 @@ void RenderingSystem::update(double delta_time) {
             ncplane_putstr_yx(hud_plane_, 0, 35, "GOD CONTROLS [G:Exit]");
             ncplane_putstr_yx(hud_plane_, 1, 35, "WASD:Cursor  P/SPC:Pause");
             ncplane_putstr_yx(hud_plane_, 2, 35, "+/-:Speed    </>:Floor");
-            ncplane_putstr_yx(hud_plane_, 3, 35, "i:Phys I:Bio c:Cogn f:Econ t:Pol");
+            ncplane_putstr_yx(hud_plane_, 3, 35, "i:Phys I:Bio c:Cogn f:Econ t:Pol v:Crisis");
 
             // --- God Mode Hover Info [B.3] ---
             auto cursor_v = registry_.view<GodCursorComponent>();
@@ -381,6 +468,43 @@ void RenderingSystem::update(double delta_time) {
             ncplane_set_fg_rgb(hud_plane_, 0x00FFFF);
             ncplane_printf_yx(hud_plane_, 0, 0, "HP: %3.0f%%  CR: %d  L: %d", hud.health, hud.credits, current_layer);
 
+            // [I.5] Wanted Level Display & Notoriety
+            int w_col = 45;
+            for (auto const& [faction, level] : hud.faction_wanted_levels) {
+                if (level > 0) {
+                    uint32_t f_color = 0xFFFFFF;
+                    if (faction == "CONSENSUS") f_color = 0x5555FF; // Blue
+                    else if (faction == "ENTROPIC_DRIFT") f_color = 0xFF5555; // Red
+                    else if (faction == "SILICON_MAW") f_color = 0x55FF55; // Green
+                    else if (faction == "VOID_WALKERS") f_color = 0xAA55FF; // Purple
+                    else if (faction == "SYNDICATE") f_color = 0xFFCC33; // Gold
+                    else if (faction == "CITY_WATCH") f_color = 0xAAAAAA; // Grey
+
+                    ncplane_set_fg_rgb(hud_plane_, f_color);
+                    std::string f_label = faction.substr(0, 3);
+                    ncplane_printf_yx(hud_plane_, 0, w_col, "[%s:", f_label.c_str());
+                    w_col += 5;
+                    for (int i = 0; i < 5; ++i) {
+                        if (i < level) ncplane_putchar_yx(hud_plane_, 0, w_col++, '*');
+                        else ncplane_putchar_yx(hud_plane_, 0, w_col++, '.');
+                    }
+                    ncplane_putchar_yx(hud_plane_, 0, w_col++, ']');
+                    w_col += 2;
+                }
+            }
+            
+            // Global Notoriety Bar
+            if (hud.global_notoriety > 0) {
+                ncplane_set_fg_rgb(hud_plane_, 0xFF00FF);
+                ncplane_printf_yx(hud_plane_, 1, 55, "NOTORIETY: ");
+                int bar_len = 10;
+                int filled = (int)((hud.global_notoriety / 100.0f) * (float)bar_len);
+                for (int i = 0; i < bar_len; ++i) {
+                    if (i < filled) ncplane_putchar_yx(hud_plane_, 1, 66 + i, '=');
+                    else ncplane_putchar_yx(hud_plane_, 1, 66 + i, '-');
+                }
+            }
+
             // [E.1] Interaction Mode Indicator
             if (registry_.all_of<PlayerInteractionComponent>(entity)) {
                 auto mode = registry_.get<PlayerInteractionComponent>(entity).current_mode;
@@ -400,6 +524,14 @@ void RenderingSystem::update(double delta_time) {
                 ncplane_set_fg_rgb(hud_plane_, 0xFFA500);
                 ncplane_putstr_yx(hud_plane_, 1, 30, room_label.c_str());
             }
+
+            // [L.2] Economic Telemetry
+            uint32_t econ_color = 0x00FF00; // GREEN
+            if (hud.economy_status_label == "!!! MARKET CRASH !!!") econ_color = 0xFF0000; // RED
+            else if (hud.economy_status_label == "VOLATILE") econ_color = 0xFFFF00; // YELLOW
+            
+            ncplane_set_fg_rgb(hud_plane_, econ_color);
+            ncplane_printf_yx(hud_plane_, 1, 60, "ECON: %s", hud.economy_status_label.c_str());
 
             // --- [C.1] Held Item Slot ---
             ncplane_set_fg_rgb(hud_plane_, 0xAAAAAA);
@@ -511,28 +643,55 @@ void RenderingSystem::update(double delta_time) {
         int screen_x = x + offset_x;
         int screen_y = y + offset_y;
         if (screen_x >= 0 && screen_x < (int)view_cols && screen_y >= 0 && screen_y < (int)view_rows) {
+            // [L.5] Apply Power Grid Failure shifts
+            float power_mult = 1.0f;
+            if (current_mode != SimulationMode::GOD_MODE) {
+                // Determine chunk for (x, y)
+                // Assuming 40x40 chunks as per roadmap Phase 3.1
+                int cx = x / 40;
+                int cy = y / 40;
+                
+                auto grid_view = registry_.view<PowerGridComponent, ChunkComponent>();
+                for (auto g_ent : grid_view) {
+                    const auto& chunk = grid_view.get<ChunkComponent>(g_ent);
+                    if (chunk.chunk_x == cx && chunk.chunk_y == cy) {
+                        power_mult = grid_view.get<PowerGridComponent>(g_ent).power_level;
+                        break;
+                    }
+                }
+            }
+
             // Apply time-of-day color shifts
             if (current_mode != SimulationMode::GOD_MODE) {
                 auto weather_v = registry_.view<WeatherComponent>();
                 if (weather_v.begin() != weather_v.end()) {
                     const auto& weather = weather_v.get<WeatherComponent>(*weather_v.begin());
+                    float darkness = 1.0f;
                     if (weather.time_of_day == TimeOfDay::NIGHT) {
-                        uint32_t r = (color >> 16) & 0xFF;
-                        uint32_t g = (color >> 8) & 0xFF;
-                        uint32_t b = color & 0xFF;
-                        r = (uint32_t)((float)r * 0.2f);
-                        g = (uint32_t)((float)g * 0.3f);
-                        b = (uint32_t)((float)b * 0.6f);
-                        color = (r << 16) | (g << 8) | b;
+                        darkness = 0.3f;
                     } else if (weather.time_of_day == TimeOfDay::DAWN || weather.time_of_day == TimeOfDay::DUSK) {
-                        uint32_t r = (color >> 16) & 0xFF;
-                        uint32_t g = (color >> 8) & 0xFF;
-                        uint32_t b = color & 0xFF;
-                        r = (uint32_t)((float)r * 0.7f);
-                        g = (uint32_t)((float)g * 0.5f);
-                        b = (uint32_t)((float)b * 0.6f);
-                        color = (r << 16) | (g << 8) | b;
+                        darkness = 0.7f;
                     }
+
+                    // Combined darkness from time and power failure
+                    // Buildings might have emergency lights (min 0.1 brightness)
+                    float final_mult = std::max(0.1f, darkness * power_mult);
+
+                    uint32_t r = (color >> 16) & 0xFF;
+                    uint32_t g = (color >> 8) & 0xFF;
+                    uint32_t b = color & 0xFF;
+
+                    if (weather.time_of_day == TimeOfDay::NIGHT) {
+                         // Blue tint for night
+                         r = (uint32_t)((float)r * 0.2f * power_mult);
+                         g = (uint32_t)((float)g * 0.3f * power_mult);
+                         b = (uint32_t)((float)b * 0.6f * power_mult);
+                    } else {
+                         r = (uint32_t)((float)r * final_mult);
+                         g = (uint32_t)((float)g * final_mult);
+                         b = (uint32_t)((float)b * final_mult);
+                    }
+                    color = (r << 16) | (g << 8) | b;
                 }
             }
 
@@ -586,6 +745,31 @@ void RenderingSystem::update(double delta_time) {
         }
         
         render_at(world_plane_, pos.x, pos.y, render.glyph, color);
+    }
+
+    // --- [K.4] Render Graffiti ---
+    auto graffiti_view = registry_.view<GraffitiComponent, PositionComponent>();
+    for (auto entity : graffiti_view) {
+        const auto& pos = graffiti_view.get<PositionComponent>(entity);
+        if (pos.layer_id != current_layer) continue;
+        if (pos.x < vp_x_min || pos.x > vp_x_max || pos.y < vp_y_min || pos.y > vp_y_max) continue;
+        if (!is_visible(pos)) continue;
+        
+        const auto& graffiti = graffiti_view.get<GraffitiComponent>(entity);
+        
+        // Faction Color Logic
+        uint32_t color = graffiti.color;
+        
+        // Density affects brightness (0.0 to 1.0)
+        uint32_t r = (color >> 16) & 0xFF;
+        uint32_t g = (color >> 8) & 0xFF;
+        uint32_t b = color & 0xFF;
+        r = (uint32_t)(r * graffiti.density);
+        g = (uint32_t)(g * graffiti.density);
+        b = (uint32_t)(b * graffiti.density);
+        color = (r << 16) | (g << 8) | b;
+
+        render_at(world_plane_, pos.x, pos.y, graffiti.glyph, color);
     }
 
     // --- [E.2] Render Range Ring ---
@@ -659,7 +843,50 @@ void RenderingSystem::update(double delta_time) {
         if (!is_visible(pos)) continue;
         const auto& render = entity_view.get<RenderableComponent>(entity);
 
+        char glyph = render.glyph;
         uint32_t color = parse_hex_color(render.color);
+
+        // [J.1] Age-Based Visual Metaphor
+        if (registry_.all_of<AgeComponent>(entity)) {
+            const auto& age = registry_.get<AgeComponent>(entity);
+            
+            // Glyph Metaphor
+            if (age.stage == LifeStage::INFANT) {
+                glyph = '.'; // Metaphor: Small, proto-agent
+            } else if (age.stage == LifeStage::CHILD) {
+                glyph = (glyph >= 'A' && glyph <= 'Z') ? (char)(glyph + 32) : glyph; // Force lowercase
+            } else if (age.stage == LifeStage::ANCIENT) {
+                // Xeno-Ancient Metaphor: specialized Omega or shimmering
+                if (registry_.all_of<XenoComponent>(entity)) glyph = (char)224; // Greek Alpha/Omega style if supported
+            }
+
+            // Color Metaphor (Brightness/Saturation shifts)
+            uint32_t r = (color >> 16) & 0xFF;
+            uint32_t g = (color >> 8) & 0xFF;
+            uint32_t b = color & 0xFF;
+
+            if (age.stage == LifeStage::INFANT || age.stage == LifeStage::CHILD) {
+                // Vibrant, high saturation for youth
+                r = std::min(255u, r + 50); g = std::min(255u, g + 50); b = std::min(255u, b + 50);
+            } else if (age.stage == LifeStage::ELDER) {
+                // Desaturated/Dimmed for elders
+                float grey_factor = 0.5f;
+                uint32_t grey = (uint32_t)((r + g + b) / 3);
+                r = (uint32_t)(r * (1.0f - grey_factor) + grey * grey_factor);
+                g = (uint32_t)(g * (1.0f - grey_factor) + grey * grey_factor);
+                b = (uint32_t)(b * (1.0f - grey_factor) + grey * grey_factor);
+                // Further dim
+                r /= 2; g /= 2; b /= 2;
+            } else if (age.stage == LifeStage::ANCIENT) {
+                // Mythic shimmering (flicker)
+                static thread_local std::mt19937 flicker_gen(42);
+                if (std::uniform_real_distribution<>(0, 1)(flicker_gen) < 0.3f) {
+                    r = 255; g = 255; b = 255; // White flash
+                }
+            }
+            color = (r << 16) | (g << 8) | b;
+        }
+
         if (registry_.all_of<Layer0PhysicsComponent>(entity)) {
             const auto& phys = registry_.get<Layer0PhysicsComponent>(entity);
             color = parse_hex_color(map_temperature_to_color(phys.temperature_celsius, render.color));
@@ -674,12 +901,12 @@ void RenderingSystem::update(double delta_time) {
             for (int dx = 0; dx < size.width; ++dx) {
                 for (int dy = 0; dy < size.height; ++dy) {
                     if (is_visible(PositionComponent(pos.x + dx, pos.y + dy, current_layer))) {
-                        render_at(entity_plane_, pos.x + dx, pos.y + dy, render.glyph, color);
+                        render_at(entity_plane_, pos.x + dx, pos.y + dy, glyph, color);
                     }
                 }
             }
         } else {
-            render_at(entity_plane_, pos.x, pos.y, render.glyph, color);
+            render_at(entity_plane_, pos.x, pos.y, glyph, color);
         }
 
         // --- Render Tags [D.3] ---
@@ -693,6 +920,41 @@ void RenderingSystem::update(double delta_time) {
                 ncplane_putstr_yx(entity_plane_, sy - 1, sx, tag.tag_label.c_str());
                 ncplane_set_styles(entity_plane_, NCSTYLE_NONE);
             }
+        }
+    }
+
+    // --- [N.2] Render Broadcast Pulses ---
+    for (auto it = active_pulses_.begin(); it != active_pulses_.end(); ) {
+        if (it->layer == current_layer) {
+            int radius = it->current_tick;
+            if (radius > it->radius) radius = it->radius;
+            
+            char glyph = '.';
+            if (it->current_tick < 2) glyph = '.';
+            else if (it->current_tick < 4) glyph = ',';
+            else if (it->current_tick < 6) glyph = '~';
+            else if (it->current_tick < 8) glyph = '*';
+            else glyph = ' ';
+
+            // Draw a circle of pulses
+            for (int i = 0; i < 360; i += 10) {
+                float theta = (float)i * 3.14159f / 180.0f;
+                int px = it->x + (int)(radius * std::cos(theta));
+                int py = it->y + (int)(radius * std::sin(theta));
+                
+                if (px >= vp_x_min && px <= vp_x_max && py >= vp_y_min && py <= vp_y_max) {
+                    if (is_visible(PositionComponent(px, py, current_layer))) {
+                        render_at(entity_plane_, px, py, glyph, it->color);
+                    }
+                }
+            }
+        }
+        
+        it->current_tick++;
+        if (it->current_tick >= it->max_ticks) {
+            it = active_pulses_.erase(it);
+        } else {
+            ++it;
         }
     }
 
@@ -775,6 +1037,25 @@ void RenderingSystem::update(double delta_time) {
         }
     }
 
+    // --- [L.3] Environmental Hazard Overlay ---
+    auto hazard_view_ren = registry_.view<EnvironmentalHazardComponent>();
+    if (!hazard_view_ren.empty()) {
+        const auto& hazard = hazard_view_ren.get<EnvironmentalHazardComponent>(hazard_view_ren.front());
+        if (hazard.is_active) {
+            static thread_local std::mt19937 hgen(888);
+            std::uniform_int_distribution<> h_disX(0, (int)view_cols-1);
+            std::uniform_int_distribution<> h_disY(0, (int)view_rows-1);
+            
+            int p_count = (int)(hazard.toxicity_level * 40.0f);
+            for (int i = 0; i < p_count; ++i) {
+                int sx = h_disX(hgen);
+                int sy = h_disY(hgen);
+                ncplane_set_fg_rgb(entity_plane_, 0xADFF2F); // GreenYellow
+                ncplane_putchar_yx(entity_plane_, sy, sx, (i % 3 == 0 ? 'x' : (i % 3 == 1 ? '`' : 'v')));
+            }
+        }
+    }
+
     // 4. Render Interior Overlay [B.3]
     if (state_view.begin() != state_view.end()) {
         auto& state = state_view.get<SimulationStateComponent>(*state_view.begin());
@@ -820,6 +1101,170 @@ void RenderingSystem::update(double delta_time) {
             }
         } else {
             ncplane_move_below(interior_overlay_plane_, world_plane_);
+        }
+    }
+
+    // 6. Render Crisis Dashboard [L.6]
+    auto dash_view = registry_.view<CrisisDashboardComponent>();
+    if (dash_view.begin() != dash_view.end()) {
+        auto& dash = dash_view.get<CrisisDashboardComponent>(*dash_view.begin());
+        if (dash.visible) {
+            ncplane_erase(crisis_dashboard_plane_);
+            ncplane_move_top(crisis_dashboard_plane_);
+            
+            // Border
+            uint64_t border_channels = 0;
+            ncchannels_set_fg_rgb(&border_channels, 0x00FF00);
+            ncchannels_set_bg_rgb(&border_channels, 0x050510);
+            ncplane_perimeter_double(crisis_dashboard_plane_, 0, border_channels, 0);
+            
+            ncplane_set_fg_rgb(crisis_dashboard_plane_, 0xFFFF00);
+            ncplane_putstr_yx(crisis_dashboard_plane_, 0, 2, " GOD MODE: SYSTEMIC CRISIS DASHBOARD ");
+            
+            // 1. Global Stress Meters
+            ncplane_set_fg_rgb(crisis_dashboard_plane_, 0xAAAAAA);
+            ncplane_putstr_yx(crisis_dashboard_plane_, 2, 2, "GLOBAL SIMULATION STRESS:");
+            
+            auto draw_meter = [&](int y, int x, const std::string& label, const std::vector<float>& history, uint32_t color) {
+                float current = history.empty() ? 0.0f : history.back();
+                ncplane_set_fg_rgb(crisis_dashboard_plane_, 0xAAAAAA);
+                ncplane_printf_yx(crisis_dashboard_plane_, y, x, "%s:", label.c_str());
+                
+                int bar_len = 10;
+                int filled = (int)(current * (float)bar_len);
+                for (int i = 0; i < bar_len; ++i) {
+                    if (i < filled) ncplane_set_fg_rgb(crisis_dashboard_plane_, color);
+                    else ncplane_set_fg_rgb(crisis_dashboard_plane_, 0x333333);
+                    ncplane_putchar_yx(crisis_dashboard_plane_, y, x + (int)label.length() + 2 + i, '#');
+                }
+                ncplane_set_fg_rgb(crisis_dashboard_plane_, color);
+                ncplane_printf_yx(crisis_dashboard_plane_, y, x + (int)label.length() + 2 + bar_len + 1, "%3.0f%%", current * 100.0f);
+                
+                // Sparkline
+                render_sparkline(crisis_dashboard_plane_, y, x + (int)label.length() + 2 + bar_len + 7, history, color);
+            };
+
+            draw_meter(4, 2, "ECONOMIC     ", dash.economic_stress_history, 0x00FFFF);
+            draw_meter(5, 2, "POLITICAL    ", dash.political_stress_history, 0xFF00FF);
+            draw_meter(6, 2, "BIOLOGICAL   ", dash.biological_stress_history, 0x00FF00);
+            draw_meter(7, 2, "ENVIRONMENTAL", dash.environmental_stress_history, 0xFF8800);
+
+            // 2. Active Crises
+            ncplane_set_fg_rgb(crisis_dashboard_plane_, 0xFFFF00);
+            ncplane_putstr_yx(crisis_dashboard_plane_, 9, 2, "ACTIVE CITY-WIDE CRISES:");
+            
+            auto crisis_v = registry_.view<CrisisComponent>();
+            if (!crisis_v.empty()) {
+                const auto& crisis_comp = crisis_v.get<CrisisComponent>(crisis_v.front());
+                if (crisis_comp.active_crises.empty()) {
+                    ncplane_set_fg_rgb(crisis_dashboard_plane_, 0x00FF00);
+                    ncplane_putstr_yx(crisis_dashboard_plane_, 11, 4, "NO ACTIVE CRISES DETECTED. SIMULATION STABLE.");
+                } else {
+                    int crow = 11;
+                    for (const auto& c : crisis_comp.active_crises) {
+                        ncplane_set_fg_rgb(crisis_dashboard_plane_, 0xFF0000);
+                        ncplane_printf_yx(crisis_dashboard_plane_, crow++, 4, "> %s (SEVERITY: %.2f) - %u turns remaining", 
+                                          c.description.c_str(), c.severity, c.ticks_remaining);
+                        if (crow >= 16) break;
+                    }
+                }
+            }
+
+            // 3. Propagation Vectors
+            ncplane_set_fg_rgb(crisis_dashboard_plane_, 0xFFFF00);
+            ncplane_putstr_yx(crisis_dashboard_plane_, 17, 2, "PROPAGATION VECTORS (CAUSAL CONDUCTIVITY):");
+            int vrow = 19;
+            for (const auto& vec : dash.propagation_vectors) {
+                ncplane_set_fg_rgb(crisis_dashboard_plane_, 0xAAAAAA);
+                ncplane_putstr_yx(crisis_dashboard_plane_, vrow++, 4, vec.c_str());
+                if (vrow >= 24) break;
+            }
+
+            ncplane_set_fg_rgb(crisis_dashboard_plane_, 0x00FFFF);
+            unsigned dy, dx;
+            ncplane_dim_yx(crisis_dashboard_plane_, &dy, &dx);
+            ncplane_putstr_yx(crisis_dashboard_plane_, (int)dy - 1, 2, " [C: Close Dashboard] ");
+
+        } else {
+            ncplane_move_below(crisis_dashboard_plane_, world_plane_);
+        }
+    }
+
+    // --- Render Barter UI [T.1/T.3] ---
+    auto barter_view = registry_.view<BarterUIComponent>();
+    if (barter_view.begin() != barter_view.end()) {
+        auto& ui = barter_view.get<BarterUIComponent>(*barter_view.begin());
+        if (ui.is_open && registry_.valid(ui.target_agent)) {
+            ncplane_erase(barter_plane_);
+            ncplane_move_top(barter_plane_);
+            
+            uint64_t border_channels = 0;
+            ncchannels_set_fg_rgb(&border_channels, 0xFFD700);
+            ncchannels_set_bg_rgb(&border_channels, 0x101010);
+            ncplane_perimeter_double(barter_plane_, 0, border_channels, 0);
+            
+            ncplane_set_fg_rgb(barter_plane_, 0xFFFF00);
+            ncplane_putstr_yx(barter_plane_, 0, 2, " BARTER: ");
+            if (registry_.all_of<NameComponent>(ui.target_agent)) {
+                ncplane_putstr(barter_plane_, registry_.get<NameComponent>(ui.target_agent).name.c_str());
+            }
+            
+            // --- [T.3] Negotiation Stats ---
+            uint32_t pat_color = 0x00FF00;
+            const char* pat_glyph = "☺";
+            if (ui.npc_patience <= 0.3f) { pat_color = 0xFF0000; pat_glyph = "⚠"; }
+            else if (ui.npc_patience <= 0.7f) { pat_color = 0xFFFF00; pat_glyph = "⚄"; }
+            
+            ncplane_set_fg_rgb(barter_plane_, 0xAAAAAA);
+            ncplane_putstr_yx(barter_plane_, 1, 2, "PATIENCE: ");
+            ncplane_set_fg_rgb(barter_plane_, pat_color);
+            ncplane_putstr(barter_plane_, pat_glyph);
+            
+            ncplane_set_fg_rgb(barter_plane_, 0xAAAAAA);
+            ncplane_printf_yx(barter_plane_, 1, 18, "GREED: %.2f  LEVERAGE: %.2f", ui.npc_greed_margin, ui.current_leverage);
+            
+            // NPC Feedback
+            ncplane_set_fg_rgb(barter_plane_, 0x00FFFF);
+            ncplane_printf_yx(barter_plane_, 3, 2, "\"%s\"", ui.npc_feedback.c_str());
+
+            // --- [T.1] Split Screen Layout ---
+            unsigned by, bx;
+            ncplane_dim_yx(barter_plane_, &by, &bx);
+            int mid_x = (int)bx / 2;
+            
+            // Player side (Left)
+            ncplane_set_fg_rgb(barter_plane_, 0xFFFFFF);
+            ncplane_putstr_yx(barter_plane_, 5, 2, "YOUR OFFER:");
+            int row = 7;
+            for (auto item : ui.player_offer) {
+                if (registry_.valid(item) && registry_.all_of<ItemComponent>(item))
+                    ncplane_printf_yx(barter_plane_, row++, 4, "- %s", registry_.get<ItemComponent>(item).name.c_str());
+                if (row >= (int)by - 4) break;
+            }
+            for (const auto& info : ui.player_info_offer) {
+                ncplane_printf_yx(barter_plane_, row++, 4, "* INTEL: %s", info.content_tag.c_str());
+                if (row >= (int)by - 4) break;
+            }
+
+            // NPC side (Right)
+            ncplane_set_fg_rgb(barter_plane_, 0xFFFFFF);
+            ncplane_putstr_yx(barter_plane_, 5, mid_x + 2, "THEIR OFFER:");
+            row = 7;
+            for (auto item : ui.npc_offer) {
+                if (registry_.valid(item) && registry_.all_of<ItemComponent>(item))
+                    ncplane_printf_yx(barter_plane_, row++, mid_x + 4, "- %s", registry_.get<ItemComponent>(item).name.c_str());
+                if (row >= (int)by - 4) break;
+            }
+            for (const auto& info : ui.npc_info_offer) {
+                ncplane_printf_yx(barter_plane_, row++, mid_x + 4, "* INTEL: %s", info.content_tag.c_str());
+                if (row >= (int)by - 4) break;
+            }
+
+            // Footer controls
+            ncplane_set_fg_rgb(barter_plane_, 0xFFFF00);
+            ncplane_putstr_yx(barter_plane_, (int)by - 1, 2, " [S:OFFER] [P:PRESSURE] [X:INTEL] [TAB:SWAP] [ENTER:TOGGLE] [ESC:CLOSE] ");
+        } else {
+            ncplane_move_below(barter_plane_, world_plane_);
         }
     }
 
@@ -976,71 +1421,94 @@ void RenderingSystem::update(double delta_time) {
 
     // --- Minimap disabled ---
     if (false && minimap_plane_) {
-        ncplane_erase(minimap_plane_);
-        
-        uint64_t border_chan = 0;
-        ncchannels_set_fg_rgb(&border_chan, 0x006600);
-        ncplane_set_base(minimap_plane_, " ", 0, border_chan);
-        ncplane_perimeter_double(minimap_plane_, 0, border_chan, 0);
-
-        unsigned mini_w, mini_h;
-        ncplane_dim_yx(minimap_plane_, &mini_h, &mini_w);
-        int center_x = mini_w / 2;
-        int center_y = mini_h / 2;
-
-        int range_x = (mini_w - 2) / 2;
-        int range_y = (mini_h - 2) / 2;
-
-        // Terrain
-        auto terrain_mini_view = registry_.view<PositionComponent, RenderableComponent, TerrainComponent>();
-        for (auto ent : terrain_mini_view) {
-            const auto& pos = terrain_mini_view.get<PositionComponent>(ent);
-            if (pos.layer_id == current_layer) {
-                int dx = pos.x - cam_x;
-                int dy = pos.y - cam_y;
-                if (std::abs(dx) <= range_x && std::abs(dy) <= range_y) {
-                    const auto& render = terrain_mini_view.get<RenderableComponent>(ent);
-                    ncplane_set_fg_rgb(minimap_plane_, parse_hex_color(render.color));
-                    if (in_room && pos.x >= current_room_aabb.x && pos.x < current_room_aabb.x + current_room_aabb.width &&
-                        pos.y >= current_room_aabb.y && pos.y < current_room_aabb.y + current_room_aabb.height) {
-                        ncplane_set_bg_rgb(minimap_plane_, 0x003300);
-                    } else {
-                        ncplane_set_bg_default(minimap_plane_);
-                    }
-                    ncplane_putchar_yx(minimap_plane_, center_y + dy, center_x + dx, render.glyph);
-                }
-            }
-        }
-
-        // Entities
-        auto ent_mini_view = registry_.view<PositionComponent, RenderableComponent>(entt::exclude<TerrainComponent>);
-        for (auto ent : ent_mini_view) {
-            const auto& pos = ent_mini_view.get<PositionComponent>(ent);
-            if (pos.layer_id == current_layer) {
-                int dx = pos.x - cam_x;
-                int dy = pos.y - cam_y;
-                if (std::abs(dx) <= range_x && std::abs(dy) <= range_y) {
-                    const auto& render = ent_mini_view.get<RenderableComponent>(ent);
-                    ncplane_set_fg_rgb(minimap_plane_, parse_hex_color(render.color));
-                    if (in_room && pos.x >= current_room_aabb.x && pos.x < current_room_aabb.x + current_room_aabb.width &&
-                        pos.y >= current_room_aabb.y && pos.y < current_room_aabb.y + current_room_aabb.height) {
-                        ncplane_set_bg_rgb(minimap_plane_, 0x003300);
-                    } else {
-                        ncplane_set_bg_default(minimap_plane_);
-                    }
-                    ncplane_putchar_yx(minimap_plane_, center_y + dy, center_x + dx, render.glyph);
-                }
-            }
-        }
-
-        // Center Indicator
-        ncplane_set_fg_rgb(minimap_plane_, 0xFFFF00);
-        ncplane_putchar_yx(minimap_plane_, center_y, center_x, '@');
-        
-        ncplane_move_top(minimap_plane_);
+        // ... (minimap code)
     }
 
-    // 6. Render Speech (Overhead) [B.5 / F.2]
+    // Barter Panel [Phase T.1]
+    auto barter_ui_view = registry_.view<BarterUIComponent>();
+    bool barter_open = false;
+    for (auto ent : barter_ui_view) {
+        auto& ui = barter_ui_view.get<BarterUIComponent>(ent);
+        if (ui.is_open && registry_.valid(ui.target_agent)) {
+            barter_open = true;
+            ncplane_erase(barter_plane_);
+            ncplane_move_top(barter_plane_);
+            
+            // Draw Border
+            uint64_t border_channels = 0;
+            ncchannels_set_fg_rgb(&border_channels, 0xFFD700);
+            ncchannels_set_bg_rgb(&border_channels, 0x000000);
+            ncplane_perimeter_double(barter_plane_, 0, border_channels, 0);
+            
+            unsigned bw, bh;
+            ncplane_dim_yx(barter_plane_, &bh, &bw);
+            
+            // Title
+            ncplane_set_fg_rgb(barter_plane_, 0xFFFF00);
+            ncplane_putstr_yx(barter_plane_, 0, 2, "[ BARTER PANEL ]");
+            
+            // NPC Header (Left)
+            std::string npc_name = "Agent";
+            if (registry_.all_of<NameComponent>(ui.target_agent))
+                npc_name = registry_.get<NameComponent>(ui.target_agent).name;
+            
+            ncplane_set_fg_rgb(barter_plane_, ui.focusing_npc_inventory ? 0xFFFF00 : 0xAAAAAA);
+            ncplane_printf_yx(barter_plane_, 1, 2, " %s'S STOCK ", npc_name.c_str());
+
+            // Player Header (Right)
+            ncplane_set_fg_rgb(barter_plane_, !ui.focusing_npc_inventory ? 0xFFFF00 : 0xAAAAAA);
+            ncplane_printf_yx(barter_plane_, 1, (int)bw / 2 + 2, " YOUR INVENTORY ");
+
+            // Middle Divider
+            for (unsigned i = 1; i < bh - 1; ++i) {
+                ncplane_set_fg_rgb(barter_plane_, 0x333333);
+                ncplane_putchar_yx(barter_plane_, (int)i, (int)bw / 2, '|');
+            }
+
+            // Draw NPC Inventory (Left)
+            if (registry_.all_of<InventoryComponent>(ui.target_agent)) {
+                auto& inv = registry_.get<InventoryComponent>(ui.target_agent).contained_items;
+                for (size_t i = 0; i < inv.size() && i < (bh - 4); ++i) {
+                    auto item = inv[i];
+                    std::string iname = registry_.all_of<ItemComponent>(item) ? registry_.get<ItemComponent>(item).name : "Item";
+                    bool selected = (ui.focusing_npc_inventory && (int)i == ui.selected_inventory_index);
+                    bool in_offer = (std::find(ui.npc_offer.begin(), ui.npc_offer.end(), item) != ui.npc_offer.end());
+                    
+                    if (selected) ncplane_set_fg_rgb(barter_plane_, 0xFFFF00);
+                    else ncplane_set_fg_rgb(barter_plane_, in_offer ? 0x00FFFF : 0xAAAAAA);
+                    
+                    ncplane_printf_yx(barter_plane_, (int)i + 2, 2, "%s [%s] %s", selected ? ">" : " ", in_offer ? "X" : " ", iname.c_str());
+                }
+            }
+
+            // Draw Player Inventory (Right)
+            auto player_v = registry_.view<PlayerComponent, InventoryComponent>();
+            if (player_v.begin() != player_v.end()) {
+                auto& inv = registry_.get<InventoryComponent>(*player_v.begin()).contained_items;
+                for (size_t i = 0; i < inv.size() && i < (bh - 4); ++i) {
+                    auto item = inv[i];
+                    std::string iname = registry_.all_of<ItemComponent>(item) ? registry_.get<ItemComponent>(item).name : "Item";
+                    bool selected = (!ui.focusing_npc_inventory && (int)i == ui.selected_inventory_index);
+                    bool in_offer = (std::find(ui.player_offer.begin(), ui.player_offer.end(), item) != ui.player_offer.end());
+                    
+                    if (selected) ncplane_set_fg_rgb(barter_plane_, 0xFFFF00);
+                    else ncplane_set_fg_rgb(barter_plane_, in_offer ? 0x00FFFF : 0xAAAAAA);
+                    
+                    ncplane_printf_yx(barter_plane_, (int)i + 2, (int)bw / 2 + 2, "%s [%s] %s", selected ? ">" : " ", in_offer ? "X" : " ", iname.c_str());
+                }
+            }
+            
+            // Footer Info
+            ncplane_set_fg_rgb(barter_plane_, 0x00FFFF);
+            ncplane_putstr_yx(barter_plane_, (int)bh - 1, 2, "TAB:Side | ENTR:Toggle | S:Confirm | ESC:Cancel");
+        }
+    }
+    if (!barter_open && barter_plane_) {
+        ncplane_move_below(barter_plane_, world_plane_);
+    }
+
+    // 6. Render Speech (Overhead) [B.5 / F.2 / F.5]
+    if (speech_plane_) ncplane_erase(speech_plane_);
     auto speech_view = registry_.view<SpeechComponent, PositionComponent>();
     for (auto ent : speech_view) {
         const auto& speech = speech_view.get<SpeechComponent>(ent);
@@ -1049,29 +1517,65 @@ void RenderingSystem::update(double delta_time) {
         if (s_pos.layer_id != current_layer) continue;
         if (!is_visible(s_pos)) continue;
         if (speech.audibility == AudibilityLevel::INAUDIBLE) continue;
+        if (speech.chunks.empty() || speech.current_chunk_index >= speech.chunks.size()) continue;
 
-        uint32_t speech_color = 0xFFFFFF; 
-        bool italic = (speech.audibility == AudibilityLevel::MUFFLED);
-        if (italic) {
-            speech_color = 0x888888; // dim color
+        const std::string& current_text = speech.chunks[speech.current_chunk_index];
+
+        // Determine Faction Color [F.5]
+        uint32_t speech_color = 0xFFFFFF; // White default
+        if (auto* pol = registry_.try_get<Layer4PoliticalComponent>(ent)) {
+            if (pol->primary_faction == "GOVERNMENT") speech_color = 0x5555FF; // Blue
+            else if (pol->primary_faction == "REBEL") speech_color = 0xFF5555; // Red
+            else if (pol->primary_faction == "MAW") speech_color = 0x55FF55; // Green
+            else if (pol->primary_faction == "VOID") speech_color = 0xAA55FF; // Purple
+            else if (pol->primary_faction == "SYNDICATE") speech_color = 0xFFCC33; // Gold
+        }
+
+        bool overheard = (speech.audibility == AudibilityLevel::OVERHEARD);
+        bool muffled = (speech.audibility == AudibilityLevel::MUFFLED);
+
+        if (overheard || muffled) {
+            speech_color = 0x888888; // dim color override
+        }
+
+        std::string text_to_draw = current_text;
+        if (muffled) {
+            // Asterisks replace some characters [F.6]
+            for (size_t i = 0; i < text_to_draw.length(); ++i) {
+                if (i % 3 == 0 && text_to_draw[i] != ' ' && text_to_draw[i] != '.') {
+                    text_to_draw[i] = '*';
+                }
+            }
         }
 
         int sx = s_pos.x + offset_x;
         int sy = s_pos.y + offset_y - 1; // 1 tile above speaker
 
-        if (sx >= 0 && sx < (int)view_cols && sy >= 0 && sy < (int)view_rows) {
-            ncplane_set_fg_rgb(entity_plane_, speech_color);
-            if (italic) ncplane_set_styles(entity_plane_, NCSTYLE_ITALIC);
-            else ncplane_set_styles(entity_plane_, NCSTYLE_NONE);
+        if (sx >= 0 && sx < (int)view_cols && sy >= 0 && sy < (int)view_rows && speech_plane_) {
+            ncplane_set_fg_rgb(speech_plane_, speech_color);
             
-            int text_x = sx - (int)speech.text.length() / 2;
+            // Alpha ramping [F.5] - Scale RGB for terminal dimming
+            if (speech.alpha < 1.0f) {
+                uint32_t r = (speech_color >> 16) & 0xFF;
+                uint32_t g = (speech_color >> 8) & 0xFF;
+                uint32_t b = speech_color & 0xFF;
+                speech_color = (((uint32_t)((float)r * speech.alpha) & 0xFF) << 16) | 
+                               (((uint32_t)((float)g * speech.alpha) & 0xFF) << 8) | 
+                                ((uint32_t)((float)b * speech.alpha) & 0xFF);
+                ncplane_set_fg_rgb(speech_plane_, speech_color);
+            }
+            
+            if (overheard || muffled) ncplane_set_styles(speech_plane_, NCSTYLE_ITALIC);
+            else ncplane_set_styles(speech_plane_, NCSTYLE_NONE);
+            
+            int text_x = sx - (int)text_to_draw.length() / 2;
             if (text_x < 0) text_x = 0;
-            if (text_x + (int)speech.text.length() >= (int)view_cols) text_x = (int)view_cols - (int)speech.text.length();
+            if (text_x + (int)text_to_draw.length() >= (int)view_cols) text_x = (int)view_cols - (int)text_to_draw.length();
             
             if (text_x >= 0) {
-                ncplane_putstr_yx(entity_plane_, sy, text_x, speech.text.c_str());
+                ncplane_putstr_yx(speech_plane_, sy, text_x, text_to_draw.c_str());
             }
-            ncplane_set_styles(entity_plane_, NCSTYLE_NONE);
+            ncplane_set_styles(speech_plane_, NCSTYLE_NONE);
         }
     }
 
@@ -1115,6 +1619,64 @@ void RenderingSystem::update(double delta_time) {
         ncplane_move_below(context_menu_plane_, world_plane_);
     }
 
+    // 8. Render Dialogue Log [F.6]
+    auto log_view = registry_.view<DialogueLogComponent>();
+    bool log_open = false;
+    for (auto ent : log_view) {
+        auto& log = log_view.get<DialogueLogComponent>(ent);
+        if (log.visible) {
+            log_open = true;
+            ncplane_erase(dialogue_log_plane_);
+            ncplane_move_top(dialogue_log_plane_);
+            
+            // Draw Border
+            uint64_t border_channels = 0;
+            ncchannels_set_fg_rgb(&border_channels, 0x00AAAA);
+            ncchannels_set_bg_rgb(&border_channels, 0x000000);
+            ncplane_perimeter_double(dialogue_log_plane_, 0, border_channels, 0);
+            
+            unsigned lw, lh;
+            ncplane_dim_yx(dialogue_log_plane_, &lh, &lw);
+            
+            ncplane_set_fg_rgb(dialogue_log_plane_, 0x00FFFF);
+            ncplane_putstr_yx(dialogue_log_plane_, 0, 2, "[ DIALOGUE HISTORY ]");
+
+            int row = 2;
+            for (const auto& entry : log.entries) {
+                if (row >= (int)lh - 2) break;
+                
+                uint32_t entry_color = 0xAAAAAA;
+                if (entry.audibility == AudibilityLevel::CLEAR) entry_color = 0xFFFFFF;
+                else if (entry.audibility == AudibilityLevel::MUFFLED) entry_color = 0x666666;
+
+                std::string log_text = entry.text;
+                if (entry.audibility == AudibilityLevel::MUFFLED) {
+                    for (size_t i = 0; i < log_text.length(); ++i) {
+                        if (i % 3 == 0 && log_text[i] != ' ' && log_text[i] != '.') log_text[i] = '*';
+                    }
+                }
+
+                ncplane_set_fg_rgb(dialogue_log_plane_, 0x00AAAA);
+                ncplane_printf_yx(dialogue_log_plane_, row, 2, "%s:", entry.speaker_name.c_str());
+                
+                ncplane_set_fg_rgb(dialogue_log_plane_, entry_color);
+                if (entry.audibility != AudibilityLevel::CLEAR) ncplane_set_styles(dialogue_log_plane_, NCSTYLE_ITALIC);
+                else ncplane_set_styles(dialogue_log_plane_, NCSTYLE_NONE);
+                
+                ncplane_printf_yx(dialogue_log_plane_, row + 1, 4, "\"%s\"", log_text.c_str());
+                ncplane_set_styles(dialogue_log_plane_, NCSTYLE_NONE);
+                
+                row += 3;
+            }
+            
+            ncplane_set_fg_rgb(dialogue_log_plane_, 0x00AAAA);
+            ncplane_putstr_yx(dialogue_log_plane_, (int)lh - 1, 2, "L:Close");
+        }
+    }
+    if (!log_open && dialogue_log_plane_) {
+        ncplane_move_below(dialogue_log_plane_, world_plane_);
+    }
+
     ncplane_move_top(hud_plane_);
 
     // --- Debug Overlay --- (disabled, stderr logging still active)
@@ -1142,6 +1704,11 @@ void RenderingSystem::handleHUDNotificationEvent(const HUDNotificationEvent& eve
         hud.notifications.insert(hud.notifications.begin(), event.message);
         if (hud.notifications.size() > 5) hud.notifications.pop_back();
     }
+}
+
+void RenderingSystem::handleToggleCrisisDashboardEvent(const ToggleCrisisDashboardEvent& event) {
+    (void)event;
+    // Visiblity is handled by the component flag, but we can use this to force a plane move
 }
 
 void RenderingSystem::handleToggleControlsHelpEvent(const ToggleControlsHelpEvent& event) {
@@ -1183,6 +1750,20 @@ std::string RenderingSystem::room_tag_to_string(NeonOubliette::RoomTag tag) {
         case RoomTag::SUPERVISOR_OFFICE: return "SUPERVISOR OFFICE";
         case RoomTag::HALLWAY: return "HALLWAY";
         default: return "UNKNOWN";
+    }
+}
+
+
+// Added for [L.6]
+static void render_sparkline(struct ncplane* plane, int y, int x, const std::vector<float>& history, uint32_t color) {
+    if (history.empty()) return;
+    ncplane_set_fg_rgb(plane, color);
+    // ASCII Metaphor for trends
+    const char* blocks[] = {" ", ".", "-", "=", "o", "x", "X", "#", "@"};
+    for (size_t i = 0; i < history.size(); ++i) {
+        int idx = (int)(history[i] * 8);
+        idx = std::clamp(idx, 0, 8);
+        ncplane_putstr_yx(plane, y, x + (int)i, blocks[idx]);
     }
 }
 

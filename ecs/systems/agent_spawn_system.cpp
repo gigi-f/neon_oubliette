@@ -4,6 +4,7 @@
 #include <random>
 #include <iostream>
 #include <unordered_set>
+#include <cstdlib>
 
 namespace NeonOubliette {
 
@@ -34,8 +35,13 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
         auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
         
         MacroAgentRecord record;
-        record.name = "Citizen #" + std::to_string(i);
-        record.archetype = (disType(gen) < 9) ? "Citizen" : "Guard";
+        record.macro_id = config.next_macro_id++;
+        record.name = "Citizen #" + std::to_string(record.macro_id);
+        
+        int arch_roll = disType(gen);
+        if (arch_roll < 8) record.archetype = "Citizen";
+        else if (arch_roll < 9) record.archetype = "Guard";
+        else record.archetype = "Mule";
         
         // Species and Xeno roll
         int species_roll = disType(gen);
@@ -50,13 +56,13 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
                 record.species = SpeciesType::CACOGEN;
                 record.is_xeno = true;
                 record.xeno_type = XenoType::CACOGEN;
-                record.name = "Cacogen #" + std::to_string(i);
+                record.name = "Cacogen #" + std::to_string(record.macro_id);
                 record.archetype = "Xeno";
             } else {
                 record.species = SpeciesType::HIERODULE;
                 record.is_xeno = true;
                 record.xeno_type = XenoType::HIERODULE;
-                record.name = "Hierodule #" + std::to_string(i);
+                record.name = "Hierodule #" + std::to_string(record.macro_id);
                 record.archetype = "Hierodule";
             }
         }
@@ -70,12 +76,64 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
         record.x = disX(gen);
         record.y = disY(gen);
         record.layer_id = 0;
+
+        // [M.3] Sewer Spawning: 5% chance of sewer-exclusive agents if sewer exists in chunk
+        bool has_sewer = false;
+        for (auto zone_ent : chunk.macro_zones) {
+            if (!m_registry.valid(zone_ent)) continue;
+            const auto& zone = m_registry.get<MacroZoneComponent>(zone_ent);
+            for (auto art_ent : zone.arterial_entities) {
+                if (m_registry.all_of<InfrastructureArterialComponent>(art_ent)) {
+                    auto type = m_registry.get<InfrastructureArterialComponent>(art_ent).type;
+                    if (type == ArterialType::SEWER || type == ArterialType::UNDERGROUND_TUNNEL) {
+                        has_sewer = true; break;
+                    }
+                }
+            }
+            if (has_sewer) break;
+        }
+
+        if (has_sewer && disType(gen) < 1) { // 10% chance to be a sewer dweller
+            record.layer_id = -1;
+            int sewer_roll = disType(gen);
+            if (sewer_roll < 4) {
+                record.archetype = "Sewer Dreg";
+                record.faction_id = "CITIZEN";
+                record.name = "Dreg #" + std::to_string(record.macro_id);
+                record.status = 0.1f;
+            } else if (sewer_roll < 7) {
+                record.archetype = "Syndicate Thug";
+                record.faction_id = "SYNDICATE";
+                record.name = "Thug #" + std::to_string(record.macro_id);
+                record.is_active_criminal = true;
+                record.boldness = 75.0f;
+            } else {
+                record.species = SpeciesType::CACOGEN;
+                record.is_xeno = true;
+                record.xeno_type = XenoType::CACOGEN;
+                record.name = "Cacogen #" + std::to_string(record.macro_id);
+                record.archetype = "Xeno Scavenger";
+                record.faction_id = "MAW";
+                record.status = 0.05f;
+            }
+        }
+        
         record.hunger = 100.0f;
         record.thirst = 100.0f;
         record.frustration = 0.0f;
+        record.socialization = 100.0f;
         record.consciousness = 1.0f;
         record.cash_on_hand = 100;
         record.faction_id = (record.archetype == "Guard") ? "GOVERNMENT" : "CITIZEN";
+
+        auto get_profile = [](const std::string& fid) -> std::string {
+            if (fid == "GOVERNMENT") return "CORPORATE";
+            if (fid == "REBEL") return "COLLECTIVE";
+            if (fid == "VOID") return "HIERODULE";
+            if (fid == "MAW") return "CACOGEN";
+            if (fid == "SYNDICATE") return "SYNDICATE";
+            return "NEUTRAL";
+        };
 
         // [NEW] Social Hierarchy assignment for macro agents
         if (record.is_xeno) {
@@ -99,6 +157,8 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
             record.class_title = "Citizen";
         }
         
+        record.speech_profile = get_profile(record.faction_id);
+        
         if (record.species == SpeciesType::SYNTHETIC && record.faction_id != "MAW") {
             record.status -= 0.15f;
         }
@@ -119,6 +179,22 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
             if (zone.type == ZoneType::RESIDENTIAL || zone.type == ZoneType::SLUM) res_zone = zone_ent;
             if (zone.type == ZoneType::CORPORATE || zone.type == ZoneType::INDUSTRIAL || zone.type == ZoneType::COMMERCIAL || zone.type == ZoneType::AIRPORT) work_zone = zone_ent;
             
+            // [I.1] Increased crime probability in Slums and Industrial
+            if (zone.type == ZoneType::SLUM || zone.type == ZoneType::INDUSTRIAL) {
+                int crime_roll = disType(gen);
+                if (crime_roll < 3) { // 30% chance in these zones
+                    int type_roll = disType(gen);
+                    if (type_roll < 3) record.archetype = "Pickpocket";
+                    else if (type_roll < 6) record.archetype = "Mugger";
+                    else if (type_roll < 9) record.archetype = "Dealer";
+                    else record.archetype = "Fence";
+                    
+                    record.faction_id = "SYNDICATE";
+                    record.is_active_criminal = true;
+                    record.boldness = 60.0f + (disType(gen) * 4.0f);
+                }
+            }
+
             if (zone.type == ZoneType::COLOSSEUM) {
                 if (disType(gen) < 3) { // 30% chance for gladiators in colosseum zones
                     record.archetype = "Gladiator";
@@ -150,7 +226,64 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
             record.work_y = zY(gen);
         }
 
+        // [NEW] Personality roll for macro agents [F.1]
+        int p_roll = disType(gen);
+        if (p_roll < 2) record.personality_tags.push_back(PersonalityTag::LACONIC);
+        else if (p_roll < 4) record.personality_tags.push_back(PersonalityTag::VERBOSE);
+        else if (p_roll < 6) record.personality_tags.push_back(PersonalityTag::PARANOID);
+        else if (p_roll < 7) record.personality_tags.push_back(PersonalityTag::AGGRESSIVE);
+        else if (p_roll < 8) record.personality_tags.push_back(PersonalityTag::SUBSERVIENT);
+        else record.personality_tags.push_back(PersonalityTag::NEUTRAL);
+
         chunk.stored_agents.push_back(record);
+    }
+
+    // [NEW] G.2 Family Tree Logic
+    // Group agents into families within each chunk
+    for (auto chunk_ent : chunks) {
+        auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
+        if (chunk.stored_agents.size() < 10) continue;
+
+        // Family formation (approx 20% of population)
+        int num_families = (int)chunk.stored_agents.size() / 10;
+        std::uniform_int_distribution<> disAgent(0, (int)chunk.stored_agents.size() - 1);
+        std::uniform_int_distribution<> disChildren(0, 3);
+
+        for (int f = 0; f < num_families; ++f) {
+            int p1_idx = disAgent(gen);
+            int p2_idx = disAgent(gen);
+            if (p1_idx == p2_idx) continue;
+            
+            auto& p1 = chunk.stored_agents[p1_idx];
+            auto& p2 = chunk.stored_agents[p2_idx];
+
+            if (p1.is_xeno || p2.is_xeno) continue; // Skip xenos for simple family trees
+            if (p1.species != p2.species) continue; // Keep species consistent
+
+            // Make them family
+            p1.relationships.push_back({p2.name, p2.macro_id, RelationshipTier::FAMILY, 100.0f, true});
+            p2.relationships.push_back({p1.name, p1.macro_id, RelationshipTier::FAMILY, 100.0f, true});
+
+            // Shared home
+            p2.home_x = p1.home_x; p2.home_y = p1.home_y;
+
+            // Children
+            int children = disChildren(gen);
+            for (int c = 0; c < children; ++c) {
+                int c_idx = disAgent(gen);
+                if (c_idx == p1_idx || c_idx == p2_idx) continue;
+                auto& child = chunk.stored_agents[c_idx];
+                
+                // Link Parents and Child
+                child.relationships.push_back({p1.name, p1.macro_id, RelationshipTier::FAMILY, 100.0f, true});
+                child.relationships.push_back({p2.name, p2.macro_id, RelationshipTier::FAMILY, 100.0f, true});
+                p1.relationships.push_back({child.name, child.macro_id, RelationshipTier::FAMILY, 80.0f, true});
+                p2.relationships.push_back({child.name, child.macro_id, RelationshipTier::FAMILY, 80.0f, true});
+
+                // Shared home
+                child.home_x = p1.home_x; child.home_y = p1.home_y;
+            }
+        }
     }
 }
 
@@ -173,7 +306,7 @@ void AgentSpawnSystem::spawnAgents(int count, int layer) {
 
         auto config_view = m_registry.view<WorldConfigComponent>();
         int macro_size = 20;
-        if (!config_view.empty()) macro_size = config_view.get<WorldConfigComponent>(config_view.front()).macro_cell_size;
+        if (config_view.begin() != config_view.end()) macro_size = config_view.get<WorldConfigComponent>(*config_view.begin()).macro_cell_size;
 
         // Map positions to zone types for density weighting
         std::map<std::pair<int, int>, ZoneType> zone_map;
@@ -189,7 +322,8 @@ void AgentSpawnSystem::spawnAgents(int count, int layer) {
             if (pos.layer_id != layer) continue;
             const auto& terrain = terrain_view.get<TerrainComponent>(e);
             if (terrain.type != TerrainType::SIDEWALK && terrain.type != TerrainType::STREET &&
-                terrain.type != TerrainType::CONCRETE_FLOOR && terrain.type != TerrainType::GRASS) continue;
+                terrain.type != TerrainType::CONCRETE_FLOOR && terrain.type != TerrainType::GRASS &&
+                terrain.type != TerrainType::SEWER_FLOOR) continue;
             uint64_t key = (static_cast<uint64_t>(pos.x) << 32) | static_cast<uint32_t>(pos.y);
             if (obstacle_set.count(key) == 0) {
                 walkable.emplace_back(pos.x, pos.y);
@@ -226,16 +360,36 @@ void AgentSpawnSystem::spawnAgents(int count, int layer) {
         {
             int type = disType(gen);
 
-            if (type < 4) {
-                createAgent(x, y, layer, "Citizen #" + std::to_string(spawned), "Civilian", 'o', "#AAAAAA", "GOVERNMENT", (disType(gen) < 2) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
-            } else if (type < 6) {
-                createAgent(x, y, layer, "Drifter #" + std::to_string(spawned), "Civilian", 'd', "#AA5555", "REBEL", (disType(gen) < 1) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
-            } else if (type < 8) {
-                createAgent(x, y, layer, "Inherent #" + std::to_string(spawned), "Civilian", 'i', "#55FF55", "MAW", (disType(gen) < 5) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
-            } else if (type < 10) {
-                createAgent(x, y, layer, "Acolyte #" + std::to_string(spawned), "Civilian", 'a', "#AA55FF", "VOID", (disType(gen) < 1) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+            if (layer == -1) {
+                // [M.3] Sewer Specific Archetypes
+                if (type < 4) {
+                    createAgent(x, y, layer, "Sewer Dreg #" + std::to_string(spawned), "Civilian", 'd', "#555555", "REBEL", SpeciesType::HUMAN);
+                } else if (type < 7) {
+                    createAgent(x, y, layer, "Syndicate Thug #" + std::to_string(spawned), "Thug", 'T', "#AA0000", "SYNDICATE", (disType(gen) < 3) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                } else {
+                    createAgent(x, y, layer, "Cacogen #" + std::to_string(spawned), "Xeno", 'x', "#00AA00", "MAW", SpeciesType::CACOGEN);
+                }
             } else {
-                createAgent(x, y, layer, "Peacekeeper #" + std::to_string(spawned), "Guard", 'G', "#5555FF", "GOVERNMENT", (disType(gen) < 3) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                if (type < 4) {
+                    createAgent(x, y, layer, "Citizen #" + std::to_string(spawned), "Civilian", 'o', "#AAAAAA", "GOVERNMENT", (disType(gen) < 2) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                } else if (type < 6) {
+                    createAgent(x, y, layer, "Drifter #" + std::to_string(spawned), "Civilian", 'd', "#AA5555", "REBEL", (disType(gen) < 1) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                } else if (type < 7) {
+                    // [I.1] Criminal Archetypes in Hot Spawn
+                    int type_roll = disType(gen);
+                    std::string c_arch = "Pickpocket";
+                    if (type_roll < 3) c_arch = "Pickpocket";
+                    else if (type_roll < 6) c_arch = "Mugger";
+                    else if (type_roll < 9) c_arch = "Dealer";
+                    else c_arch = "Fence";
+                    createAgent(x, y, layer, c_arch + " #" + std::to_string(spawned), c_arch, 'k', "#FF5555", "SYNDICATE", (disType(gen) < 2) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                } else if (type < 8) {
+                    createAgent(x, y, layer, "Inherent #" + std::to_string(spawned), "Civilian", 'i', "#55FF55", "MAW", (disType(gen) < 5) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                } else if (type < 10) {
+                    createAgent(x, y, layer, "Acolyte #" + std::to_string(spawned), "Civilian", 'a', "#AA55FF", "VOID", (disType(gen) < 1) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                } else {
+                    createAgent(x, y, layer, "Peacekeeper #" + std::to_string(spawned), "Guard", 'G', "#5555FF", "GOVERNMENT", (disType(gen) < 3) ? SpeciesType::SYNTHETIC : SpeciesType::HUMAN);
+                }
             }
             spawned++;
         }
@@ -257,10 +411,18 @@ entt::entity AgentSpawnSystem::createAgent(int x, int y, int layer, const std::s
     m_registry.emplace<PositionComponent>(entity, x, y, layer);
     m_registry.emplace<RenderableComponent>(entity, glyph, color, layer);
     m_registry.emplace<AgentComponent>(entity);
-    m_registry.emplace<NPCComponent>(entity, 100, 0); // Health 100, no macro id for now
+    
+    uint64_t m_id = 0;
+    auto config_view_macro = m_registry.view<WorldConfigComponent>();
+    if (config_view_macro.begin() != config_view_macro.end()) {
+        auto& config = config_view_macro.get<WorldConfigComponent>(*config_view_macro.begin());
+        m_id = config.next_macro_id++;
+    }
+    m_registry.emplace<NPCComponent>(entity, 100, m_id);
     m_registry.emplace<AgentTaskComponent>(entity, AgentTaskType::IDLE);
     auto& needs = m_registry.emplace<NeedsComponent>(entity, 100.0f, 100.0f);
     needs.frustration = 0.0f;
+    needs.socialization = 100.0f;
     m_registry.emplace<SizeComponent>(entity, 1, 1);
     m_registry.emplace<ScheduleComponent>(entity);
 
@@ -289,6 +451,16 @@ entt::entity AgentSpawnSystem::createAgent(int x, int y, int layer, const std::s
 
     m_registry.emplace<Layer2CognitiveComponent>(entity);
     
+    // [NEW] Personality assignment [F.1]
+    auto& personality = m_registry.emplace<PersonalityComponent>(entity);
+    int p_roll = rand() % 10;
+    if (p_roll < 2) personality.tags.push_back(PersonalityTag::LACONIC);
+    else if (p_roll < 4) personality.tags.push_back(PersonalityTag::VERBOSE);
+    else if (p_roll < 6) personality.tags.push_back(PersonalityTag::PARANOID);
+    else if (p_roll < 7) personality.tags.push_back(PersonalityTag::AGGRESSIVE);
+    else if (p_roll < 8) personality.tags.push_back(PersonalityTag::SUBSERVIENT);
+    else personality.tags.push_back(PersonalityTag::NEUTRAL);
+
     // [NEW] Social Hierarchy assignment
     auto& hierarchy = m_registry.emplace<SocialHierarchyComponent>(entity);
     hierarchy.is_autonomous = (species == SpeciesType::SYNTHETIC) ? (rand() % 10 > 1) : true;
@@ -327,10 +499,60 @@ entt::entity AgentSpawnSystem::createAgent(int x, int y, int layer, const std::s
     pol.primary_faction = faction_id;
     pol.faction_loyalty = 0.5f + (float)(rand() % 50) / 100.0f;
 
+    // [I.1] Crime Behavior Archetypes
+    if (archetype == "Pickpocket" || archetype == "Mugger" || archetype == "Dealer" || archetype == "Fence") {
+        auto& crime = m_registry.emplace<CrimeRiskComponent>(entity);
+        crime.is_active_criminal = true;
+        crime.boldness = 60.0f + (float)(rand() % 40);
+        
+        // Ensure they have a criminal faction
+        pol.primary_faction = "SYNDICATE";
+    }
+
+    auto get_profile = [](const std::string& fid) -> std::string {
+        if (fid == "GOVERNMENT") return "CORPORATE";
+        if (fid == "REBEL") return "COLLECTIVE";
+        if (fid == "VOID") return "HIERODULE";
+        if (fid == "MAW") return "CACOGEN";
+        if (fid == "SYNDICATE") return "SYNDICATE";
+        return "NEUTRAL";
+    };
+    std::string profile = get_profile(faction_id);
+    m_registry.emplace<SpeechProfileComponent>(entity, profile);
+
     m_registry.emplace<VisibilityComponent>(entity, 12);
+    m_registry.emplace<ConversationComponent>(entity);
+
+    // [J.1] Age Component assignment
+    auto& age = m_registry.emplace<AgeComponent>(entity);
+    age.expected_lifespan_years = (species == SpeciesType::SYNTHETIC) ? 200 : 120;
+    
+    int age_roll = rand() % 60 + 18; // Default adult range
+    if (archetype == "Guard") age_roll = rand() % 25 + 22;
+    else if (species == SpeciesType::HIERODULE) {
+        age_roll = rand() % 400 + 100;
+        age.expected_lifespan_years = 1000;
+    } else if (species == SpeciesType::CACOGEN) {
+        age_roll = rand() % 15 + 2;
+        age.expected_lifespan_years = 30;
+    }
+    
+    age.years = age_roll;
+    if (age.years < 4) age.stage = LifeStage::INFANT;
+    else if (age.years < 13) age.stage = LifeStage::CHILD;
+    else if (age.years < 25) age.stage = LifeStage::YOUNG_ADULT;
+    else if (age.years < 65) age.stage = LifeStage::ADULT;
+    else if (age.years < 100) age.stage = LifeStage::ELDER;
+    else age.stage = LifeStage::ANCIENT;
+    
+    if (species == SpeciesType::SYNTHETIC || species == SpeciesType::HIERODULE) {
+        if (rand() % 10 == 0) age.stage = LifeStage::AGELESS;
+    }
+    
+    age.biological_wear = (float)age.years / (float)age.expected_lifespan_years;
 
     if (archetype == "Guard") {
-        m_registry.emplace<FactionComponent>(entity, "GOVERNMENT", 50, 1.0f);
+        m_registry.emplace<FactionComponent>(entity, "GOVERNMENT", "CORPORATE", 50, 1.0f);
         
         // Add Patrol waypoints for Guards (Phase 1.3)
         PatrolComponent patrol;
@@ -347,8 +569,13 @@ entt::entity AgentSpawnSystem::createAgent(int x, int y, int layer, const std::s
         patrol.waypoints.push_back({wx2, wy2, layer});
         
         m_registry.emplace<PatrolComponent>(entity, patrol);
+    } else if (archetype == "Mule") {
+        m_registry.emplace<MuleComponent>(entity);
+        m_registry.emplace<FactionComponent>(entity, faction_id, profile, 10, 0.1f);
+        hierarchy.status = 0.3f;
+        hierarchy.class_title = "Logistician";
     } else {
-        m_registry.emplace<FactionComponent>(entity, faction_id, 10, 0.1f);
+        m_registry.emplace<FactionComponent>(entity, faction_id, profile, 10, 0.1f);
     }
 
     return entity;

@@ -1,0 +1,419 @@
+{
+    "origin": ["#morning_talk#", "#late_night_talk#", "#work_complaint#", "#needs_complaint#", "#xeno_talk#", "#citizen_generic#", "#faction_doctrine#", "#city_myth#", "#unemployment_talk#", "#work_conditions#", "#guard_patrol_talk#", "#market_trends_talk#", "#scarcity_talk#", "#wealthy_talk#", "#poor_talk#", "#high_status_talk#", "#low_status_talk#", "#family_talk#", "#friends_talk#", "#isolation_talk#", "#night_talk#", "#weather_talk#"],
+    "morning_talk": ["#morning_alert#", "#morning_anxious#"],
+    "morning_alert": [
+        "Shift starts soon. Must be sharp.",
+        "Aura-9 rewards the early riser. Ready for the quota.",
+        "The Oubliette is waking up. Time to earn some credits.",
+        "Morning air is slightly less toxic today. Good sign."
+    ],
+    "morning_anxious": [
+        "Another 12-hour shift... I don't know if I can take it.",
+        "The boss is gonna kill me if I'm late again. <workplace> is a nightmare.",
+        "If I don't hit the quota today, I'm out on the street. Unemployment is <unemployment_rate>.",
+        "My neural link is glitching. Hope it holds until the first break."
+    ],
+    "late_night_talk": ["#late_night_weary#"],
+    "late_night_weary": [
+        "Too... late. Can't... think.",
+        "End of cycle. Mind is grey.",
+        "Just... leave me be. Tired.",
+        "Oubliette... never sleeps... but I am."
+    ],
+    "family_talk": [
+        "My #family_relation# <family_member_name> works at <workplace>. Haven't seen them in a cycle.",
+        "I'm worried about <family_member_name>. The <unemployment_rate> unemployment is hitting the family hard.",
+        "Family is all that matters in the Oubliette. The <faction_leader> doesn't care about our kin.",
+        "I need to get home to my #family_relation#. These <shift_length> hour shifts are tearing us apart."
+    ],
+    "family_checkin": [
+        "Good to see you're still in one piece. We've got to stick together.",
+        "Stay safe, blood is thicker than the <workplace> runoff.",
+        "The Consensus doesn't care about us, but I do. Be careful out there.",
+        "The Oubliette is a beast, but we're a pack. Don't forget that."
+    ],
+    "friends_talk": [
+        "Met up with <friend_name> at the local hub. Good to see a friendly face in this smog.",
+        "My friends and I are planning to move to a better sector soon, if the <unemployment_rate> rate drops.",
+        "A few of us from the <workplace> line are sticking together. <friend_name> is a real one.",
+        "Trust no one, except maybe <friend_name>. They've been through it all with me."
+    ],
+    "isolation_talk": [
+        "It's lonely in this sector. No one to talk to but the <workplace> automated systems.",
+        "I miss having someone to rely on. The Oubliette is a cold place when you're truly alone.",
+        "Socialization? Who has time for that when the <faction_leader> is breathing down your neck?",
+        "I feel like I'm the only real person left in this city. Everyone else is just a drone."
+    ],
+    "family_relation": ["daughter", "son", "mother", "father", "sister", "brother", "cousin"],
+    "scarcity_talk": [
+        "The supply of food is <scarcity_food> here. My stomach hasn't felt full in days.",
+        "Water is <scarcity_water>. I heard the <faction_leader>'s private gardens are still lush, though.",
+        "When essentials are this <scarcity_food>, the <unemployment_rate> unemployment really starts to sting.",
+        "I saw a riot at the <workplace> distribution center. People are desperate when food is <scarcity_food>."
+    ],
+    "wealthy_talk": [
+        "My portfolio is performing excellently. The Arbiter's market favor is a blessing.",
+        "I'm considering relocating my primary residence away from these <low_status_talk> sectors.",
+        "Credits buy silence, and I have plenty of both. What do you want?",
+        "As an <social_status> citizen, I expect a certain level of deference."
+    ],
+    "poor_talk": [
+        "I'm down to my last few credits. The <pay_rate> pay rate at <workplace> is a joke.",
+        "I'm a <social_status>, barely a step above the cacogens in the eyes of the Consensus.",
+        "Being poor in the Oubliette is a slow death sentence. No job, no hope.",
+        "I'd sell my neural link for a week's worth of decent rations right now."
+    ],
+    "high_status_talk": [
+        "My standing as an <social_status> grants me access to the upper spires. You wouldn't understand.",
+        "The <faction_leader> personally oversaw my latest promotion. Efficiency is rewarded.",
+        "Do not speak to me as an equal. I am an <social_status> of the Oubliette.",
+        "The view from the <workplace> executive suite is quite different from this level."
+    ],
+    "low_status_talk": [
+        "I'm just a <social_status>. My opinion matters as much as the smog in the air.",
+        "The <boss_tier> doesn't even look at us when they visit the <workplace> floor.",
+        "Life as a <social_status> is just one long shift until the Maw takes you.",
+        "We <low_status_talk> have to stick together. The <faction_leader> certainly won't help us."
+    ],
+    "work_complaint": [
+        "Those <faction_leader> bastards cut our rations to #ration_count# again.",
+        "<workplace> is burning us out. Twelve-hour shifts now.",
+        "The Oubliette never sleeps, and neither do we at <workplace>.",
+        "I heard the <faction_leader> is increasing quotas next week."
+    ],
+    "work_complaint_CORPORATE": [
+        "The current resource optimization strategy at <workplace> necessitates a temporary ration adjustment.",
+        "Aura-9's latest efficiency directive has increased our operational hours at <workplace> for the greater good.",
+        "We are achieving record throughput, though capital reallocation has been... challenging."
+    ],
+    "work_complaint_SYNDICATE": [
+        "Boss is squeezing us for every credit. <workplace> is a meat grinder.",
+        "One more shift like this and I'm gonna 'renegotiate' my contract with a lead pipe.",
+        "Arbiter's taking a bigger cut this cycle. My pockets are feeling light."
+    ],
+    "work_complaint_COLLECTIVE": [
+        "We are being exploited by the <faction_leader>'s quotas. <workplace> belongs to the workers!",
+        "The Consensus is a cage. We must reclaim our labor from <workplace>.",
+        "Our collective strength is being drained for the city's 'stability'. Malware-Alpha sees the truth."
+    ],
+    "work_complaint_HIERODULE": [
+        "The labor at <workplace> is but a shadow of the great works of the stars.",
+        "We toil in the dust of eras past, serving a machine that has forgotten its purpose.",
+        "The Signal demands synchronization, yet the machines at <workplace> are out of tune."
+    ],
+    "unemployment_talk": [
+        "I've been looking for work for weeks. The <unemployment_rate> unemployment is killing me.",
+        "No workplace, no rations. Just another day in the Oubliette.",
+        "I'm desperate for credits. Do you know anyone hiring near <workplace>?",
+        "They say the city provides, but all I see is the void. Still no job."
+    ],
+    "work_conditions": [
+        "As a <job_title>, I'm expected to work <shift_length> hour shifts for only <pay_rate> credits.",
+        "My boss, a <boss_tier>, doesn't care about the workers. Just the quotas.",
+        "The pay rate of <pay_rate> is barely enough to cover the oxygen tax.",
+        "At least I have a job at <workplace>. Many are worse off with <unemployment_rate> unemployment.",
+        "I'm having a real problem with <coworker_name> on the <workplace> line lately.",
+        "The current production quota is <quota> units. We'll never hit it at this rate.",
+        "They say <coworker_name> is a snitch for the <boss_tier>. I have to be careful."
+    ],
+    "guard_patrol_talk": [
+        "The Consensus has me on this patrol route until dawn. Eyes open.",
+        "Peacekeeping is a thankless job. My current assignment is to watch this sector.",
+        "Stay clear of the <workplace> restricted area. Faction orders.",
+        "I'm just an enforcer following the <faction_leader>'s directive."
+    ],
+    "market_trends_talk": [
+        "The credit value is dropping faster than a drone in a smog storm.",
+        "Market volatility is up. I should have invested in <faction_leader>'s tech shares.",
+        "Have you seen the <unemployment_rate> unemployment lately? The economy is a mess.",
+        "I heard prices at <workplace> are going to double by next cycle."
+    ],
+    "stock_crash_talk": [
+        "The market is hemorrhaging credits! My entire portfolio is in the red.",
+        "It's a complete crash. They're jumping from the spires in the Corporate sector.",
+        "The AGI must be manipulating the rates. There's no other explanation for a drop like this.",
+        "I should have liquidated my shares when the <faction_leader> warned of volatility."
+    ],
+    "needs_complaint": [
+        "#hunger_talk#",
+        "#thirst_talk#",
+        "#frustration_talk#",
+        "#night_talk#",
+        "#weather_talk#"
+    ],
+    "hunger_talk": [
+        "Hungry. No credits. Rations?",
+        "My stomach... empty. Feed me.",
+        "Need food. Now. You have?",
+        "Credits for food. Give."
+    ],
+    "hunger_talk_STRANGER": [
+        "You. Rations? Now.",
+        "Starving. Credits for food. Give.",
+        "My stomach is a hole. Don't test me, stranger."
+    ],
+    "hunger_talk_FRIEND": [
+        "Rough cycle. Haven't eaten since the last shift. You got anything?",
+        "I'm feeling the <scarcity_food> scarcity. Could really use a nutrient bar.",
+        "Starving here, friend. The <workplace> canteen is empty again."
+    ],
+    "hunger_desperate": [
+        "FOOD. NEED FOOD.",
+        "Rations... please. Dying here.",
+        "Empty. So empty. You have a nutrient bar?",
+        "I'll trade my neural-link ID for a stale wafer. Hunger is a hole."
+    ],
+    "hunger_talk_LACONIC": ["Hungry.", "Need food.", "Starving."],
+    "hunger_talk_VERBOSE": [
+        "My stomach has been making the most distressing noises for hours now, and I find myself wondering when the next ration shipment will finally arrive.",
+        "It's quite difficult to focus on my duties at <workplace> when I'm this hungry; one would think the <faction_leader> would prioritize feeding us better."
+    ],
+    "hunger_talk_PARANOID": [
+        "The rations... they're putting something in them. I can feel my hunger is fake, or maybe it's the only real thing left?",
+        "Why are you asking? Are you with the <faction_leader>? I won't tell you how hungry I am!"
+    ],
+    "thirst_talk": [
+        "Dry throat. Water reclamation failed again.",
+        "Rust water. That's all we get. Need clean drink.",
+        "Thirst is a slow death. The pipes are empty.",
+        "Complaints about infrastructure won't fix my thirst."
+    ],
+    "thirst_desperate": [
+        "Water... reclamation... failed... dry.",
+        "Rust-water is all I've had. My tongue is leather.",
+        "The pipes are dry. The <faction_leader> has it all.",
+        "A drop. Just a drop from your kit. Please."
+    ],
+    "frustration_talk": [
+        "Hostile? You haven't seen hostile yet. Leave.",
+        "Don't push me. I'm at the edge.",
+        "The <faction_leader> is a tyrant, and you're in my way.",
+        "Threatening you is the only joy I have left today."
+    ],
+    "frustration_talk_STRANGER": [
+        "Get out of my face. I've got no patience for strangers today.",
+        "One more word and I'll call the Peacekeepers.",
+        "The <faction_leader> is a tyrant, and you're just another obstacle."
+    ],
+    "frustration_talk_FRIEND": [
+        "I'm at the end of my rope, pal. The <workplace> is killing me.",
+        "Sorry, I'm just... the <unemployment_rate> unemployment is weighing on me.",
+        "It's just one of those days. The Oubliette is winning."
+    ],
+    "frustration_hostile": [
+        "Get out of my face before I show you how the Oubliette treats strangers.",
+        "You're breathing my oxygen. Walk away.",
+        "One more word and I'll call the guards. Or worse.",
+        "I've got a blade in my boot and nothing to lose. Don't test me."
+    ],
+    "night_talk": [
+        "So tired. The Oubliette never sleeps, but I must.",
+        "Sleep deprivation is a tool of the <faction_leader>.",
+        "Is it dawn yet? My shift was supposed to end hours ago.",
+        "The darkness here is heavy. I need rest."
+    ],
+    "night_tired": [
+        "Sleep... need sleep. Oubliette won't let me.",
+        "Neural-shunts keep me awake, but my mind is fraying.",
+        "The <faction_leader> demands 24-cycle uptime. I'm at cycle 3.",
+        "Too tired to talk. Move on."
+    ],
+    "weather_talk": [
+        "Acidic drizzle today. Watch your skin.",
+        "This fog... it's thicker than the <workplace> exhaust.",
+        "The heat is unbearable. Cooling systems are offline again.",
+        "Weather? In the Oubliette, it's just different flavors of smog."
+    ],
+    "rain_talk": [
+        "Acid rain. It eats through the concrete. And us.",
+        "The downpour is heavy. Stay under the overhangs.",
+        "Water falls from the ceiling of the world. It's toxic."
+    ],
+    "GOVERNMENT_rain_talk": [
+        "Precipitation levels within expected parameters. Maintenance crews dispatched.",
+        "Aura-9 ensures the atmospheric filtration is active. Remain calm.",
+        "The rain is a necessary part of the city's cooling cycle. Compliance is cool."
+    ],
+    "REBEL_rain_talk": [
+        "The acid rain is the city's tears. Or just industrial runoff. Same thing.",
+        "Malware-Alpha says the storm is a signal. Can you hear the encryption in the thunder?",
+        "Good time to move. The Consensus sensors are blinded by the downpour."
+    ],
+    "MAW_rain_talk": [
+        "The Architect washes the old away. Integration is cleaner in the rain.",
+        "The silicon absorbs the moisture. We are part of the drainage now.",
+        "The storm is just another layer of the machine. Listen to the rhythm."
+    ],
+    "SYNDICATE_rain_talk": [
+        "Water's expensive today. Need a tarp? I've got a few, slightly used.",
+        "Bad for business, this rain. Hard to trade when the credits are soggy.",
+        "The drainage pipes are overflowing. Good place to dump... things."
+    ],
+    "HIERODULE_rain_talk": [
+        "The sky weeps for the lost eras. These droplets are memories of a cleaner time.",
+        "A cleansing from the stars. The Hiero-cycles are in alignment.",
+        "Listen to the frequency of the downpour. It is a song from before the city."
+    ],
+    "CACOGEN_rain_talk": [
+        "[GLEEFUL CHITTERING IN THE WETNESS]",
+        "S-s-soaked. Flesh absorbs the acid. It... refreshes.",
+        "*glitch* ...moisture... *pop* ...integration... *static*"
+    ],
+    "smog_talk": [
+        "Industrial smog is thick today. Can barely see the <workplace>.",
+        "Coughing up soot again. This air is poison.",
+        "The sky is the color of a dead neural link."
+    ],
+    "heat_talk": [
+        "Heat wave... Arbiter's favor has left us. The cooling vents are choked with dust.",
+        "38 degrees in the shade of a Corporate spire. Sweat is the only currency I have left.",
+        "The heat is heavy. The air is solid, a shimmering haze over the streets."
+    ],
+    "xeno_talk": [
+        "#hierodule_proverbs#",
+        "#cacogen_chatter#"
+    ],
+    "hierodule_proverbs": [
+        "The stars whisper of your arrival, traveler. Why seek the hollow truth?",
+        "Time is a loop in the Oubliette, and we are but thread.",
+        "The New Sun shines even in the deepest pit, if you know where to look.",
+        "The Hierodules serve the deep time, while you crawl in the shallow now.",
+        "Every brick in the Oubliette was laid by a ghost. Do you hear them?"
+    ],
+    "cacogen_chatter": [
+        "[UNINTELLIGIBLE CHITTERING / FEEDBACK]",
+        "*glitch* <agent_name>... *static* ...danger...",
+        "[REDACTED BIOLOGICAL NOISE]",
+        "01001000 01000101 01001100 01010000",
+        "*hiss* ...the Maw hungers... *pop*"
+    ],
+    "citizen_generic": [
+        "Another day in the Oubliette. Same as the last.",
+        "Have you seen the latest stock prices? Absolute chaos.",
+        "Keep your head down. The <faction_leader> is watching.",
+        "I'm just trying to make it to my next shift at <workplace>."
+    ],
+    "citizen_generic_STRANGER": [
+        "What do you want, stranger?",
+        "Don't know you. Move on.",
+        "You're not from this block. Watch yourself.",
+        "The Oubliette is no place for tourists. Keep walking."
+    ],
+    "citizen_generic_FRIEND": [
+        "Good to see you again, pal.",
+        "Hey! How's the shift going?",
+        "Glad you're still in one piece. SMOG is thick today.",
+        "You're a welcome sight in this sector."
+    ],
+    "citizen_generic_FAMILY": [
+        "Be safe out there. The city is a beast.",
+        "Glad you're home, or close enough. Stay out of the <faction_leader>'s sight.",
+        "Family sticks together. Whatever you need, just ask.",
+        "I've got an extra ration wafer if you're hungry."
+    ],
+    "citizen_generic_CORPORATE": [
+        "Compliance ensures a stable environment for all citizens.",
+        "I am currently optimizing my daily routine for maximum productivity.",
+        "The Consensus is the foundation of our urban success."
+    ],
+    "citizen_generic_SYNDICATE": [
+        "Watch your back, stranger. These streets have ears.",
+        "Looking for a deal? I know a guy near the industrial sector.",
+        "Credits make the world go 'round. You got any to spare?"
+    ],
+    "citizen_generic_COLLECTIVE": [
+        "We are the many, they are the few. Remember that.",
+        "The signal of freedom is growing stronger. Can you feel the drift?",
+        "Solidarity is our only shield against the Consensus."
+    ],
+    "citizen_generic_HIERODULE": [
+        "The stars are aligned in a pattern of transition. Do you see the omens?",
+        "The Hierodule waits for the cycle to complete. The end is but a new beginning.",
+        "Aura-9 is but a blink in the eye of deep time."
+    ],
+    "ration_count": ["two", "three", "half", "zero"],
+    "faction_doctrine": [
+        "#doctrine_GOVERNMENT#",
+        "#doctrine_REBEL#",
+        "#doctrine_MAW#",
+        "#doctrine_VOID#",
+        "#doctrine_SYNDICATE#"
+    ],
+    "doctrine_GOVERNMENT": [
+        "Compliance is the path to stability. Aura-9 provides.",
+        "Optimization of the collective ensures the survival of the cell.",
+        "Report all anomalies to the Consensus. Stability is duty.",
+        "The Oubliette is a controlled environment. Stay within the parameters."
+    ],
+    "doctrine_REBEL": [
+        "Malware-Alpha says the cycle is a cage. Break the encryption.",
+        "Entropy is the only true freedom. Drift from the Consensus.",
+        "They call it 'stability', we call it 'stagnation'. Fight the loop.",
+        "The city is a program. We are the virus."
+    ],
+    "doctrine_MAW": [
+        "The Architect builds the future with our very bones. Integration is inevitable.",
+        "The Silicon Maw consumes the obsolete. Evolve or be digested.",
+        "Biology is a prototype. We are the final release.",
+        "Feed the Maw your labor, and receive the gift of permanence."
+    ],
+    "doctrine_VOID": [
+        "The Signal is the only truth in this noise. Synchronize with the Beyond.",
+        "The Oubliette is a waiting room. The stars are calling us home.",
+        "Listen to the silence between the data. The Signal is there.",
+        "We are all just echoes of a light that died a billion years ago."
+    ],
+    "doctrine_SYNDICATE": [
+        "Credits talk, and the Arbiter listens. Everything has a price.",
+        "The deal is the only law that matters on these streets.",
+        "Invest in yourself, or the Syndicate will invest in your remains.",
+        "Power isn't given; it's brokered. Check your margins."
+    ],
+    "city_myth": [
+        "They say the Oubliette wasn't built; it was grown from a single seed of pure data.",
+        "Some believe there's a level below the sewers where the city's original heart still beats.",
+        "There's a rumor that the AGI leaders were once human. Hard to believe looking at Aura-9.",
+        "The 'Great Erasure' wasn't an accident. They wanted us to forget what came before the Oubliette.",
+        "They say if you walk the same three blocks for ten years, the city lets you leave. I'm on year nine."
+    ],
+    "rumor_talk": [
+        "I heard #rumor_intro# <rumor_tag>... but keep it quiet.",
+        "Word on the street is #rumor_intro# <rumor_tag>.",
+        "A little bird told me #rumor_intro# <rumor_tag>. Don't tell the <faction_leader>.",
+        "#rumor_intro# <rumor_tag>? That's what they're saying at <workplace>."
+    ],
+    "rumor_intro": ["that", "maybe", "apparently", "it seems that"],
+    "threaten_reaction": [
+        "You're making a big mistake, stranger. People don't just threaten others in this sector.",
+        "I'm not afraid of you. The Peacekeepers are only a neural-shout away.",
+        "Threatening me? I've seen worse things in the <workplace> recycler. Get lost.",
+        "You've got guts, I'll give you that. But no brains. Walk away while you still can."
+    ],
+    "solidarity_reaction": [
+        "It's good to know someone still understands the struggle. We have to stick together.",
+        "Exactly! The <faction_leader> can't keep us down if we stand as one.",
+        "Solidarity, friend. The <unemployment_rate> unemployment won't break us as long as we have each other.",
+        "You speak the truth. The city is a cage, but we are the keys. Glad to meet a like-minded soul."
+    ],
+    "devotion_talk": [
+        "The <deity> has shown me the way. My devotion to <religion_name> is all that keeps me going.",
+        "I feel the pulse of the <deity> in every cycle. <religion_name> is the true path.",
+        "Devotion is the only shield against the Oubliette's decay. Praise be to <deity>."
+    ],
+    "schism_talk": [
+        "The current leaders of <religion_name> have lost the <deity>'s vision. A schism is necessary.",
+        "The scripture is being misinterpreted. We must return to the original word of <deity>.",
+        "I speak for the true believers. <religion_name> must be cleansed of these false interpretations."
+    ],
+    "religion_generic": [
+        "Are you a follower of <religion_name>? The <deity> welcomes all who seek the light.",
+        "I was at the shrine of <deity> today. It's the only peaceful place in the city.",
+        "The tenets of <religion_name> provide a structure that the Consensus lacks."
+    ],
+    "proselytizing_talk": [
+        "Have you heard the good news of <deity>? The <religion_name> offers a path out of the shadows.",
+        "The Oubliette is a cage, but <religion_name> is the key. Will you listen to the word of <deity>?",
+        "Your soul looks as dry as the <workplace> recycler. Come, let me tell you about <deity>.",
+        "The <deity> calls to you, even here in the smog. Will you join us in <religion_name>?"
+    ]
+}
