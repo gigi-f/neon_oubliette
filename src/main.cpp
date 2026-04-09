@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
     macro_registry.emplace<NeonOubliette::RenderableComponent>(player_entity, '@', "#FFA500", 0);
     macro_registry.emplace<NeonOubliette::HUDComponent>(player_entity); 
     macro_registry.emplace<NeonOubliette::PersistentEntityComponent>(player_entity, true);
-    macro_registry.emplace<NeonOubliette::VisibilityComponent>(player_entity, 18);
+    macro_registry.emplace<NeonOubliette::VisibilityComponent>(player_entity, 2000);
     macro_registry.emplace<NeonOubliette::MemoryComponent>(player_entity);
     macro_registry.emplace<NeonOubliette::VerticalViewComponent>(player_entity, 1);
     macro_registry.emplace<NeonOubliette::PlayerInteractionComponent>(player_entity);
@@ -413,10 +413,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    // --- Spawn local hot-zone agents on materialized terrain ---
-    probe_registry(macro_registry, "pre-agent-spawn");
-    agent_spawn.spawnAgents(3000, 0); // Dense local starting population
-    probe_registry(macro_registry, "post-spawn-local");
+    // All non-player population is now spawned via chunk records and materialized by chunk streaming.
+    probe_registry(macro_registry, "post-population-streamed");
 
     // Welcome message
     if (!headless)

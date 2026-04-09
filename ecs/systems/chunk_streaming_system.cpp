@@ -147,6 +147,90 @@ void ChunkStreamingSystem::materialize_chunk(entt::entity chunk_entity, ChunkCom
     CityGenerationSystem gen(m_registry, m_dispatcher);
     for (auto zone_entity : chunk.macro_zones) gen.generate_chunk_content(zone_entity);
 
+    auto config_view = m_registry.view<WorldConfigComponent>();
+    bool have_chunk_bounds = false;
+    int min_x = 0, max_x = 0, min_y = 0, max_y = 0;
+    if (config_view.begin() != config_view.end()) {
+        int cell_size = config_view.get<WorldConfigComponent>(*config_view.begin()).macro_cell_size;
+        int chunk_size = cell_size * 2;
+        min_x = chunk.chunk_x * chunk_size;
+        max_x = min_x + chunk_size;
+        min_y = chunk.chunk_y * chunk_size;
+        max_y = min_y + chunk_size;
+        have_chunk_bounds = true;
+    }
+
+    // If this chunk has persisted records, remove freshly generated dynamic entities
+    // in this chunk first so restore does not duplicate vendors/shops.
+    if (have_chunk_bounds && (!chunk.stored_shops.empty() || !chunk.stored_agents.empty())) {
+        std::vector<entt::entity> generated_to_destroy;
+
+        if (!chunk.stored_shops.empty()) {
+            auto shop_view = m_registry.view<ShopComponent, PositionComponent>();
+            for (auto shop_entity : shop_view) {
+                const auto& s_pos = shop_view.get<PositionComponent>(shop_entity);
+                if (s_pos.x < min_x || s_pos.x >= max_x || s_pos.y < min_y || s_pos.y >= max_y) continue;
+
+                if (auto* container = m_registry.try_get<ContainerComponent>(shop_entity)) {
+                    for (auto item_entity : container->contained_items) {
+                        if (m_registry.valid(item_entity)) generated_to_destroy.push_back(item_entity);
+                    }
+                }
+                generated_to_destroy.push_back(shop_entity);
+            }
+        }
+
+        if (!chunk.stored_agents.empty()) {
+            auto agent_view = m_registry.view<AgentComponent, PositionComponent>();
+            for (auto agent_entity : agent_view) {
+                const auto& a_pos = agent_view.get<PositionComponent>(agent_entity);
+                if (a_pos.x < min_x || a_pos.x >= max_x || a_pos.y < min_y || a_pos.y >= max_y) continue;
+                if (m_registry.all_of<PlayerComponent>(agent_entity) || m_registry.all_of<PersistentEntityComponent>(agent_entity)) continue;
+
+                // Procedural vendors currently spawn without NPCComponent.
+                // Remove these before restoring persisted agent records.
+                if (!m_registry.all_of<NPCComponent>(agent_entity)) generated_to_destroy.push_back(agent_entity);
+            }
+        }
+
+        std::sort(generated_to_destroy.begin(), generated_to_destroy.end());
+        generated_to_destroy.erase(std::unique(generated_to_destroy.begin(), generated_to_destroy.end()), generated_to_destroy.end());
+        for (auto entity : generated_to_destroy) {
+            if (m_registry.valid(entity)) m_registry.destroy(entity);
+        }
+    }
+
+    for (const auto& shop_record : chunk.stored_shops) {
+        auto shop_entity = m_registry.create();
+        m_registry.emplace<NameComponent>(shop_entity, shop_record.name);
+        m_registry.emplace<PositionComponent>(shop_entity, shop_record.x, shop_record.y, shop_record.layer_id);
+        m_registry.emplace<ShopComponent>(shop_entity);
+        if (shop_record.has_renderable) m_registry.emplace<RenderableComponent>(shop_entity, shop_record.glyph, shop_record.color, shop_record.layer_id);
+        if (shop_record.has_obstacle) m_registry.emplace<ObstacleComponent>(shop_entity);
+        if (shop_record.has_building) m_registry.emplace<BuildingComponent>(shop_entity, shop_record.building);
+        if (shop_record.has_size) m_registry.emplace<SizeComponent>(shop_entity, shop_record.size);
+
+        if (shop_record.has_container) {
+            auto& container = m_registry.emplace<ContainerComponent>(shop_entity);
+            container.is_open = shop_record.container_is_open;
+            container.is_locked = shop_record.container_is_locked;
+
+            for (const auto& stock_item : shop_record.stock_items) {
+                auto item_entity = m_registry.create();
+                std::string item_name = stock_item.name.empty() ? "Stock Item" : stock_item.name;
+                m_registry.emplace<NameComponent>(item_entity, item_name);
+                m_registry.emplace<ItemComponent>(item_entity, stock_item.item_type_id, item_name);
+                if (stock_item.item_value != 0) m_registry.emplace<ItemValueComponent>(item_entity, stock_item.item_value);
+                if (stock_item.restores_hunger != 0 || stock_item.restores_thirst != 0) {
+                    m_registry.emplace<ConsumableComponent>(item_entity, stock_item.restores_hunger, stock_item.restores_thirst);
+                }
+                m_registry.emplace<RenderableComponent>(item_entity, stock_item.glyph, stock_item.color, shop_record.layer_id);
+                container.contained_items.push_back(item_entity);
+            }
+        }
+    }
+    chunk.stored_shops.clear();
+
     auto mapping_view = m_registry.view<MacroIdMappingTag>();
     if (mapping_view.begin() == mapping_view.end()) m_registry.emplace<MacroIdMappingTag>(m_registry.create());
     auto& mapping = m_registry.get<MacroIdMappingTag>(*m_registry.view<MacroIdMappingTag>().begin()).mapping;
@@ -301,6 +385,13 @@ void ChunkStreamingSystem::dematerialize_chunk(entt::entity chunk_entity, ChunkC
                     if (mapping_view.begin() != mapping_view.end()) {
                         m_registry.get<MacroIdMappingTag>(*mapping_view.begin()).mapping.erase(record.macro_id);
                     }
+                } else {
+                    // Assign a stable macro id to procedural agents that were spawned without NPC data.
+                    auto config_view = m_registry.view<WorldConfigComponent>();
+                    if (config_view.begin() != config_view.end()) {
+                        auto& config = config_view.get<WorldConfigComponent>(*config_view.begin());
+                        record.macro_id = config.next_macro_id++;
+                    }
                 }
 
                 // [NEW] Capture personality [F.1]
@@ -329,6 +420,61 @@ void ChunkStreamingSystem::dematerialize_chunk(entt::entity chunk_entity, ChunkC
                     if (pol_ptr->primary_faction == "SYNDICATE") record.archetype = "Gladiator"; else record.archetype = "Citizen";
                 } else record.archetype = "Citizen";
                 chunk.stored_agents.push_back(record);
+            } else if (m_registry.all_of<ShopComponent>(entity)) {
+                MacroShopRecord shop_record;
+                if (auto* nm = m_registry.try_get<NameComponent>(entity)) shop_record.name = nm->name;
+                shop_record.x = pos.x;
+                shop_record.y = pos.y;
+                shop_record.layer_id = pos.layer_id;
+
+                if (auto* render = m_registry.try_get<RenderableComponent>(entity)) {
+                    shop_record.has_renderable = true;
+                    shop_record.glyph = render->glyph;
+                    shop_record.color = render->color;
+                }
+                shop_record.has_obstacle = m_registry.all_of<ObstacleComponent>(entity);
+
+                if (auto* building = m_registry.try_get<BuildingComponent>(entity)) {
+                    shop_record.has_building = true;
+                    shop_record.building = *building;
+                }
+                if (auto* size = m_registry.try_get<SizeComponent>(entity)) {
+                    shop_record.has_size = true;
+                    shop_record.size = *size;
+                }
+
+                if (auto* container = m_registry.try_get<ContainerComponent>(entity)) {
+                    shop_record.has_container = true;
+                    shop_record.container_is_open = container->is_open;
+                    shop_record.container_is_locked = container->is_locked;
+
+                    for (auto item_entity : container->contained_items) {
+                        if (!m_registry.valid(item_entity)) continue;
+
+                        MacroObjectRecord stock_item;
+                        if (auto* item_name = m_registry.try_get<NameComponent>(item_entity)) stock_item.name = item_name->name;
+                        if (auto* item_render = m_registry.try_get<RenderableComponent>(item_entity)) {
+                            stock_item.glyph = item_render->glyph;
+                            stock_item.color = item_render->color;
+                            stock_item.layer_id = item_render->layer_id;
+                        } else {
+                            stock_item.layer_id = shop_record.layer_id;
+                        }
+                        if (auto* item_comp = m_registry.try_get<ItemComponent>(item_entity)) {
+                            stock_item.item_type_id = item_comp->item_type_id;
+                            if (stock_item.name.empty()) stock_item.name = item_comp->name;
+                        }
+                        if (auto* value = m_registry.try_get<ItemValueComponent>(item_entity)) stock_item.item_value = value->value;
+                        if (auto* consumable = m_registry.try_get<ConsumableComponent>(item_entity)) {
+                            stock_item.restores_hunger = consumable->restores_hunger;
+                            stock_item.restores_thirst = consumable->restores_thirst;
+                        }
+                        shop_record.stock_items.push_back(stock_item);
+                        to_destroy.push_back(item_entity);
+                    }
+                }
+
+                chunk.stored_shops.push_back(shop_record);
             } else if (in_chunk_interior && !m_registry.all_of<TerrainComponent>(entity)) {
                 auto* render = m_registry.try_get<RenderableComponent>(entity);
                 if (!render) { to_destroy.push_back(entity); continue; }

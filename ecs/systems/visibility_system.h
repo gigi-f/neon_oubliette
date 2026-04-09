@@ -91,8 +91,38 @@ public:
     }
 
 private:
+    static constexpr int OVERWORLD_LONG_VIEW_RANGE_METERS = 2000;
+    static constexpr float MIN_OCCLUDER_HEIGHT_METERS = 2.0f;
+
+    bool is_tall_visibility_blocker(entt::entity entity) const {
+        if (!m_registry.valid(entity)) return false;
+
+        // Signs are decorative overlays and should not occlude long-distance LOS.
+        if (m_registry.all_of<FacadeSignComponent>(entity)) return false;
+
+        if (auto* terrain = m_registry.try_get<TerrainComponent>(entity)) {
+            if (terrain->type == TerrainType::WINDOW) return false;
+            return terrain->type == TerrainType::WALL;
+        }
+
+        if (auto* building = m_registry.try_get<BuildingComponent>(entity)) {
+            float approximate_height = static_cast<float>(std::max(1, building->height)) * 3.0f;
+            return approximate_height >= MIN_OCCLUDER_HEIGHT_METERS;
+        }
+
+        if (auto* size = m_registry.try_get<SizeComponent>(entity)) {
+            float approximate_height = static_cast<float>(std::max(1, size->height));
+            return approximate_height >= MIN_OCCLUDER_HEIGHT_METERS;
+        }
+
+        // Unknown obstacle types default to "not tall enough" so small clutter does
+        // not collapse long-range visibility.
+        return false;
+    }
+
     void calculate_fov(entt::entity entity, const PositionComponent& pos, VisibilityComponent& vis) {
         int range = vis.view_range;
+        if (pos.layer_id == 0) range = std::max(range, OVERWORLD_LONG_VIEW_RANGE_METERS);
         int layer = pos.layer_id;
 
         // Build blocking set ONCE per FOV calculation (cached across rays)
@@ -100,13 +130,20 @@ private:
             m_blocking_set.clear();
             auto obstacle_view = m_registry.view<PositionComponent, ObstacleComponent>();
             for (auto obs : obstacle_view) {
-                // Windows are obstacles (impassable) but NOT FOV-blocking
-                if (m_registry.all_of<TerrainComponent>(obs)) {
-                    if (m_registry.get<TerrainComponent>(obs).type == TerrainType::WINDOW) continue;
-                }
+                if (!is_tall_visibility_blocker(obs)) continue;
+
                 const auto& o_pos = obstacle_view.get<PositionComponent>(obs);
-                m_blocking_set.insert(o_pos);
+                if (auto* size = m_registry.try_get<SizeComponent>(obs)) {
+                    for (int dx = 0; dx < std::max(1, size->width); ++dx) {
+                        for (int dy = 0; dy < std::max(1, size->height); ++dy) {
+                            m_blocking_set.insert(PositionComponent(o_pos.x + dx, o_pos.y + dy, o_pos.layer_id));
+                        }
+                    }
+                } else {
+                    m_blocking_set.insert(o_pos);
+                }
             }
+
             auto terrain_view = m_registry.view<PositionComponent, TerrainComponent>();
             for (auto ter : terrain_view) {
                 if (terrain_view.get<TerrainComponent>(ter).type == TerrainType::WALL) {

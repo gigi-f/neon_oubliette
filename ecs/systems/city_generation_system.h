@@ -17,6 +17,8 @@
 #include <random>
 #include <queue>
 #include <cmath>
+#include <array>
+#include <cctype>
 #include "../components/transit_components.h"
 
 namespace NeonOubliette {
@@ -314,7 +316,11 @@ private:
                     if (bw >= 3 && bh >= 3) {
                         uint8_t shared_sides = calculateSharedSides(lot, block); auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
                         uint32_t stable_id = bx * 10000 + by;
-                        const_cast<LotComponent&>(lot).building_entity = createBuildingShell("Shop", bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#FF00FF", ZoneType::MIXED_COMMERCIAL, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
+                        auto shop_building = createBuildingShell("Shop", bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#FF00FF", ZoneType::MIXED_COMMERCIAL, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
+                        const_cast<LotComponent&>(lot).building_entity = shop_building;
+                        m_registry.emplace_or_replace<ShopComponent>(shop_building);
+                        auto& shop_container = m_registry.emplace_or_replace<ContainerComponent>(shop_building);
+                        shop_container.is_open = true;
                         for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) footprint.insert({fx, fy});
                         spawnVendor(bx + (bw/2), by + (bh/2), 0, "Vendor " + std::to_string(bx));
                         for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
@@ -341,11 +347,152 @@ private:
         auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, 0); m_registry.emplace<NameComponent>(e, name);
         m_registry.emplace<RenderableComponent>(e, 'K', color, 0); m_registry.emplace<ObstacleComponent>(e);
         m_registry.emplace<BuildingComponent>(e, 1, ZoneType::MIXED_COMMERCIAL, 0, static_cast<uint32_t>(x * 10000 + y));
+        m_registry.emplace<ShopComponent>(e);
+        auto& container = m_registry.emplace<ContainerComponent>(e);
+        container.is_open = true;
         spawnVendor(x, y, 0, name + " Vendor");
     }
     void spawnVendor(int x, int y, int layer, std::string name) {
         auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, layer); m_registry.emplace<NameComponent>(e, name); m_registry.emplace<RenderableComponent>(e, 'V', "#FFAA33", layer); m_registry.emplace<AgentComponent>(e);
     }
+
+    std::string normalize_sign_text(const std::string& source) const {
+        std::string out;
+        out.reserve(source.size());
+        bool last_space = true;
+
+        for (char ch : source) {
+            unsigned char uch = static_cast<unsigned char>(ch);
+            if (std::isalnum(uch)) {
+                out.push_back(static_cast<char>(std::toupper(uch)));
+                last_space = false;
+            } else if (std::isspace(uch) && !last_space) {
+                out.push_back(' ');
+                last_space = true;
+            }
+        }
+
+        while (!out.empty() && out.back() == ' ') out.pop_back();
+        return out;
+    }
+
+    std::string choose_facade_text(const std::string& building_name, ZoneType ztype, std::mt19937& gen, bool& is_advertisement) const {
+        static const std::array<std::string, 10> ad_pool = {
+            "NEON COLA",
+            "VOIDCAST",
+            "SYNTH LUX",
+            "NIGHT MARKET",
+            "AETHER BANK",
+            "SKYLINE DATA",
+            "ZERO LATENCY",
+            "ORBIT FOOD",
+            "BIO DREAMS",
+            "HYPER MART"
+        };
+
+        std::uniform_real_distribution<> dis(0.0, 1.0);
+        std::uniform_int_distribution<size_t> ad_pick(0, ad_pool.size() - 1);
+
+        is_advertisement = false;
+        if (ztype == ZoneType::CORPORATE || ztype == ZoneType::URBAN_CORE) {
+            if (dis(gen) < 0.6) return normalize_sign_text(building_name);
+            is_advertisement = true;
+            return normalize_sign_text(ad_pool[ad_pick(gen)]);
+        }
+
+        if (ztype == ZoneType::MIXED_COMMERCIAL || ztype == ZoneType::COMMERCIAL || ztype == ZoneType::TRANSIT) {
+            is_advertisement = true;
+            return normalize_sign_text(ad_pool[ad_pick(gen)]);
+        }
+
+        if (ztype == ZoneType::AIRPORT) {
+            is_advertisement = true;
+            return "SKYPORT";
+        }
+
+        if (ztype == ZoneType::INDUSTRIAL && dis(gen) < 0.35) {
+            is_advertisement = true;
+            return "METALWORKS";
+        }
+
+        return "";
+    }
+
+    void spawn_facade_sign_letters(const std::string& text,
+                                   int x,
+                                   int y,
+                                   int w,
+                                   int h,
+                                   uint8_t facing_sides,
+                                   const std::vector<DoorInfo>& doors,
+                                   int simulated_height_meters,
+                                   bool is_advertisement,
+                                   std::mt19937& gen) {
+        if (text.empty()) return;
+
+        bool horizontal = true;
+        StreetFacingSide side = StreetFacingSide::NORTH;
+        if ((facing_sides & (uint8_t)StreetFacingSide::NORTH) && w >= 3) {
+            side = StreetFacingSide::NORTH;
+            horizontal = true;
+        } else if ((facing_sides & (uint8_t)StreetFacingSide::SOUTH) && w >= 3) {
+            side = StreetFacingSide::SOUTH;
+            horizontal = true;
+        } else if ((facing_sides & (uint8_t)StreetFacingSide::EAST) && h >= 3) {
+            side = StreetFacingSide::EAST;
+            horizontal = false;
+        } else if ((facing_sides & (uint8_t)StreetFacingSide::WEST) && h >= 3) {
+            side = StreetFacingSide::WEST;
+            horizontal = false;
+        } else if (w >= h && w >= 3) {
+            side = StreetFacingSide::NORTH;
+            horizontal = true;
+        } else if (h >= 3) {
+            side = StreetFacingSide::EAST;
+            horizontal = false;
+        } else {
+            return;
+        }
+
+        int capacity = horizontal ? std::max(0, w - 2) : std::max(0, h - 2);
+        if (capacity <= 0) return;
+
+        std::string clipped = text;
+        if ((int)clipped.size() > capacity) clipped.resize(capacity);
+        if (clipped.empty()) return;
+
+        std::unordered_set<uint64_t> door_positions;
+        for (const auto& d : doors) {
+            uint64_t key = ((uint64_t)(uint32_t)d.x << 32) | (uint32_t)d.y;
+            door_positions.insert(key);
+        }
+
+        static const std::array<std::string, 8> neon_palette = {
+            "#00FFFF", "#FF44DD", "#FFD000", "#66FF66",
+            "#FF6A33", "#55AAFF", "#FF3377", "#AAFF00"
+        };
+        std::uniform_int_distribution<size_t> color_pick(0, neon_palette.size() - 1);
+
+        int start = horizontal ? (x + (w - (int)clipped.size()) / 2) : (y + (h - (int)clipped.size()) / 2);
+        for (int i = 0; i < (int)clipped.size(); ++i) {
+            char ch = clipped[i];
+            if (ch == ' ') continue;
+
+            int sx = horizontal ? (start + i) : ((side == StreetFacingSide::WEST) ? x : (x + w - 1));
+            int sy = horizontal ? ((side == StreetFacingSide::NORTH) ? y : (y + h - 1)) : (start + i);
+            uint64_t key = ((uint64_t)(uint32_t)sx << 32) | (uint32_t)sy;
+            if (door_positions.count(key)) continue;
+
+            auto sign_entity = m_registry.create();
+            m_registry.emplace<PositionComponent>(sign_entity, sx, sy, 0);
+            m_registry.emplace<RenderableComponent>(sign_entity, ch, neon_palette[color_pick(gen)], 0);
+            m_registry.emplace<NameComponent>(sign_entity, std::string("Facade Sign: ") + clipped);
+            auto& sign = m_registry.emplace<FacadeSignComponent>(sign_entity);
+            sign.simulated_height_meters = simulated_height_meters;
+            sign.is_advertisement = is_advertisement;
+        }
+    }
+
     public: entt::entity createSkyscraperShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent, std::mt19937& gen) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
         m_registry.emplace<BuildingComponent>(building, floors, ztype, 0, stable_id); m_registry.emplace<SizeComponent>(building, w, h); m_registry.emplace<PropertyComponent>(building);
@@ -399,6 +546,13 @@ private:
                 }
             } else createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#050505", MaterialType::CONCRETE);
         }
+
+        bool is_advertisement = false;
+        std::string sign_text = choose_facade_text(name, ztype, gen, is_advertisement);
+        if (!sign_text.empty()) {
+            spawn_facade_sign_letters(sign_text, x, y, w, h, facing_sides, doors, std::max(3, floors * 3), is_advertisement, gen);
+        }
+
         return building;
     }
 
@@ -673,6 +827,13 @@ private:
                 }
             } else createTile(cur_x, cur_y, 0, TerrainType::CONCRETE_FLOOR, '.', "#1A1A1A", MaterialType::CONCRETE);
         }
+
+        bool is_advertisement = false;
+        std::string sign_text = choose_facade_text(name, ztype, gen, is_advertisement);
+        if (!sign_text.empty()) {
+            spawn_facade_sign_letters(sign_text, x, y, w, h, facing_sides, doors, std::max(3, floors * 3), is_advertisement, gen);
+        }
+
         return building;
     }
 

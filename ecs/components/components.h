@@ -501,6 +501,19 @@ struct InteriorStateComponent {
 };
 
 /**
+ * @brief Decorative facade sign projected onto the ground layer to simulate elevated signage.
+ */
+struct FacadeSignComponent {
+    int simulated_height_meters = 6;
+    bool is_advertisement = true;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(CEREAL_NVP(simulated_height_meters), CEREAL_NVP(is_advertisement));
+    }
+};
+
+/**
  * @brief Portals connect two specific positions across layers.
  *        Enables coherent door-to-door mechanics.
  */

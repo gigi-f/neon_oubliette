@@ -130,6 +130,48 @@ struct MacroAgentRecord {
     }
 };
 
+struct MacroShopRecord {
+    std::string name = "Shop";
+    int x = 0;
+    int y = 0;
+    int layer_id = 0;
+
+    bool has_renderable = false;
+    char glyph = '$';
+    std::string color = "#FFFF00";
+    bool has_obstacle = false;
+
+    bool has_building = false;
+    BuildingComponent building;
+    bool has_size = false;
+    SizeComponent size;
+
+    bool has_container = false;
+    bool container_is_open = false;
+    bool container_is_locked = false;
+    std::vector<MacroObjectRecord> stock_items;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("name", name),
+           cereal::make_nvp("x", x),
+           cereal::make_nvp("y", y),
+           cereal::make_nvp("layer_id", layer_id),
+           cereal::make_nvp("has_renderable", has_renderable),
+           cereal::make_nvp("glyph", glyph),
+           cereal::make_nvp("color", color),
+           cereal::make_nvp("has_obstacle", has_obstacle),
+           cereal::make_nvp("has_building", has_building),
+           cereal::make_nvp("building", building),
+           cereal::make_nvp("has_size", has_size),
+           cereal::make_nvp("size", size),
+           cereal::make_nvp("has_container", has_container),
+           cereal::make_nvp("container_is_open", container_is_open),
+           cereal::make_nvp("container_is_locked", container_is_locked),
+           cereal::make_nvp("stock_items", stock_items));
+    }
+};
+
 /**
  * @brief Attached to a macro-tile entity to manage its streaming state.
  */
@@ -139,6 +181,7 @@ struct ChunkComponent {
     bool is_hot = false; // Fully materialized (entities exist)
     bool is_warm = false; // Statistical (only MacroAgentRecords exist)
     std::vector<MacroAgentRecord> stored_agents;
+    std::vector<MacroShopRecord> stored_shops;
     std::vector<entt::entity> macro_zones; // Macro-zones belonging to this 40x40 chunk
     
     /**
@@ -157,6 +200,7 @@ struct ChunkComponent {
            cereal::make_nvp("is_hot", is_hot),
            cereal::make_nvp("is_warm", is_warm),
            cereal::make_nvp("stored_agents", stored_agents),
+           cereal::make_nvp("stored_shops", stored_shops),
            cereal::make_nvp("macro_zones", macro_zones),
            cereal::make_nvp("building_interiors", building_interiors));
     }
