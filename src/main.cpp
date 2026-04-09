@@ -358,7 +358,7 @@ int main(int argc, char** argv) {
     show_loading("Spawning population...");
     g_startup_phase = "agent-spawn";
     NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
-    agent_spawn.spawnAgentsIntoChunks(50000); // World-wide dormant population
+    agent_spawn.spawnAgentsIntoChunks(100000); // World-wide dormant population
     probe_registry(macro_registry, "post-spawn-chunks");
 
     // Manual first update to populate initial area around player

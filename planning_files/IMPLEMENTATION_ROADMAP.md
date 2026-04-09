@@ -1,394 +1,426 @@
-# Implementation Roadmap
-## Project Neon Oubliette — Living City Focus
+## Tier 1 — The Living City (Physical Legibility)
 
-Last updated: June 2024
+These features make the simulation *visible* without requiring the inspection system.
+A new player should notice all of these within 10 minutes of play.
 
----
+### 1A. Traffic Wear & Desire Paths
+Foot traffic physically scars the city over time.
 
-## Design Philosophy
+**What the player sees**: Floors along busy routes darken and crack. High-traffic
+tiles shift from clean concrete (light grey) through worn (dark grey) to broken
+rubble (brown). Quiet alleys stay pristine. The visual difference is *dramatic*
+— color shifts, not just glyph swaps.
 
-**The simulation comes first. The player comes second.**
+**What the player does**: Use traffic patterns to identify safe routes (quiet =
+fewer guards), find hidden shortcuts NPCs have carved, or deliberately re-route
+traffic by blocking paths (placing items, locking doors) to change the city.
 
-The primary goal of this project is a complex, vibrant, self-sustaining city that would
-exist and evolve whether or not a player was present. Autonomous agents live, move, work,
-trade, form factions, get sick, and die according to the simulation rules. The player is an
-observer and participant in that world — not the reason the world exists.
+- [ ] **[Heatmap]** `TrafficHeatmapSystem`: Track per-tile movement counts for all agents (L3 tick). Store as a simple `uint16_t` grid per chunk.
+- [ ] **[Wear]** `FloorWearSystem`: Map heatmap density to 4 visual tiers with distinct color ramps (not just glyph changes). Thresholds: 0–50 = clean, 51–200 = scuffed, 201–500 = worn, 500+ = broken.
+- [ ] **[Breach]** `ProximityAttrition`: Wall tiles adjacent to broken-tier floor tiles take 1% integrity damage per L4 tick. When integrity hits 0, wall becomes `BROKEN_WALL` (passable, illegal entry for guards).
+- [ ] **[HUD]** When a `BROKEN_WALL` appears, emit a chunk-level HUD notification: "A wall has collapsed on [Street Name]."
+- [ ] **[Player Action]** Player can use a Crowbar tool on worn walls (integrity < 30%) to force a breach. Noise event alerts nearby guards.
 
-When prioritizing features, always ask: *does this make the city more alive?* Agent behavior,
-population dynamics, economic cycles, and emergent social structure take precedence over
-player-facing abilities, UI polish, or content authored specifically for the player.
+### 1B. Cognitive Grey — Agent Breakdown You Can See
+Agents falling apart should *look* like they're falling apart.
 
-Player abilities (inspection, interaction, inventory) are tools for *reading* the simulation,
-not for driving it.
+**What the player sees**: Agents with low consciousness (`< 20%`) flicker to grey
+(`#777777`), stagger (movement becomes erratic — occasional random-direction steps),
+and drop items. An agent in full breakdown is unmistakable even from across the screen.
 
----
+**What the player does**: Approach a grey-flickering agent to inspect or help (give
+food/medicine). Grey agents are easy marks for pickpocketing. They also trespass
+randomly into buildings, triggering guard violence — the player can intervene,
+watch, or exploit the chaos.
 
-## Actual Status (as of last audit)
+- [ ] **[Visuals]** `CognitiveGreyEffect`: Agents with `Consciousness < 20%` flicker glyph color to `#777777` every 2–3 ticks.
+- [ ] **[Logic]** `ActionSlipSystem`: Low-consciousness agents have 5% chance per tick to: drop held item, move in random direction, or attempt entry into nearest building (triggering trespass).
+- [ ] **[Player Verb]** Player can GIVE food/medicine to a slipping agent via the trade interface — restores consciousness, builds relationship, generates a "Mercy" `InformationRecord` tradeable to religious factions.
 
-### Done
-- [x] ECS core: EnTT registry, event bus, dispatcher, phase-locked simulation coordinator
-- [x] Turn management (L0/L1 every tick, L2 every 5, L3 every 10, L4 every 20)
-- [x] notcurses rendering: player-centered camera, scrolling, true color, HUD, multi-plane z-order
-- [x] Input system: movement, interaction, vertical layer change, inspect, inventory, ESC close
-- [x] A* pathfinding (layer 0, obstacle-aware, 8-directional)
-- [x] Movement system (shared for player + NPCs, collision-aware, world-bounds clamping)
-- [x] Inspection system: modal panel, privacy masks, 5 inspection modes, ESC to close
-- [x] Inventory panel: toggled with B, hidden by default, no overlap
-- [x] HUD: health, credits, layer indicator, notifications, full controls legend
-- [x] Building interior generation on door entry
-- [x] Agent logic core: AgentDecisionSystem, AgentActionSystem, NeedsComponent, GoalComponent, CurrentPathComponent
-- [x] Agent spawning: `AgentSpawnSystem` creates 100+ agents with varying archetypes (Citizen, Guard) at startup
-- [x] World bounds enforcement: `MovementSystem` clamps all movement to map dimensions
-- [x] Consumable items: `CityGenerationSystem` spawns food/water items; agents can detect and seek them
-- [x] BioSim (Layer 1): `BiologySystem` implements temperature-based consciousness degradation and recovery
-- [x] Inspection Overhaul (Phase 1.5): Proximity-based targeting, cross-layer insights, and unique ASCII visual metaphors for all 5 modes
-- [x] Guard Patrols (Phase 1.3): Guards now assigned waypoints and patrol tasks
-- [x] Global Weather System (Phase 5.3 Prep): Markov-chain weather cycle affecting environment and agents
-- [x] Macro-Zoning System (Phase 2.1): WFC-lite solver assigns logical urban zones (Corporate, Slum, Industrial, etc.)
-- [x] Infrastructure Skeleton (Phase 2.2): `InfrastructureNetworkSystem` carves rivers, primary roads, and rails across a 200x200 world
-- [x] Topological Junctions: Automated resolution of arterial overlaps into Bridges, Level Crossings, and Intersections
-- [x] Access Paths: BFS-based carving of paths connecting building doors to the nearest street
-- [x] Causal Conductivity: `InfrastructureInfluenceSystem` applies field effects (cooling near rivers, economic boost near transit) to simulation layers
-- [x] Zone-Aware Generation: `CityGenerationSystem` places buildings and terrain based on Macro-Zone and Arterial logic
-- [x] Secondary Street Connectivity: Zoning-specific "Capillary" networks (Phase 2.2)
-- [x] Chunk Architecture (Phase 3.1): `ChunkStreamingSystem` and `ChunkComponent` registered; 40x40 tile chunks (2x2 macro-cells) implemented.
-- [x] World Streaming (Phase 3.1): Efficient chunk-based loading/unloading for massive worlds (tested at 8000x8000).
-- [x] Massive World Population: `AgentSpawnSystem` now supports spawning thousands of agents into "cold storage" chunks.
-- [x] Agent LOD (Phase 3.2): `MacroAgentRecord` implemented with statistical simulation for off-screen agents.
-- [x] Large Scale Pathfinding (Phase 3.3): Hierarchical A* across Macro-Cells (Arterial Graph) then Local Tiles.
-- [x] Day/night cycle affecting agent behavior (Phase 4.1): Routine-based goals (SLEEP, WORK, LEISURE).
-- [x] Utility-Based Bartering (Phase 5.2): Trades evaluated via agent needs (hunger/thirst) and faction affinity.
-- [x] Dynamic Economics (Phase 5.2): Chunk-level Supply/Demand and scarcity-based item valuation.
-- [x] Faction Influence Fields (Phase 5.4): Layer 4 political simulation with influence diffusion across chunks.
-- [x] Airports (Phase 2.3): Procedural airport zones with terminals, runways, and cargo logistics.
-- [x] Colosseums (Phase 2.3): Procedural sports arenas with central arenas, seating, and Syndicate gladiators.
-- [x] FOV / line of sight
-- [x] Drivable personal vehicles (scooters, bikes, cars, xci-fi vehicles)
-- [x] Ridable trains, buses, xci-fi vehicles (by both player and agents) (Phase 4.2)
-- [x] Item and tool usage
-- [x] Nature spaces (parks)
-- [x] Brainstorming session to create a coherent sci-fi world and vibe: then implement story concepts- ie each faction is led by a different AGI or superhuman intelligence with different, competing goals and ways of interacting with their followers. (DONE)
-- [x] Stockmarket that agents actually participate in
-- [x] Futuristic sports- colloseums? (Phase 2.3)
-- [x] Robot to human social hierarchy, expectations and interactions (tied into the "story" of the game-world) (Phase 4.2)
-- [x] Extraterrestial life, loosely influenced by "Book of the New Sun" (tied into the "story" of the game-world)
-    - [x] Xeno Biology Layer (Cacogen/Hierodule species)
-    - [x] Influence Auras (XenoSystem) affecting simulation layers
-    - [x] Unique ASCII portraits and Inspection insights
-    - [x] Integration with Chunk Streaming and Macro-Agent Record
-- [x] God mode, alternative gameplay style in which the game runs at a steady clip (say 2fps default with ability to change) but the player can pause time, and then use a cursor (highlighted square on the map) to investigate items, agents, buildings, etc. "God overview" that shows running actions or developments across all agents, economy, politics, etc. Ensure easy way to switch gameplay modes. Break into sub steps as possible.
-- [x] **A.2 — Urban Core & Skyscrapers**
-    - [x] Tag the central macro-zone cluster as `URBAN_CORE`; apply a density multiplier to lot occupancy
-    - [x] Skyscraper buildings: footprints 6–20 tiles wide, rendered with vertical ASCII metaphors (height encoded in glyph brightness / color tier)
-    - [x] Ground-floor commercial mandatory on Urban Core lots facing arterial roads
-    - [x] High pedestrian and vehicle traffic volume spawned proportionally to lot density
-    - [x] Multiple train terminals placed at key arterial intersections; terminals are designated `COMMERCE_HUB` anchor points
-- [x] **A.7 — Multi-Room Interior Generation**
-    - [x] All buildings regardless of size must generate at least 2 interior rooms; minimum room count scales with footprint: small (2–4 tiles wide) = 2 rooms, medium (5–10) = 3–5 rooms, large (11+) = 6+ rooms
-    - [x] Room layout generated via a BSP (binary space partition) split of the building footprint; minimum room dimension is 2×2 tiles to ensure navigability
-    - [x] Each room assigned a functional tag based on building type: e.g., apartment → BEDROOM / KITCHEN / BATHROOM / LIVING; office tower → LOBBY / OFFICE / SERVER_ROOM / EXECUTIVE_SUITE; factory → FLOOR / STORAGE / SUPERVISOR_OFFICE
-    - [x] Room tags drive furniture/item spawning: KITCHEN spawns food items, SERVER_ROOM spawns tech loot, BEDROOM spawns personal items and a BED tile
-    - [x] Rooms are connected by internal door tiles in shared walls; at least one path must exist from the entrance door to every room (BFS-validated at gen time)
-    - [x] Staircase tiles generated for multi-floor buildings; each floor is an independent BSP layout with matching staircase positions
-    - [x] Interior room data stored in `BuildingInteriorComponent` (room list, door positions, stair positions) so it can be serialized per-chunk and restored on re-entry without regeneration
-- [x] **A.10 — Window Tiles**
-    - [x] Building generator places window tiles on exterior walls facing streets (not shared walls or alley walls) at a frequency set by building archetype: residential = many windows, server room = none, executive suite = floor-to-ceiling
-    - [x] Window tiles are impassable but **FOV-transparent**: the existing FOV system treats them as see-through in both directions, allowing partial sight from sidewalk into ground-floor rooms and vice versa
-    - [x] Window tiles do not allow entry; attempting to interact with a window from outside emits a HUD note ("You peer through the glass.") and opens a limited inspect panel for anything visible on the other side
-    - [x] Broken windows (integrity < 50 per Phase K decay) become passable as a squeeze crawl point — treat as a 1-tile door with a movement speed penalty and a noise event that may trigger guards
-- [x] **B.1 — Enforce Door-Only Entry in Standard Mode**
-    - [x] Remove all code paths that allow walking directly into a building footprint tile
-    - [x] Movement system: collide with all non-door building tiles; only process entry event on `DOOR` tiles
-    - [x] Interior generation triggered exclusively by door-entry event (already partially working — harden the contract)
-    - [x] Each exterior `DOOR` tile stores a `DoorMetadata` record: which wall it sits on (NORTH / SOUTH / EAST / WEST), its offset from the wall's left edge in tiles, and the building entity it belongs to
-- [x] Spatially Consistent Exit Doors: interior exits match exterior entry wall/offset; BFS-validated connectivity
-- [x] **C.1 — Held-Item Slot in HUD**
-    - [x] Reserve a fixed HUD region (lower-left, adjacent to health bar) for the held item
-    - [x] Render item glyph (ASCII) + short name (truncated to ~12 chars) in the slot
-    - [x] If no item held, display `[empty]` in dim color
-- [x] **C.2 — Item Status Indicators**
-    - [x] Show charge count or durability bar beneath the glyph for tools/weapons
-    - [x] Flash the slot briefly when the item is used or swapped
-    - [x] Color-code by item category (consumable = green, weapon = red, tool = cyan, key = yellow)
-- [x] **D.1 — Cursor Rendering**
-    - [x] Render a highlight glyph over the tile currently under the mouse cursor using a dedicated notcurses plane
-    - [x] Highlight color changes based on what is under the cursor: agent (yellow), item (cyan), door (green), empty (dim white)
-    - [x] Keyboard cursor: arrow keys move the cursor tile-by-tile when mouse is not available; cursor snaps back to player on movement
-- [x] **D.2 — Standard Mode Range Enforcement**
-    - [x] Each interaction type carries a max range (tiles): Speak = 3, Observe = 6, Trade = 1
-    - [x] Cursor highlight turns red when the target tile exceeds the active interaction's range
-    - [x] Attempting to interact outside range emits a HUD notification ("Too far to trade")
-    - [x] Range is measured as Chebyshev distance to match 8-directional movement
-- [x] **D.3 — God Mode Click Interaction**
-    - [x] Left-click on any visible tile opens the inspection panel for that entity (same data as `I` key inspect, no range limit)
-    - [x] Right-click opens a context menu: Inspect / Follow / Teleport Cursor / Tag
-    - [x] Middle-click (or `F` key) locks the camera onto the clicked agent and tracks them until dismissed
-- [x] **E.1 — Interaction Mode Enum & State**
-    - [x] Add `InteractionMode { SPEAK, OBSERVE, TRADE }` to the player state component
-    - [x] Cycle through modes with `Tab` (or a dedicated bind); default is `OBSERVE`
-    - [x] HUD shows the active interaction mode icon and label at all times (e.g., `[MODE: SPEAK]`)
-- [x] **E.2 — Range Ring Rendering**
-    - [x] Render a colored border (blue/white/gold) around the player matching active interaction range
-    - [x] Real-time redraw on movement; plane-based z-ordering below entities
-- [x] Dialogue system: modal panel, ASCII portraits, contextual NPC utterances (Phase F.4)
-- [x] SPEAK interaction: triggers dialogue with agents within range (Phase E.3)
-- [x] **Phase G — Social Graph & Relationship System (DONE)**
-    - [x] **G.1 — RelationshipComponent**: Map of relationship records holding tier, affinity, and last interaction.
-    - [x] **G.2 — Family Trees**: Family units assigned at spawn with shared homes and high initial affinity.
-    - [x] **G.3 — Friendship Formation**: Repeated proximity + positive interaction increases affinity and upgrades tiers.
-    - [x] **G.4 — Coworker Relationships**: Shared workplace leads to coworker status and affinity drift.
-    - [x] **G.5 — Relationship-Driven Behaviors**: Gift-giving, socialization need fulfillment, and grief on death.
-    - [x] **G.6 — Macro-Scale Relationship Simulation**: Affinity drift and social events for agents in cold chunks.
-- [x] **Phase F.8 — Statistical Macro-Conversation**: Off-screen agents (MacroAgentRecord) converse statistically: affinity scores drift based on proximity and faction alignment per macro tick.
-- [x] **Information Propagation (Phase F.8)**: "Viral" rumors spread through macro-cells statistically, materializing as live `InformationRecord` items when the chunk loads.
-- [x] **K.1 — Building Health & Decay**: `BuildingHealthComponent` tracks integrity; `UrbanDecaySystem` simulates deterioration via weather/pollution and repairs via property value.
-- [x] **K.2 — Maintenance & Squatting**: `BuildingHealthComponent` now tracks `num_squatters` and `maintenance_urgency`; `UrbanDecaySystem` calculates squatting impact; Agents seek "Squattable" buildings; Maintenance workers seek `REPAIR` tasks.
-- [x] **K.3 — Demolition & Rebuilding**: `DemolitionSystem` clears building entities on 0 integrity; `RebuildingSystem` reconstructs structures on vacant lots via `RebuildEvent`.
-- [x] **O.1 — Raw Material Layer**:
-    - [x] `RawMaterialFieldComponent` implemented for chunk-level resource density.
-    - [x] `ResourceNodeComponent` and `ExtractionProgressComponent` added for physical extraction points.
-    - [x] `ResourceDistributionSystem` manages regeneration and scarcity calculation.
-    - [x] `CityGenerationSystem` seeds fields and nodes based on Zone types (Industrial, Park, Slum).
-    - [x] Agent behavior updated to seek and extract resources during WORK routine.
-    - [x] Economic loop closed: Extraction rewards agents based on local scarcity and material value.
-- [x] **P.1 — ReputationComponent (Player)**: Player now initialized with `ReputationComponent`, `Layer4PoliticalComponent`, and `Layer2CognitiveComponent`; `FactionSystem` updated to route `AgentFactionReputationEvent` to player reputation tracking.
+### 1C. Whisper Zones — Fear Has a Sound
+Neighborhoods that have suffered violence go quiet. The silence is the signal.
 
-### Partially Done
-- [x] Physics (Layer 0): temperature dissipation, weather effects, river cooling fields; pressure unused
-- [x] **E.3 — Interaction Dispatch**
-    - [x] Pressing `Space` or left-clicking (or `E` key) while the cursor is on a valid target fires the active interaction type
-    - [x] Interaction events now include target coordinates for Standard Mode range checking and specific object targeting
+**What the player sees**: In chunks where recent deaths or guard raids occurred,
+agents' overhead speech bubbles shrink to dim flickering dots (`.` and `,`).
+Agents move faster and avoid eye contact (no IDLE states — always walking).
+A HUD indicator shows "TENSE ZONE" when entering such an area.
 
-### Not Started
+**What the player does**: Whisper zones are dangerous but valuable — agents here
+are paranoid and will share restricted information if the player's faction rep
+is right. The player must get *closer* than normal to overhear conversations
+(3→1 tile range), increasing risk of confrontation.
 
----
-#### Phase A — City Layout Overhaul (Grid-Based Urban Form)
-
-*Goal: replace the current scatter-placement with a Chicago-style rectilinear grid where every building occupies a surveyed lot.*
-
-- [x] **A.1 — Lot & Parcel System**
-- [x] **A.3 — Residential Streets**
-- [x] **A.4 — Commerce Hub Around Train Stations**
-- [x] **A.5 — Street Hierarchy Integration**
-- [x] **A.6 — Street-Facing Door Placement**
-- [x] **A.8 — Interior Pathfinding Grid**
-- [x] **A.9 — Interior Map Caching & Stability Contract**
+- [ ] **[Atmosphere]** `ChunkMoodSystem`: Track recent death/raid events per chunk. Decay over L4 ticks. Output a `ChunkMood` enum: NORMAL / TENSE / FEARFUL.
+- [ ] **[Visuals]** In TENSE/FEARFUL chunks, replace overhead speech bubbles with dim `.`/`,` glyphs. Remove agent IDLE animations.
+- [ ] **[HUD]** Display "TENSE ZONE" / "FEARFUL ZONE" in the chunk indicator area of the HUD when player enters.
+- [ ] **[Mechanic]** In FEARFUL chunks, SPEAK interaction range reduced from 3 to 1 tile. NPCs share higher-value `InformationRecords` but may flee mid-conversation.
 
 ---
 
-#### Phase B — Building Entry Rules (Standard vs. God Mode)
+## Tier 1D — Coherent Building Interiors (Spatial Legibility)
 
-- [x] **B.1 — Enforce Door-Only Entry in Standard Mode**
-- [x] **B.2 — Spatially Consistent Exit Door**
-- [x] **B.3 — God Mode Direct Inspection / Entry**
-- [x] **B.4 — HUD Contextual Indicators**
-- [x] **B.5 — Sound Propagation Through Walls**
+Buildings should feel like real spaces with purpose, not random BSP partitions
+with a single furniture item dropped in the center. Entering a building should
+immediately tell the player *what this place is* and *who uses it*.
 
----
+### Room Connectivity — Hallways & Doorways
+Currently BSP splits create rooms but connections between them feel arbitrary.
+Rooms should flow logically through hallways, with clear paths the player can
+read at a glance.
 
-#### Phase C — HUD Held-Item Display
+- [ ] **[Hallways]** After BSP leaf generation, run a corridor-carving pass: connect each room's center to its BSP sibling's center with a 1-wide hallway. Mark hallway tiles with a distinct floor glyph (`.` dim grey) so they read differently from room interiors.
+- [ ] **[Door Placement]** Place doors (`+`) at the boundary between each hallway and room, not at arbitrary wall midpoints. Each room gets exactly one door unless it's a lobby (which gets 2+).
+- [ ] **[Entrance Flow]** The entrance door always opens into a LOBBY or HALLWAY, never directly into a BEDROOM or SERVER_ROOM. BSP root split axis should align with the entrance wall to guarantee this.
+- [ ] **[Connectivity Guarantee]** After hallway carving, BFS-validate that every room is reachable from the entrance. If not, add a rescue corridor to the nearest disconnected room.
 
-- [x] **C.1 — Held-Item Slot in HUD**
-- [x] **C.2 — Item Status Indicators**
+### Room Furnishing — Density & Coherence
+One item per room breaks immersion. Rooms should have 3–8 objects arranged in
+zone-appropriate clusters that make the room's purpose obvious.
 
----
+- [ ] **[Furniture Templates]** Define per-RoomType furniture templates (lists of {glyph, color, name, relative_position}). Example: KITCHEN gets a counter along one wall (`=`), stove (`%`), table (`T`), 2 chairs (`h`), sink (`~`). BEDROOM gets bed (`B`), nightstand (`n`), wardrobe (`W`), lamp (`i`).
+- [ ] **[Placement Engine]** Replace single-center placement with wall-hugging and cluster logic: large items against walls, small items adjacent to large ones, walkable path from door preserved. Use a simple constraint: no furniture on the 1-tile path from door to room center.
+- [ ] **[Density Scaling]** Furniture count scales with room area: `base_count + area / 6`. Minimum 2 items for any room ≥ 3×3. Maximum capped at `area / 3` to avoid impassable clutter.
+- [ ] **[Loot Variety]** Each furniture piece has a loot table (not just kitchens/altars). Nightstands: personal items, credit chips. Desks: data drives, documents. Wardrobes: clothing, disguises. Crates: random zone-appropriate goods.
 
-#### Phase D — Cursor Interaction System
+### Building Purpose — Thematic Coherence
+Every building should have a clear *reason to exist* that the player can read
+from the room layout and NPC activity inside.
 
-- [x] **D.1 — Cursor Rendering**
-- [x] **D.2 — Standard Mode Range Enforcement**
-- [x] **D.3 — God Mode Click Interaction**
-
----
-
-#### Phase E — Typed Interaction System
-
-- [x] **E.1 — Interaction Mode Enum & State**
-- [x] **E.2 — Range Ring Rendering**
-- [x] **E.3 — Interaction Dispatch**
-
----
-#### Phase F — Conversation & Speech System
-
-- [x] **F.1 — Systemic Dialogue Assembly Engine**
-- [x] **F.2 — Content Domains: What NPCs Talk About**
-- [x] **F.3 — Speech Styles, Dialects & Filtering**
-- [x] **F.4 — Agent-to-Agent Conversation Engine**
-- [x] **F.5 — Overhead Speech Rendering**
-- [x] **F.6 — Overheard Conversations & Intelligence**
-- [x] **F.7 — Player Dialogue Modal (Expansion of Existing Stub)**
-- [x] **F.8 — Conversation Simulation at Macro Scale**
+- [ ] **[Building Archetypes]** Define 8–12 building archetypes per zone type (e.g., Residential → Apartment, Flophouse, Safehouse, Family Home; Corporate → Office Tower, Data Center, Executive Suite, Security HQ). Each archetype specifies a required room-type ratio (e.g., Apartment: 60% BEDROOM, 15% KITCHEN, 15% BATHROOM, 10% STORAGE).
+- [ ] **[Archetype Assignment]** During zone interior generation, assign each building an archetype based on zone type + random weight. Store as `BuildingArchetypeComponent`.
+- [ ] **[NPC Occupancy]** Assign 1–4 NPCs per building as "residents" or "workers" who pathfind inside during appropriate routines (SLEEPING in bedrooms at night, WORKING in offices during day). Their presence makes the building feel alive.
+- [ ] **[Signage]** Building entrance tile gets a colored name label rendered above the door: "CHEN'S NOODLES" (commercial), "BLOCK 7-4A" (residential), "NEXACORP BRANCH 12" (corporate). Generated from faction + zone + RNG name tables.
 
 ---
 
-#### Phase G — Social Graph & Relationship System (DONE)
+## Tier 2 — Secrets & Discovery (Reward Curiosity)
 
-- [x] **G.1 — RelationshipComponent**
-- [x] **G.2 — Family Trees**
-- [x] **G.3 — Friendship Formation**
-- [x] **G.4 — Coworker Relationships**
-- [x] **G.5 — Relationship-Driven Behaviors**
-- [x] **G.6 — Macro-Scale Relationship Simulation**
+These features reward players who inspect, explore, and pay attention.
+They should feel like genuine discoveries, not tutorial popups.
 
----
+### 2A. Sealed Vaults — Hidden Rooms with Real Consequences
+Some rooms have no door. They exist in the simulation but are walled off.
 
-#### Phase H — Religion System
-- [x] **H.1 — Religion Data Model**
-- [x] **H.2 — Agent Religiosity**
-- [x] **H.3 — Places of Worship**
-- [x] **H.4 — Religious Gatherings & Emergent Ritual**
-- [x] **H.5 — Faction & Religion Interplay**
-- [x] **H.6 — Proselytizing Behavior**
+**What the player sees**: Structural Inspection reveals "Structural Anomaly"
+(purple highlight) on walls adjacent to void gaps. Sound leaks — if an NPC
+pathfound into the void somehow, the player hears muffled speech through the
+wall (dim overhead text visible through the wall tile). Items locked in vaults
+create visible economic effects: local prices for that item category spike.
 
----
+**What the player does**: Use a Crowbar or Explosive Charge on an anomaly wall
+to breach in. This is loud (guard alert in 8-tile radius), possibly illegal,
+but yields rare loot and can crash the local market for that item type.
 
-#### Phase I — Crime & Underground Economy
+- [ ] **[Generation]** BSP interior generator leaves 1–4% of building volume as `RoomTag::VOID_GAP`. Void rooms can spawn with high-tier loot.
+- [ ] **[Inspection]** Structural Inspection highlights walls adjacent to VOID_GAPs as "Structural Anomaly" (purple wash).
+- [ ] **[Audio]** `AcousticLeak`: NPC speech/movement in VOID_GAPs renders as dim overhead text through adjacent walls (1-tile range only, player must be stationary).
+- [ ] **[Player Verb — Breach]** Player with Crowbar can force-open VOID_GAP walls (3-tick action, noise event, wall becomes BROKEN_WALL). Explosive Charge is instant but alerts all guards in chunk.
+- [ ] **[Economy]** Items trapped in VOID_GAPs still count in scarcity calculations. Breaching a vault and selling its contents visibly shifts local market prices (trackable in Financial Forensics).
 
-*Goal: activate the existing guard, economics, and social graph systems through emergent criminal behavior.*
+### 2B. Sedition & Street Sweeps — Crowds Are Dangerous
+Guards react to visible social activity. Gathering is political.
 
-- [x] **I.1 — Crime Behavior Archetypes**
-- [x] **I.2 — Theft & Mugging**
-- [x] **I.3 — Black Market & Fencing**
-- [x] **I.4 — Drug Manufacturing**
-- [x] **I.5 — Player Wanted Level**
-- [x] **I.6 — Guard Response System**
+**What the player sees**: When 4+ agents cluster and talk, a faint red overlay
+pulses on the ground beneath them (visible in both Standard and God mode).
+After a few L3 ticks, a guard squad spawns a "Disperse" task and moves to
+break up the group — shoving agents apart, sometimes escalating to arrests.
+The dispersed agents scatter, and the chunk mood shifts toward TENSE.
 
----
-#### Phase J — Population Lifecycle & Demographics
+**What the player does**: The player can join the gathering (increasing its
+sedition risk), eavesdrop for high-value rumors, deliberately draw guards
+to the cluster as a distraction, or warn the group to scatter before guards
+arrive. A player working for the Syndicate might *provoke* gatherings in
+Corporate territory to destabilize it.
 
-*Goal: agents are born, age, and die — the city's composition shifts over simulation time.*
-
-- [x] **J.1 — Age & Life Stage Component**
-- [x] **J.2 — Birth System**
-- [x] **J.3 — Death & Inheritance**
-- [x] **J.4 — Demographic Pressure**
-- [x] **J.5 — Generational Faction & Religion Drift**
-
----
-
-#### Phase K — Environmental Decay & Urban Renewal
-
-*Goal: buildings age, deteriorate, and can be demolished and rebuilt, making zoning a living contest.*
-
-- [x] **K.1 — Building Health & Decay**
-- [x] **K.2 — Maintenance & Squatting**
-- [x] **K.3 — Demolition & Rebuilding**
-- [x] **K.4 — Graffiti & Environmental Texture**
+- [ ] **[Detection]** `ConversationalDensitySystem`: Flag tile clusters with 4+ talking agents. Render a faint red ground pulse on those tiles.
+- [ ] **[Guard AI]** When sedition flag persists for 3+ L3 ticks in a guarded chunk, spawn "Disperse Crowd" guard task. Guards move to cluster, shove agents (forced movement), arrest agents with outstanding warrants.
+- [ ] **[Consequence]** Dispersal events increment chunk death/raid counter (feeds into Whisper Zones — Tier 1C). Creates a feedback cycle: oppression → silence → underground activity → more oppression.
+- [ ] **[Player Verb]** Player can WARN a cluster (new dialogue option when 4+ agents nearby): scatters the group before guards arrive, builds Syndicate rep, costs Corporate rep.
 
 ---
 
-#### Phase L — Dynamic Crises & World Events
+## Tier 3 — Faction Depth (Systemic Intrigue)
 
-*Goal: periodic macro-scale perturbations that create distinct narrative chapters in each playthrough.*
+These features add strategic depth for players who engage with the faction layer.
+They require Tier 1 systems to be legible.
 
-- [x] **L.1 — Crisis System Core**
-- [x] **L.2 — Economic Crises**
-- [x] **L.3 — Biological / Environmental Crises**
-- [x] **L.4 — Political / Faction Crises**
-- [x] **L.5 — Power Grid Failure**
-- [x] **L.6 — God Mode Crisis Dashboard**
-    - [x] Dedicated UI panel for God Mode to monitor simulation "health" and systemic stress
-    - [x] Real-time sparklines/graphs for Economic, Political, Biological, and Environmental stress metrics
-    - [x] Active Crisis tracking: list of ongoing city-wide events with severity and time-to-resolution
-    - [x] Causal Conductivity visualization: explicit list of propagation vectors (e.g., how a market crash leads to crime)
-    - [x] Interactive toggle (V key) and integration with the God Mode HUD
+### 3A. AGI Logic Wars — The Grid Fights Itself
+When two AGI faction leaders' influence fields overlap, the environment destabilizes.
 
----
+**What the player sees**: In overlap zones, wall and floor tiles randomly swap
+glyphs and colors every few ticks — a visible, unsettling "glitch" effect.
+Doors lock and unlock unpredictably. Agents in the zone become erratic
+(conflicting directives from both AGIs). NPCs in conversation reference the
+instability: "The grid is fighting itself again."
 
-#### Phase M — Sewer & Underground Network Layer
+**What the player does**: Factions offer well-paid contracts to stabilize or
+sabotage the contested data-nexus (a specific building in the overlap zone).
+The player must navigate the glitching environment (which is mechanically
+hazardous — random door locks can trap you) to reach the nexus and interact
+with it. Stabilizing benefits one AGI's faction; sabotaging benefits the other.
 
-*Goal: a hidden traversal layer beneath the grid used by criminals, resistance factions, and alien entities.*
+- [ ] **[Visuals]** `LogicWarEffect`: In chunks where two AGI influence fields overlap, apply random glyph/color swaps to environment tiles every 3 ticks.
+- [ ] **[Hazard]** Doors in Logic War zones randomly toggle locked/unlocked state each L2 tick. Locked doors display "ACCESS DENIED — GRID CONFLICT" on interaction.
+- [ ] **[Quest Hook]** Factions in contested chunks issue "Stabilize Nexus" / "Sabotage Nexus" contracts visible in the NPC dialogue system. Completing one shifts the local influence field decisively.
+- [ ] **[Player Verb]** INTERACT with a "Data Nexus" tile (special terminal in overlap-zone buildings) to choose: Stabilize (removes overlap, benefits Faction A) or Sabotage (collapses both fields, benefits Syndicate).
 
-- [x] **M.1 — Sewer Map Generation**
-- [x] **M.2 — Sewer as a Traversal Layer**
-- [x] **M.3 — Sewer Inhabitants & Items**
-- [x] **M.4 — Environmental Hazards**
+### 3B. Radicalization — Desperation Has a Face
+When the city fails its citizens badly enough, they change.
 
----
+**What the player sees**: An agent whose needs have been critically unmet (< 10%)
+for a sustained period in a Syndicate-influenced area visibly transitions: their
+glyph changes from `.` (citizen) to `!` (radical). Radicals stop following work
+routines, start committing crimes (theft, vandalism), and actively recruit other
+desperate agents through conversation.
 
-#### Phase N — News & Information Propagation
+**What the player does**: The player can accelerate or prevent radicalization.
+Giving food to a desperate agent resets their radicalization timer. Sabotaging
+a block's food supply (by destroying supply chain nodes) can deliberately push
+a neighborhood toward revolt. A Syndicate-aligned player wants radicals;
+a Corporate-aligned player wants to prevent them.
 
-*Goal: make the political simulation legible and manipulable through a formal information layer.*
-
-- [x] **N.1 — Information Item Types**
-- [x] **N.2 — Broadcast Towers**
-- [x] **N.3 — Underground Media**
-    - [x] `PirateNodeComponent` for clandestine, illegal broadcast stations
-    - [x] `DataSlabComponent` for physical information storage items
-    - [x] `UndergroundMediaSystem` manages pulse corruption, guard detection, and slab reading
-    - [x] Integrated with `CityGenerationSystem` for Slum/Sewer seeding
-    - [x] Visual pulse rendering in `RenderingSystem`
-- [x] **N.4 — Player Information Interaction**
-    - [x] Intel Log UI: dedicated history panel (toggled by 'N') showing all collected rumors, veracity, and hops.
-    - [x] Rumor Trading: players can receive, buy, or share intel via the dialogue system.
-    - [x] Verification: players can ask NPCs to verify rumors, updating veracity based on NPC trust.
-    - [x] Pirate Node Hacking: players can discover and interact with pirate nodes to inject their own intel into the city's pulse sequence.
-    - [x] Faction Impact: sharing specific intel types (Propaganda/Intelligence) directly shifts NPC loyalty and faction standing.
-- [x] **N.5 — Information Decay & Verification**
+- [ ] **[Archetype]** `RadicalizationSystem`: Track consecutive ticks where `NeedsFulfillment < 10%` AND `SyndicateInfluence > 60%`. After threshold (20 L2 ticks), swap archetype to RADICAL. Change agent glyph to `!` (red).
+- [ ] **[Behavior]** Radical agents: stop WORK routine, add STEAL and VANDALIZE goals, attempt to RECRUIT adjacent desperate agents (new dialogue option that lowers their radicalization threshold).
+- [ ] **[Player Verb]** Player can GIVE food/supplies to pre-radical agents (resets their desperation timer). Alternatively, SABOTAGE supply nodes (destroy food-spawning items in shops) to accelerate neighborhood radicalization.
+- [ ] **[Visible Consequence]** Chunks with 5+ radical agents trigger a "Civil Unrest" crisis event visible in the Crisis Dashboard. Guard patrols double. Faction influence becomes contested.
 
 ---
 
-#### Phase O — Supply Chains & Manufacturing
+## [Theme: Player Tools]
 
-*Goal: close the economic loop — goods are produced, not just traded.*
+### The Tactical Wirecutter
+**What the player sees**: Power Junctions (yellow `*`) and Security Hubs (cyan `&`) on walls. Using a "Breaching Tool" causes the tile to flicker red `!` for 3 ticks before turning into a grey `x`. Building lights dim (background colors shift to dark grey).
+**What the player does**: Equips "Breaching Tool" in the held-item slot, moves the cursor to a junction/hub tile, and presses `E` (Interaction).
+**Why it's fun**: Manipulating the environment (darkness) allows for stealthy navigation and tactical entrapment of NPCs.
+**Depends on**: Existing `BuildingInteriorComponent` and `InteractionSystem`.
+**Tasks**:
+- [ ] **[Tiles]** Add `PowerJunction` and `SecurityHub` tile types to `CityGenerationSystem` and `BuildingInteriorComponent`.
+- [ ] **[Visuals]** Implement "Power Outage" visual effect in `RenderingSystem` that dims building tile backgrounds.
+- [ ] **[Logic]** Update `AgentDecisionSystem` to apply `LowLight` state to NPCs (reduced FOV, increased alertness).
+- [ ] **[Tool]** Define "Breaching Tool" item and map its use to the new tile types in `InteractionSystem`.
 
-- [x] **O.2 — Factory Buildings & Production Cycles**
-    - [x] `FactoryComponent` and `ProductionRecipe` components implemented.
-    - [x] `ProductionSystem` added to the simulation loop (Layer 3 Economic).
-    - [x] `AgentTaskType::PRODUCE_GOODS` handled in `AgentActionSystem`.
-    - [x] `CityGenerationSystem` seeds factories with recipes and starting materials in Industrial zones.
-    - [x] `ProductionCompletedEvent` triggers item creation and HUD notification.
-- [x] **O.3 — Supply Chain Disruption**
-    - [x] `SupplyChainDisruptionComponent` tracks `transport_bottleneck`, `labor_strike`, and `sabotage_risk`.
-    - [x] `SupplyChainSystem` (Layer 3 Economic) updates disruption based on infrastructure health, public opinion, and active crises.
-    - [x] `ProductionSystem` modified to scale efficiency by disruption levels and consume/lose stock due to bottlenecks.
-    - [x] `AgentActionSystem` (Worker behavior) adds a chance for labor strikes to interrupt `PRODUCE_GOODS` tasks.
-    - [x] `SupplyChainDisruptedEvent` for systemic signaling and visual feedback via speech/HUD.
-- [x] **O.4 — Player & Agent Interaction with Manufacturing**
-    - [x] `FactoryJobComponent` and `MuleComponent` for employment and logistics tracking.
-    - [x] Player interaction: "Take a Job" and "Start Shift" at industrial facilities via the Interaction System.
-    - [x] `ActivitySystem` integration: WORKING activity contributes to factory progress and pays wages (credits) to agents and players.
-    - [x] Logistic "Mule" agents: Autonomous agents seek finished goods at factories and transport them to shops/markets.
-    - [x] Industrial Inspection: Multi-layer inspection now reveals owner, active recipe, production progress, and supply chain disruptions.
+### The Long-Range Data Siphon
+**What the player sees**: A dim, dashed "Range Tether" (`- - -`) connects player to cursor. When hovering over an agent/terminal within range, it turns bright green with a "DATA DOWNLOADING..." HUD bar. If range is exceeded, it turns red and snaps.
+**What the player does**: Points cursor at target and holds `Space`. Must maintain proximity and LOS until the download bar fills.
+**Why it's fun**: Turns hacking into a tense, physical tailing mini-game within the crowd.
+**Depends on**: Existing Cursor Interaction and Range Enforcement.
+**Tasks**:
+- [ ] **[Visuals]** Add "Tether" line rendering to `RenderingSystem` using a dedicated plane.
+- [ ] **[Mechanic]** `SiphonSystem`: Track distance/LOS between player and target while `Space` is held.
+- [ ] **[Reward]** Transfer random `InformationRecord` or `Credits` to player inventory on successful completion.
+- [ ] **[Detection]** Add "Siphon Detection" to `AgentDecisionSystem`; NPCs may notice the siphon and confront the player.
 
----
-
-#### Phase P — Player Reputation System
-
-*Goal: the world's stance toward the player shifts based purely on simulated observed behavior — no explicit leveling.*
-
-- [x] **P.1 — ReputationComponent (Player)**
-- [x] **P.2 — Reputation Event Sources**
-- [x] **P.3 — Faction Response to Reputation**
-    - [x] Defined `ReputationTier` thresholds and helper `get_tier()` in `ReputationComponent`.
-    - [x] Interaction blocks for `EXCOMMUNICATED` players in `InteractionSystem`.
-    - [x] Trading markup/discounts based on Reputation Tiers in `BarterSystem`.
-    - [x] Reputation-based greetings and tags in `DialogueSystem`.
-    - [x] Guard pursuit and civilian flight response to `EXCOMMUNICATED` player in `AgentDecisionSystem`.
-    - [x] Standing and Tier visibility in `InspectionSystem` (Political tab).
-- [x] **P.4 — Reputation Decay & Recovery**
-- [x] **P.5 — HUD & Inspection Integration**
+### Personal Vehicle "Eject" & "Impact"
+**What the player sees**: A "Collision Path" (red dots `...`) ahead of driven vehicles. On "Eject," the vehicle glyph moves forward trailing sparks (`*`/`#`), while the player glyph `@` tumbles and stops.
+**What the player does**: Press `X` while driving at high speed to "Bail Out," turning the vehicle into a projectile.
+**Why it's fun**: Enables chaotic tactical distractions and "action movie" entry/exit maneuvers.
+**Depends on**: Existing Drivable Vehicles.
+**Tasks**:
+- [ ] **[Physics]** `VehicleMomentumSystem`: Decaying velocity for driverless vehicles in `MovementSystem`.
+- [ ] **[Visuals]** Add spark particle effects for driverless moving vehicles.
+- [ ] **[Simulation]** `VehicleCollisionSystem`: Emit `NoiseEvent` and `DamageEvent` on impact with agents or walls.
+- [ ] **[Action]** Map `X` key to `Bail Out` action; applies "Tumble" (stun/forced move) to the player.
 
 ---
 
-#### Phase T — Advanced Trading & Barter System
+## [Theme: Economic Leverage]
 
-*Goal: a full-featured, high-stakes bartering interface with visual inventory management and dynamic agent negotiation.*
+### Market Scarcity Tickers
+**What the player sees**: Every shop tile (light yellow `$`) and market stall (cyan `=`) now features a floating, single-character "Market Pulse" glyph. A pulsing red `!` indicates high scarcity (astronomical prices), a steady white `$` indicates stable supply, and a bright green `v` indicates surplus (bargain prices). This is visible in the overworld without opening a menu.
+**What the player does**: Approaches a high-scarcity shop (red `!`) and uses the `TRADE` interaction to sell specific items from their inventory at a 2x-5x credit markup, or uses the information to "hoard" items from stable areas to sell later.
+**Why it's fun**: It turns the city grid into a living stock ticker. Players can visually "read" the economic desperation of a neighborhood and exploit it for profit or reputation.
+**Depends on**: Existing `Dynamic Economics` and `BarterSystem`.
+**Tasks**:
+- [ ] **[Visuals]** Implement floating "Market Pulse" glyphs above shop/market tiles in `RenderingSystem`.
+- [ ] **[Logic]** Map `MarketDemandComponent` scarcity multipliers to the 3-tier visual pulse (Red/White/Green).
+- [ ] **[Barter]** Update `BarterSystem` to apply a "Local Scarcity Bonus" to the credit value of player items when selling at a high-demand node.
 
-- [x] **T.1 — Split-Screen Barter UI**
-- [x] **T.2 — Dynamic Valuation & Bartering**
-    - [x] Item categorization: Added `ItemMarketCategory` and `ItemMaterialComponent` to items.
-    - [x] Chunk-level scarcity: `BarterSystem` now scales item value based on local `MarketDemandComponent` scarcity multipliers.
-    - [x] Macro-economic tie-in: `BarterSystem` incorporates macro-zone `RawMaterialType` scarcity into base item pricing.
-    - [x] Systemic utility: Trades are evaluated against agent needs (hunger/thirst), biological state (medical items for sick/elderly), and environmental context (tools/tech in storms).
-    - [x] Economic loop: `EconomicSystem` aggregates item-category demand from agents and weather conditions.
-- [x] **T.3 — Negotiation Mechanics**
-    - [x] Rumors as secondary currency: Information utility scaled by veracity, hops, and faction relevance.
-    - [x] Dynamic counter-offers: NPCs suggest specific items from player inventory to bridge value gaps based on biological needs (hunger/thirst/health).
-    - [x] Pressure Mechanics: "Push your luck" leverage system with success rates tied to reputation, personality, and biological state (desperation/frustration).
-    - [x] Visual Tension Layers: Barter UI with patience metaphors (☺/⚄/⚠), greed meters, and contextual NPC feedback.
-    - [x] Social Feedback: Individual affinity shifts in `RelationshipComponent` based on trade success, insults, or failed pressure.
+### Information Laundering
+**What the player sees**: NPCs actively seeking intel now have a pulsing magenta `?` aura in the overworld. In the Split-Screen Barter UI, a new "Intel Ledger" panel appears. As the player drags `InformationRecord` items (rumors, dossiers) into the trade window, the NPC's "Greed Meter" (a yellow bar that usually resists trades) rapidly drains and is replaced by a magenta "Intel Value" bar.
+**What the player does**: Selects `InformationRecord` items from their "Intel Log" (toggled by `N`) to trade for physical goods (Food, Tools, Weapons) when they don't have enough credits.
+**Why it's fun**: It bridges the gap between "knowing things" and "having things." It makes the player feel like a true information broker who can survive on secrets alone.
+**Depends on**: Existing `InformationRecord` and `BarterSystem`.
+**Tasks**:
+- [ ] **[UI]** Add "Intel Ledger" panel and magenta "Intel Value" bar to the `BarterSystem` UI.
+- [ ] **[Logic]** Calculate "Intel Utility" in `BarterSystem` based on NPC faction affinity and the rumor's `veracity` and `hops`.
+- [ ] **[Sim]** On trade success, trigger `InformationPropagandaEvent` that "consumes" the intel item and seeds it into the NPC's home chunk.
+- [ ] **[Visuals]** Add a pulsing magenta `?` aura to NPCs in the overworld who have a high utility for the player's current intel.
 
-#### Misc
-- [ ] Size/metric system: decide on the metric size of one world tile (ie 1 tile = 1 meter). Buildings, environment objects, etc. should be built to the real-world-equivalent scale.
-- [ ] Buildings on the overworld should be a 1:1 ratio with their interior counterparts. Research the real world ratios of human to skyscraper.
+### Supply Chain "Interception"
+**What the player sees**: "Mule" agents (dark grey `m`) following a visible, dotted "Logistics Path" (only visible in `Financial Forensics` inspection mode). If the player stands in the path, it turns pulsing red. If the player shoves or attacks the Mule, the path breaks and the Mule drops a `CargoCrate` (large brown `#`).
+**What the player does**: Uses the `Financial Forensics` mode to identify a high-value shipment path, then uses the `InteractionMode` to "Redirect" (requires high Threat/Rep) or "Raid" the Mule.
+**Why it's fun**: It turns the "background" economy into a physical heist. The player can disrupt the supply of a whole neighborhood by stopping a single agent.
+**Depends on**: Existing `MuleComponent` and `Logistics` logic.
+**Tasks**:
+- [ ] **[Visuals]** Render "Logistics Path" as a dotted line in the `InspectionSystem` (Financial tab).
+- [ ] **[Action]** Implement "Redirect Shipment" dialogue option in `InteractionSystem` (SPEAK mode) gated by player reputation.
+- [ ] **[Sim]** Breaking a path triggers a `STOCK_OUT` event for the destination building, instantly flipping its "Market Pulse" glyph to red `!`.
+
+### The Industrial Sabotage Terminal
+**What the player sees**: External "Production Terminals" (bright yellow `T`) on the outside walls of factory buildings. Interacting with one while having a "Breaching Tool" causes the building's interior lights (visible through windows) to flicker and turn dim grey. An overhead text "PRODUCTION HALTED" appears over the building.
+**What the player does**: Approaches a `T` terminal, equips a "Breaching Tool," and presses `E`. The player must stay stationary for 5 ticks while a progress bar fills.
+**Why it's fun**: It allows the player to *create* economic leverage. By sabotaging a factory, they drive up local prices for its goods, making their own stockpiles more valuable.
+**Depends on**: Existing `FactoryComponent` and `ProductionSystem`.
+**Tasks**:
+- [ ] **[Tiles]** Add `ProductionTerminal` tile to `CityGenerationSystem` for Industrial zones.
+- [ ] **[Action]** Create "Sabotage Production" action in `InteractionSystem` that sets `FactoryComponent.is_active = false` for a set duration.
+- [ ] **[Visuals]** Implement building-wide light-dimming effect in `RenderingSystem` when a factory is inactive.
+
+### Ticker-Tape Plaza
+**What the player sees**: Vertical 3x10 "Stock Pillars" in central urban plazas (URBAN_CORE). These display scrolling ASCII ticker symbols (e.g., `^CRPT`, `vSYND`, `-TECH`) in bright green (`#00ff00`), neon red (`#ff0055`), or neutral white. The scrolling speed doubles during market volatility (L4 economic shifts).
+**What the player does**: Approaches a "Trading Terminal" (yellow `T`) at the pillar's base. Pressing `E` (Interaction) opens a streamlined "Stock Broker" UI to buy/sell shares using credits.
+**Why it's fun**: It makes the abstract economy physical. Watching your chosen faction's stock surge after you've completed a mission for them provides immediate, visible reward.
+**Depends on**: Existing `StockMarketSystem` and `UrbanCore` zoning.
+**Tasks**:
+- [ ] **[Visuals]** Add `StockPillar` multi-tile object to `CityGenerationSystem` in `URBAN_CORE` plazas.
+- [ ] **[Animation]** Implement ticker-tape scrolling logic in `RenderingSystem` with speed tied to `MarketVolatilityComponent`.
+- [ ] **[UI]** Create `StockBrokerUI` panel with buy/sell buttons and real-time sparklines.
+
+### Market-Moving Leaks
+**What the player sees**: In the `N.4 Intel Log`, certain `InformationRecords` (Rumors) are tagged with a gold `$` (Insider Info). Talking to a "Broker" NPC (identifiable by a yellow `B` glyph) adds a "Leak Tip" dialogue option.
+**What the player does**: Chooses a "Market-Moving" rumor to share. The Broker's overhead speech bubble turns magenta and they yell "BUY! BUY! BUY!" or "LIQUIDATE!" before sprinting to the nearest terminal.
+**Why it's fun**: It's "Insider Trading" as a gameplay mechanic. The player can sabotage a factory, find a "Sabotage Report" item, leak it to a broker, and profit from the resulting stock crash.
+**Depends on**: Existing `InformationRecord` and `StockMarketSystem`.
+**Tasks**:
+- [ ] **[Logic]** Add `is_insider_info` flag to `InformationRecord` and link it to specific faction tickers.
+- [ ] **[Dialogue]** Implement "Leak Tip" dialogue branch that updates the Broker's `GoalComponent` to `USE_TERMINAL`.
+- [ ] **[Sim]** Trigger a `MarketSentimentEvent` on tip leak that forces a 5% ticker shift in the next L3 tick.
+
+### The Scarcity Riot
+**What the player sees**: When a chunk's `MarketDemandComponent` for food/water stays >200% for 30 ticks, agents in that chunk replace their `.` glyph with a pulsing red `*` (Aggressive). They move toward the nearest Shop (`$`) or Warehouse, performing "Loot" animations (flickering red/white `!`).
+**What the player does**: The player can join the riot to loot high-value items for free (heavy Rep penalty), or use the `GIVE` command to distribute food to rioters, which "calms" them (removes the `*` glyph) and grants massive Faction Rep.
+**Why it's fun**: It turns economic failure into a physical, dangerous world event. The player's inventory becomes a tool for crowd control and social manipulation.
+**Depends on**: Existing `Dynamic Economics` and `AgentDecisionSystem`.
+**Tasks**:
+- [ ] **[AI]** Add `RIOTER` archetype and logic to `AgentDecisionSystem` triggered by sustained scarcity.
+- [ ] **[Visuals]** Implement pulsing `*` glyph and `Loot` animation for agents in riot state.
+- [ ] **[Sim]** Rioters apply `IntegrityDamage` to building doors/walls and "consume" shop inventory items via `LootEvent`.
+
+### Luxury Consumption Auras
+**What the player sees**: High-wealth agents (Corporate archetype) in chunks with a surplus of luxury goods gain a "Luxe Aura" — their background tile color shifts from black to a deep purple (`#440044`) or gold (`#554400`). They emit a constant `~` particle effect (glitter).
+**What the player does**: These agents carry unique "Luxury Items" (silk, spice, high-tier implants). The player can target these agents for pickpocketing or high-stakes trades that require unique "Elite Rumors."
+**Why it's fun**: It provides a visual heatmap of where the "good loot" is. The player can see the economic health of a neighborhood just by looking at the glow of its citizens.
+**Depends on**: Existing `IndividualWealth` and `ChunkSupply` systems.
+**Tasks**:
+- [ ] **[Visuals]** Add background-color override logic to `RenderingSystem` for agents based on wealth + local supply tiers.
+- [ ] **[Loot]** Update `AgentSpawnSystem` to assign high-tier `LuxuryItem` components to agents with the "Luxe Aura."
+- [ ] **[Feedback]** High-wealth agents gain unique "Arrogant" dialogue style when their aura is active.
+
+## [Theme: Visible Consequences]
+
+### The Squatter's Beacon
+**What the player sees**: Buildings with 5+ squatters display a pulsing orange `*` at their door. Inside, rooms are cluttered with brown `~` (trash) and dim orange `^` (improvised beds). The squatter agents flicker between their base glyph and a dim orange `@`.
+**What the player does**: Approaches the door and presses `E` (Interaction) to "Evict" (triggers forced movement for NPCs, causes high Faction Rep penalty) or "Support" (GIVE food/water via trade UI, gain Faction Rep with Syndicate).
+**Why it's fun**: It transforms the abstract `num_squatters` into a physical territory that the player can manipulate. Deciding whether to clear a building for profit or aid the inhabitants creates a direct, visible social shift.
+**Depends on**: Existing `BuildingHealthComponent` (num_squatters) and `InteractionSystem`.
+**Tasks**:
+- [ ] **[Visuals]** Implement pulsing orange `*` glyph for doorways with high squatter counts in `RenderingSystem`.
+- [ ] **[Generation]** Update `BuildingInteriorComponent` to spawn `Trash` and `ImprovisedBed` tiles in rooms based on squatter count.
+- [ ] **[Sim]** Map "Evict" and "Support" actions in `InteractionSystem` to update NPC `GoalComponent` and player `ReputationComponent`.
+
+### Thermal Fugue Shivers
+**What the player sees**: Agents in cold zones (< 5°C) gain a cyan `~` trailing particle effect and their glyph vibrates with a horizontal jitter. Their movement speed is halved. A "HYPOTHERMIC ZONE" indicator appears on the HUD when the player enters the cold field.
+**What the player does**: Uses a "Thermal Patch" item on a shivering agent (restores temp and consciousness) or chooses "Strip Layer" to take their clothing/item, which drops the agent's consciousness to 0 instantly.
+**Why it's fun**: It makes environmental temperature a tactile threat and opportunity. Seeing an agent shiver provides an immediate signal of vulnerability that the player can either alleviate or exploit for profit.
+**Depends on**: Existing `BiologySystem` (temperature degradation) and `TemperatureField`.
+**Tasks**:
+- [ ] **[Animation]** Add horizontal glyph jitter and `~` particle trail in `RenderingSystem` for agents with low `BiologyComponent.body_temp`.
+- [ ] **[Movement]** Apply speed multiplier based on temperature in `MovementSystem`.
+- [ ] **[Action]** Define "Thermal Patch" and "Strip Layer" interactions in `InteractionSystem` and `BiologySystem`.
+
+### Structural Scavenge Sites
+**What the player sees**: Buildings with Integrity < 20% have walls that flicker between grey `#` and brown `x` (rubble). Standing next to these walls displays a gold `!` "SALVAGE" prompt on the HUD.
+**What the player does**: Equips a "Wrecking Bar" in the held-item slot and holds `Space` while facing a flickering wall. After 5 ticks, the wall collapses into a "Scrap Pile" item (large brown `%`).
+**Why it's fun**: It allows the player to actively participate in the city's decay. Dismantling a crumbling building for resources is a physical, rewarding loop that speeds up urban renewal or deterioration.
+**Depends on**: Existing `BuildingHealthComponent` and `UrbanDecaySystem`.
+**Tasks**:
+- [ ] **[Visuals]** Implement wall glyph flickering in `RenderingSystem` tied to `BuildingHealthComponent.integrity`.
+- [ ] **[Action]** Add "Salvage Wall" progress-bar action in `InteractionSystem` requiring "Wrecking Bar" tool.
+- [ ] **[Sim]** Map successful salvage to wall removal, `integrity` reduction, and `ScrapPile` item spawning.
+
+### Heat-Haze Phantoms
+**What the player sees**: High-heat zones (> 45°C) cause translucent, flickering magenta `&` "Phantoms" to spawn. These mimic NPC movement paths but have no collision. The player's HUD border gains a rippling distortion effect.
+**What the player does**: Uses a "Cooling Mist" tool to dispel a phantom (yielding a "Fugue Data" InformationRecord) or follows a phantom's path to a hidden loot cache before it vanishes.
+**Why it's fun**: It turns the dangerous high-temperature environment into a source of systemic mystery. Phantoms act as guides to hidden value, rewarding players for exploring hazardous zones while managing their own temperature.
+**Depends on**: Existing `BiologySystem` (heat degradation) and `InformationRecord`.
+**Tasks**:
+- [ ] **[Visuals]** Implement translucent magenta `&` phantom rendering and HUD ripple distortion in `RenderingSystem`.
+- [ ] **[AI]** Create `PhantomMovementSystem` that generates paths toward hidden `LootCache` entities.
+- [ ] **[Action]** Add "Cooling Mist" tool functionality and "Phantom Dispel" logic to `InteractionSystem`.
+
+## [Theme: Risk And Reward]
+
+### Overdrive Extraction
+**What the player sees**: A `ResourceNode` (cyan `*`) pulses rapidly as the player extracts. A "NODE STABILITY" bar (Green -> Yellow -> Red) appears on the HUD. On "Overdrive," the node glyph flickers red `!` and emits white `@` (sparks). If stability hits 0, the node disappears in a 3x3 explosion of brown `x` (rubble).
+**What the player does**: Holds `E` to extract at normal speed. Holds `Shift + E` to "Overdrive," extracting materials 3x faster while the Stability bar drains. Releasing `Shift` allows stability to slowly recover.
+**Why it's fun**: It turns a passive "wait for bar to fill" mechanic into a high-stakes gamble. The player must decide exactly how much "extraction heat" they can risk before permanently losing the node or alerting nearby authorities.
+**Depends on**: Existing `ResourceNodeComponent` and `ExtractionProgressComponent`.
+**Tasks**:
+- [ ] **[Logic]** Implement `ExtractionStabilitySystem` to track node heat and decay.
+- [ ] **[Input]** Update `InputSystem` to detect `Shift + E` modifier for extraction.
+- [ ] **[Visuals]** Add stability bar and spark particle effects to `RenderingSystem`.
+- [ ] **[Simulation]** Trigger `NoiseEvent` and entity destruction when stability reaches 0.
+
+### Sensor-Blind Heists
+**What the player sees**: High-value "Secure Crates" (bright green `[`) in Corporate zones. These crates project a rotating, dim red FOV cone (using `\`, `|`, `/` glyphs on the floor) representing their internal security sensor. The player's white FOV and the crate's red FOV overlap visibly.
+**What the player does**: The player must time their movement to stay in the sensor's "blind spot" (the area behind the rotating cone) to reach the crate. If the player's `@` glyph enters a red sensor tile, a HUD alarm "SENSOR TRIPPED" appears and the crate turns grey `X` (locked).
+**Why it's fun**: It makes "stealth" a physical, spatial puzzle using the existing FOV system. The reward is high-tier raw materials; the risk is a lockdown and an immediate Guard response.
+**Depends on**: Existing `FOVSystem`.
+**Tasks**:
+- [ ] **[System]** Implement `SecuritySensorSystem` to manage rotating FOV cones for specific entities.
+- [ ] **[Logic]** Add collision check between Player position and Active Sensor FOV tiles.
+- [ ] **[Visuals]** Render red sensor cones using the secondary FOV layer in `RenderingSystem`.
+- [ ] **[Sim]** Trigger `SecurityAlertEvent` (locks crate, spawns Guard "Investigate" task).
+
+### The Scarcity Gold Rush
+**What the player sees**: A "Market Distress" HUD alert: "CRITICAL [Material] SHORTAGE IN CHUNK [X,Y]". On the world map, that chunk's border pulses red. Inside the chunk, NPCs swap their base glyph for a pulsing red `!` (Desperate) and move aggressively toward any resource nodes or the player.
+**What the player does**: Travel to the distressed chunk to extract the scarce material. Because of the shortage, the player must physically defend their extraction site from "Desperate" NPCs who will attempt to steal the materials as they are pulled from the ground.
+**Why it's fun**: It creates a "Gold Rush" scenario. The reward is a 5x credit multiplier for selling that material in that chunk, but the risk is being swarmed by the very simulation you're trying to exploit.
+**Depends on**: Existing `Dynamic Economics` and `RawMaterialFieldComponent`.
+**Tasks**:
+- [ ] **[Event]** Create `DistressEventSystem` to trigger scarcity spikes based on `EconomicSystem` data.
+- [ ] **[AI]** Implement "Desperate" archetype in `AgentDecisionSystem` that prioritizes stealing items from the player.
+- [ ] **[Visuals]** Add pulsing red chunk borders to the map rendering.
+- [ ] **[Economy]** Update `BarterSystem` to apply a 500% price surge for "Distressed" materials in the affected chunk.
+
+## [Theme: Player Tools]
+
+### The Silent Breach
+**What the player sees**: An intact window tile (cyan `+`) is replaced by a dark grey `.` (a small hole). The HUD displays "Breach Successful: Silent." If the player enters, the building background turns from black to a dim blue, indicating the interior is now "breached" but the alarm hasn't triggered.
+**What the player does**: The player selects the "Glass Cutter" tool and clicks a window tile within 1 tile range.
+**Why it's fun**: It rewards stealthy players by allowing them to bypass the noise-based "shatter" event of a broken window, enabling entry into hostile buildings without alerting guards.
+**Depends on**: Existing `Window Tiles` and `BuildingHealthComponent`.
+**Tasks**:
+- [ ] **[Tool]** Add `GlassCutter` item to the registry with a "Quiet" property.
+- [ ] **[Interaction]** Create a `SILENT_BREACH` action in `InteractionSystem` that drops window integrity below 50% without emitting a `NoiseEvent`.
+- [ ] **[Visuals]** Implement the `.` (hole) glyph transition for windows with `integrity < 50%` that weren't shattered.
+
+### Acoustic Remote-Scouting
+**What the player sees**: When the player holds the "Sonic Sensor" tool, a faint grey ring (chebyshev distance indicator) expands from the cursor. Any NPC movement within that ring, even behind walls, causes a bright yellow `!` to flicker on their tile for 1 tick. HUD text reads: "SENSING: [Entity Type] - [Action]".
+**What the player does**: Points the cursor at a distant tile (up to 8 tiles away) and holds `Right Click`.
+**Why it's fun**: It turns cursor range into a tactical "X-ray" tool for sound. It allows players to plan breaches by "listening" to the room through the windows or walls before committing to an entry.
+**Depends on**: Existing `Cursor Interaction` and `NoiseEvent` system.
+**Tasks**:
+- [ ] **[Visuals]** Implement "Acoustic Ring" rendering around the cursor position in `RenderingSystem`.
+- [ ] **[Logic]** Create `RemoteListeningSystem` that filters `NoiseEvents` within the cursor's effective radius and creates temporary visual markers.
+- [ ] **[Input]** Bind the `Sonic Sensor` item use to the cursor-holding state.
+
+### The Glass-Shatter Lure
+**What the player sees**: The player throws a "Heavy Object" (brown `*`) at a window. On impact, the window tile (`+`) explodes into a 3x3 spray of grey `,` particles. A pulsing red "Noise Wave" expands 10 tiles from the impact. Nearby guards (yellow `G`) swap their glyph to a pulsing `?` and immediately pathfind to the window.
+**What the player does**: Selects "Debris" or "Rock" in inventory and clicks a window tile from a distance (utilizing the cursor interaction).
+**Why it's fun**: It turns the "Broken window" mechanic into a primary tool for manipulation. The player can deliberately break a window to draw guards away from a secure entrance, creating a window of opportunity elsewhere.
+**Depends on**: Existing `Window Tiles` and `Guard AI`.
+**Tasks**:
+- [ ] **[Action]** Implement "Throw Item" interaction that calculates a path to the cursor target.
+- [ ] **[Logic]** Update `GuardDecisionSystem` to generate a high-priority "Investigate Shatter" goal when a `NoiseEvent` is tagged with `Source::Window`.
+- [ ] **[Animation]** Create a `ShatterParticle` effect and "Noise Wave" overlay in `RenderingSystem`.
+
+### Window-Sill Peek
+**What the player sees**: When the player is adjacent to a window and uses the `OBSERVE` mode, the camera centers on the building's interior. The exterior map dims to near-black, while the interior rooms become brightly lit. NPC names and "Current Task" (e.g., "SLEEPING", "CLEANING GUN") are displayed in the HUD side-panel.
+**What the player does**: Stands next to a window tile and presses `Space` while in `OBSERVE` interaction mode.
+**Why it's fun**: It makes windows a vital "reconnaissance" layer. It gives the player a safe way to identify high-value targets or threats before they ever step inside a building.
+**Depends on**: Existing `FOV System` and `Interaction Modes`.
+**Tasks**:
+- [ ] **[Action]** Add `WINDOW_PEEK` logic to the `OBSERVE` interaction when the target is a window.
+- [ ] **[Visuals]** Implement "Interior Focus" rendering that overrides tile brightness based on proximity to the peeked window.
+- [ ] **[Logic]** Grant temporary `Line of Sight` through the building interior during the peek action.
