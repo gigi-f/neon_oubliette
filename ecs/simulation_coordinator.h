@@ -63,6 +63,9 @@ private:
 
     uint64_t m_turn_counter = 0;
     bool m_turn_requested = false;
+    float m_output_accumulator = 0.0f;
+    static constexpr float kOutputHz = 30.0f;
+    static constexpr float kOutputIntervalSeconds = 1.0f / kOutputHz;
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;
     SystemScheduler& m_scheduler;

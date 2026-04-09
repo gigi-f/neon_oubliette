@@ -16,6 +16,59 @@ namespace NeonOubliette::Systems {
 // [L.6] Forward declaration for internal dashboard rendering
 static void render_sparkline(struct ncplane* plane, int y, int x, const std::vector<float>& history, uint32_t color);
 
+int RenderingSystem::floor_div(int value, int divisor) {
+    if (divisor <= 0) return 0;
+    int q = value / divisor;
+    int r = value % divisor;
+    if (r != 0 && ((r < 0) != (divisor < 0))) {
+        --q;
+    }
+    return q;
+}
+
+uint64_t RenderingSystem::make_spatial_key(int layer, int chunk_x, int chunk_y) {
+    uint64_t key = static_cast<uint64_t>(static_cast<uint32_t>(layer));
+    key = (key << 21) ^ static_cast<uint64_t>(static_cast<uint32_t>(chunk_x) & 0x1FFFFF);
+    key = (key << 21) ^ static_cast<uint64_t>(static_cast<uint32_t>(chunk_y) & 0x1FFFFF);
+    return key;
+}
+
+void RenderingSystem::handleChunkChangedEvent(const ChunkChangedEvent& event) {
+    (void)event;
+    terrain_spatial_dirty_ = true;
+    entity_spatial_dirty_ = true;
+}
+
+void RenderingSystem::rebuild_terrain_spatial_index() {
+    terrain_spatial_index_.clear();
+    int chunk_size = std::max(1, get_chunk_size(registry_));
+
+    auto terrain_view = registry_.view<TerrainComponent, RenderableComponent, PositionComponent>();
+    for (auto entity : terrain_view) {
+        const auto& pos = terrain_view.get<PositionComponent>(entity);
+        int cx = floor_div(pos.x, chunk_size);
+        int cy = floor_div(pos.y, chunk_size);
+        terrain_spatial_index_[make_spatial_key(pos.layer_id, cx, cy)].push_back(entity);
+    }
+
+    terrain_spatial_dirty_ = false;
+}
+
+void RenderingSystem::rebuild_entity_spatial_index() {
+    entity_spatial_index_.clear();
+    int chunk_size = std::max(1, get_chunk_size(registry_));
+
+    auto entity_view = registry_.view<RenderableComponent, PositionComponent>(entt::exclude<TerrainComponent>);
+    for (auto entity : entity_view) {
+        const auto& pos = entity_view.get<PositionComponent>(entity);
+        int cx = floor_div(pos.x, chunk_size);
+        int cy = floor_div(pos.y, chunk_size);
+        entity_spatial_index_[make_spatial_key(pos.layer_id, cx, cy)].push_back(entity);
+    }
+
+    entity_spatial_dirty_ = false;
+}
+
 RenderingSystem::RenderingSystem(entt::registry& registry, struct notcurses* nc_context,
                                  entt::dispatcher& event_dispatcher)
     : registry_(registry), nc_context_(nc_context), event_dispatcher_(event_dispatcher), 
@@ -231,6 +284,7 @@ void RenderingSystem::initialize() {
     event_dispatcher_.sink<ToggleControlsHelpEvent>().connect<&RenderingSystem::handleToggleControlsHelpEvent>(this);
     event_dispatcher_.sink<ToggleCrisisDashboardEvent>().connect<&RenderingSystem::handleToggleCrisisDashboardEvent>(this);
     event_dispatcher_.sink<BroadcastPulseEvent>().connect<&RenderingSystem::handleBroadcastPulseEvent>(this);
+    event_dispatcher_.sink<ChunkChangedEvent>().connect<&RenderingSystem::handleChunkChangedEvent>(this);
 }
 
 void RenderingSystem::handleBroadcastPulseEvent(const BroadcastPulseEvent& event) {
@@ -365,6 +419,22 @@ void RenderingSystem::update(double delta_time) {
             }
             break;
         }
+    }
+
+    uint64_t current_turn = 0;
+    auto dbg_view = registry_.view<DebugOverlayComponent>();
+    if (dbg_view.begin() != dbg_view.end()) {
+        current_turn = dbg_view.get<DebugOverlayComponent>(*dbg_view.begin()).turn;
+    }
+    if (current_turn != last_spatial_turn_) {
+        entity_spatial_dirty_ = true;
+        last_spatial_turn_ = current_turn;
+    }
+    if (terrain_spatial_dirty_) {
+        rebuild_terrain_spatial_index();
+    }
+    if (entity_spatial_dirty_) {
+        rebuild_entity_spatial_index();
     }
 
     if (inventory_visible_) {
@@ -734,28 +804,41 @@ void RenderingSystem::update(double delta_time) {
         }
     }
 
-    // 2. Render Terrain (with viewport culling)
+    // 2. Render Terrain (with viewport culling + chunk spatial index)
+    int terrain_chunk_min_x = floor_div(vp_x_min, cached_chunk_size);
+    int terrain_chunk_max_x = floor_div(vp_x_max, cached_chunk_size);
+    int terrain_chunk_min_y = floor_div(vp_y_min, cached_chunk_size);
+    int terrain_chunk_max_y = floor_div(vp_y_max, cached_chunk_size);
 
-    auto terrain_view = registry_.view<TerrainComponent, RenderableComponent, PositionComponent>();
-    for (auto entity : terrain_view) {
-        const auto& pos = terrain_view.get<PositionComponent>(entity);
-        if (pos.layer_id != current_layer) continue;
-        if (pos.x < vp_x_min || pos.x > vp_x_max || pos.y < vp_y_min || pos.y > vp_y_max) continue;
-        if (!is_visible(pos)) continue;
-        const auto& render = terrain_view.get<RenderableComponent>(entity);
-        
-        uint32_t color = parse_hex_color(render.color);
-        bool has_physics = registry_.all_of<Layer0PhysicsComponent>(entity);
-        if (has_physics) {
-            const auto& phys = registry_.get<Layer0PhysicsComponent>(entity);
-            // Terrain keeps authored palette; thermal tinting is reserved for non-terrain entities.
-            if (phys.temperature_celsius > 800.0f) {
-                static thread_local std::mt19937 fgen(666);
-                if (std::uniform_real_distribution<>(0,1)(fgen) < 0.2) color = 0xFFFF00; 
+    for (int cx = terrain_chunk_min_x; cx <= terrain_chunk_max_x; ++cx) {
+        for (int cy = terrain_chunk_min_y; cy <= terrain_chunk_max_y; ++cy) {
+            auto it = terrain_spatial_index_.find(make_spatial_key(current_layer, cx, cy));
+            if (it == terrain_spatial_index_.end()) continue;
+
+            for (auto entity : it->second) {
+                if (!registry_.valid(entity) ||
+                    !registry_.all_of<TerrainComponent, RenderableComponent, PositionComponent>(entity)) {
+                    continue;
+                }
+
+                const auto& pos = registry_.get<PositionComponent>(entity);
+                if (pos.x < vp_x_min || pos.x > vp_x_max || pos.y < vp_y_min || pos.y > vp_y_max) continue;
+                if (!is_visible(pos)) continue;
+
+                const auto& render = registry_.get<RenderableComponent>(entity);
+                uint32_t color = parse_hex_color(render.color);
+                if (registry_.all_of<Layer0PhysicsComponent>(entity)) {
+                    const auto& phys = registry_.get<Layer0PhysicsComponent>(entity);
+                    // Terrain keeps authored palette; thermal tinting is reserved for non-terrain entities.
+                    if (phys.temperature_celsius > 800.0f) {
+                        static thread_local std::mt19937 fgen(666);
+                        if (std::uniform_real_distribution<>(0,1)(fgen) < 0.2) color = 0xFFFF00;
+                    }
+                }
+
+                render_at(world_plane_, pos.x, pos.y, render.glyph, color);
             }
         }
-        
-        render_at(world_plane_, pos.x, pos.y, render.glyph, color);
     }
 
     // --- [K.4] Render Graffiti ---
@@ -821,14 +904,27 @@ void RenderingSystem::update(double delta_time) {
                 {
                     int rx_min = p_pos.x - range, rx_max = p_pos.x + range;
                     int ry_min = p_pos.y - range, ry_max = p_pos.y + range;
-                    auto terrain_view_ring = registry_.view<PositionComponent, TerrainComponent>();
-                    for (auto t_ent : terrain_view_ring) {
-                        const auto& tp = terrain_view_ring.get<PositionComponent>(t_ent);
-                        if (tp.layer_id != current_layer) continue;
-                        if (tp.x < rx_min || tp.x > rx_max || tp.y < ry_min || tp.y > ry_max) continue;
-                        auto type = terrain_view_ring.get<TerrainComponent>(t_ent).type;
-                        if (type == TerrainType::WALL || type == TerrainType::WINDOW) {
-                            wall_positions.insert(((uint64_t)(uint32_t)tp.x << 32) | (uint32_t)tp.y);
+                    int rcx_min = floor_div(rx_min, cached_chunk_size);
+                    int rcx_max = floor_div(rx_max, cached_chunk_size);
+                    int rcy_min = floor_div(ry_min, cached_chunk_size);
+                    int rcy_max = floor_div(ry_max, cached_chunk_size);
+
+                    for (int cx = rcx_min; cx <= rcx_max; ++cx) {
+                        for (int cy = rcy_min; cy <= rcy_max; ++cy) {
+                            auto it = terrain_spatial_index_.find(make_spatial_key(current_layer, cx, cy));
+                            if (it == terrain_spatial_index_.end()) continue;
+
+                            for (auto t_ent : it->second) {
+                                if (!registry_.valid(t_ent) || !registry_.all_of<PositionComponent, TerrainComponent>(t_ent)) {
+                                    continue;
+                                }
+                                const auto& tp = registry_.get<PositionComponent>(t_ent);
+                                if (tp.x < rx_min || tp.x > rx_max || tp.y < ry_min || tp.y > ry_max) continue;
+                                auto type = registry_.get<TerrainComponent>(t_ent).type;
+                                if (type == TerrainType::WALL || type == TerrainType::WINDOW) {
+                                    wall_positions.insert(((uint64_t)(uint32_t)tp.x << 32) | (uint32_t)tp.y);
+                                }
+                            }
                         }
                     }
                 }
@@ -851,91 +947,106 @@ void RenderingSystem::update(double delta_time) {
         }
     }
 
-    // 3. Render Entities (with viewport culling)
-    auto entity_view = registry_.view<RenderableComponent, PositionComponent>(entt::exclude<TerrainComponent>);
-    for (auto entity : entity_view) {
-        const auto& pos = entity_view.get<PositionComponent>(entity);
-        if (pos.layer_id != current_layer) continue;
-        if (pos.x < vp_x_min || pos.x > vp_x_max || pos.y < vp_y_min || pos.y > vp_y_max) continue;
-        if (!is_visible(pos)) continue;
-        const auto& render = entity_view.get<RenderableComponent>(entity);
+    // 3. Render Entities (with viewport culling + chunk spatial index)
+    int entity_chunk_min_x = floor_div(vp_x_min, cached_chunk_size);
+    int entity_chunk_max_x = floor_div(vp_x_max, cached_chunk_size);
+    int entity_chunk_min_y = floor_div(vp_y_min, cached_chunk_size);
+    int entity_chunk_max_y = floor_div(vp_y_max, cached_chunk_size);
 
-        char glyph = render.glyph;
-        uint32_t color = parse_hex_color(render.color);
+    for (int cx = entity_chunk_min_x; cx <= entity_chunk_max_x; ++cx) {
+        for (int cy = entity_chunk_min_y; cy <= entity_chunk_max_y; ++cy) {
+            auto it = entity_spatial_index_.find(make_spatial_key(current_layer, cx, cy));
+            if (it == entity_spatial_index_.end()) continue;
 
-        // [J.1] Age-Based Visual Metaphor
-        if (registry_.all_of<AgeComponent>(entity)) {
-            const auto& age = registry_.get<AgeComponent>(entity);
-            
-            // Glyph Metaphor
-            if (age.stage == LifeStage::INFANT) {
-                glyph = '.'; // Metaphor: Small, proto-agent
-            } else if (age.stage == LifeStage::CHILD) {
-                glyph = (glyph >= 'A' && glyph <= 'Z') ? (char)(glyph + 32) : glyph; // Force lowercase
-            } else if (age.stage == LifeStage::ANCIENT) {
-                // Xeno-Ancient Metaphor: specialized Omega or shimmering
-                if (registry_.all_of<XenoComponent>(entity)) glyph = (char)224; // Greek Alpha/Omega style if supported
-            }
-
-            // Color Metaphor (Brightness/Saturation shifts)
-            uint32_t r = (color >> 16) & 0xFF;
-            uint32_t g = (color >> 8) & 0xFF;
-            uint32_t b = color & 0xFF;
-
-            if (age.stage == LifeStage::INFANT || age.stage == LifeStage::CHILD) {
-                // Vibrant, high saturation for youth
-                r = std::min(255u, r + 50); g = std::min(255u, g + 50); b = std::min(255u, b + 50);
-            } else if (age.stage == LifeStage::ELDER) {
-                // Desaturated/Dimmed for elders
-                float grey_factor = 0.5f;
-                uint32_t grey = (uint32_t)((r + g + b) / 3);
-                r = (uint32_t)(r * (1.0f - grey_factor) + grey * grey_factor);
-                g = (uint32_t)(g * (1.0f - grey_factor) + grey * grey_factor);
-                b = (uint32_t)(b * (1.0f - grey_factor) + grey * grey_factor);
-                // Further dim
-                r /= 2; g /= 2; b /= 2;
-            } else if (age.stage == LifeStage::ANCIENT) {
-                // Mythic shimmering (flicker)
-                static thread_local std::mt19937 flicker_gen(42);
-                if (std::uniform_real_distribution<>(0, 1)(flicker_gen) < 0.3f) {
-                    r = 255; g = 255; b = 255; // White flash
+            for (auto entity : it->second) {
+                if (!registry_.valid(entity) || !registry_.all_of<RenderableComponent, PositionComponent>(entity)) {
+                    continue;
                 }
-            }
-            color = (r << 16) | (g << 8) | b;
-        }
 
-        if (registry_.all_of<Layer0PhysicsComponent>(entity)) {
-            const auto& phys = registry_.get<Layer0PhysicsComponent>(entity);
-            color = parse_hex_color(map_temperature_to_color(phys.temperature_celsius, render.color));
-            if (phys.temperature_celsius > 800.0f) {
-                static thread_local std::mt19937 fgen(777);
-                if (std::uniform_real_distribution<>(0,1)(fgen) < 0.2) color = 0xFFFF00; 
-            }
-        }
+                const auto& pos = registry_.get<PositionComponent>(entity);
+                if (pos.layer_id != current_layer) continue;
+                if (pos.x < vp_x_min || pos.x > vp_x_max || pos.y < vp_y_min || pos.y > vp_y_max) continue;
+                if (!is_visible(pos)) continue;
+                const auto& render = registry_.get<RenderableComponent>(entity);
 
-        if (registry_.all_of<SizeComponent>(entity)) {
-            const auto& size = registry_.get<SizeComponent>(entity);
-            for (int dx = 0; dx < size.width; ++dx) {
-                for (int dy = 0; dy < size.height; ++dy) {
-                    if (is_visible(PositionComponent(pos.x + dx, pos.y + dy, current_layer))) {
-                        render_at(entity_plane_, pos.x + dx, pos.y + dy, glyph, color);
+                char glyph = render.glyph;
+                uint32_t color = parse_hex_color(render.color);
+
+                // [J.1] Age-Based Visual Metaphor
+                if (registry_.all_of<AgeComponent>(entity)) {
+                    const auto& age = registry_.get<AgeComponent>(entity);
+
+                    // Glyph Metaphor
+                    if (age.stage == LifeStage::INFANT) {
+                        glyph = '.'; // Metaphor: Small, proto-agent
+                    } else if (age.stage == LifeStage::CHILD) {
+                        glyph = (glyph >= 'A' && glyph <= 'Z') ? (char)(glyph + 32) : glyph; // Force lowercase
+                    } else if (age.stage == LifeStage::ANCIENT) {
+                        // Xeno-Ancient Metaphor: specialized Omega or shimmering
+                        if (registry_.all_of<XenoComponent>(entity)) glyph = (char)224; // Greek Alpha/Omega style if supported
+                    }
+
+                    // Color Metaphor (Brightness/Saturation shifts)
+                    uint32_t r = (color >> 16) & 0xFF;
+                    uint32_t g = (color >> 8) & 0xFF;
+                    uint32_t b = color & 0xFF;
+
+                    if (age.stage == LifeStage::INFANT || age.stage == LifeStage::CHILD) {
+                        // Vibrant, high saturation for youth
+                        r = std::min(255u, r + 50); g = std::min(255u, g + 50); b = std::min(255u, b + 50);
+                    } else if (age.stage == LifeStage::ELDER) {
+                        // Desaturated/Dimmed for elders
+                        float grey_factor = 0.5f;
+                        uint32_t grey = (uint32_t)((r + g + b) / 3);
+                        r = (uint32_t)(r * (1.0f - grey_factor) + grey * grey_factor);
+                        g = (uint32_t)(g * (1.0f - grey_factor) + grey * grey_factor);
+                        b = (uint32_t)(b * (1.0f - grey_factor) + grey * grey_factor);
+                        // Further dim
+                        r /= 2; g /= 2; b /= 2;
+                    } else if (age.stage == LifeStage::ANCIENT) {
+                        // Mythic shimmering (flicker)
+                        static thread_local std::mt19937 flicker_gen(42);
+                        if (std::uniform_real_distribution<>(0, 1)(flicker_gen) < 0.3f) {
+                            r = 255; g = 255; b = 255; // White flash
+                        }
+                    }
+                    color = (r << 16) | (g << 8) | b;
+                }
+
+                if (registry_.all_of<Layer0PhysicsComponent>(entity)) {
+                    const auto& phys = registry_.get<Layer0PhysicsComponent>(entity);
+                    color = parse_hex_color(map_temperature_to_color(phys.temperature_celsius, render.color));
+                    if (phys.temperature_celsius > 800.0f) {
+                        static thread_local std::mt19937 fgen(777);
+                        if (std::uniform_real_distribution<>(0,1)(fgen) < 0.2) color = 0xFFFF00;
                     }
                 }
-            }
-        } else {
-            render_at(entity_plane_, pos.x, pos.y, glyph, color);
-        }
 
-        // --- Render Tags [D.3] ---
-        if (current_mode == SimulationMode::GOD_MODE && registry_.all_of<TaggedComponent>(entity)) {
-            const auto& tag = registry_.get<TaggedComponent>(entity);
-            int sx = pos.x + offset_x;
-            int sy = pos.y + offset_y;
-            if (sx >= 0 && sx < (int)view_cols && sy >= 0 && sy < (int)view_rows) {
-                ncplane_set_fg_rgb(entity_plane_, 0x00FFFF);
-                ncplane_set_styles(entity_plane_, NCSTYLE_BOLD);
-                ncplane_putstr_yx(entity_plane_, sy - 1, sx, tag.tag_label.c_str());
-                ncplane_set_styles(entity_plane_, NCSTYLE_NONE);
+                if (registry_.all_of<SizeComponent>(entity)) {
+                    const auto& size = registry_.get<SizeComponent>(entity);
+                    for (int dx = 0; dx < size.width; ++dx) {
+                        for (int dy = 0; dy < size.height; ++dy) {
+                            if (is_visible(PositionComponent(pos.x + dx, pos.y + dy, current_layer))) {
+                                render_at(entity_plane_, pos.x + dx, pos.y + dy, glyph, color);
+                            }
+                        }
+                    }
+                } else {
+                    render_at(entity_plane_, pos.x, pos.y, glyph, color);
+                }
+
+                // --- Render Tags [D.3] ---
+                if (current_mode == SimulationMode::GOD_MODE && registry_.all_of<TaggedComponent>(entity)) {
+                    const auto& tag = registry_.get<TaggedComponent>(entity);
+                    int sx = pos.x + offset_x;
+                    int sy = pos.y + offset_y;
+                    if (sx >= 0 && sx < (int)view_cols && sy >= 0 && sy < (int)view_rows) {
+                        ncplane_set_fg_rgb(entity_plane_, 0x00FFFF);
+                        ncplane_set_styles(entity_plane_, NCSTYLE_BOLD);
+                        ncplane_putstr_yx(entity_plane_, sy - 1, sx, tag.tag_label.c_str());
+                        ncplane_set_styles(entity_plane_, NCSTYLE_NONE);
+                    }
+                }
             }
         }
     }
@@ -1709,11 +1820,23 @@ void RenderingSystem::update(double delta_time) {
             // Build the status string: Phase | System | Turn | Timings
             char buf[256];
             const std::string& sys = dbg.current_system.empty() ? dbg.current_phase : dbg.current_system;
+            std::string hot_macro = dbg.hottest_macro_system.empty() ? "-" : dbg.hottest_macro_system;
+            std::string hot_output = dbg.hottest_output_system.empty() ? "-" : dbg.hottest_output_system;
+            if (hot_macro.size() > 10) hot_macro = hot_macro.substr(0, 10);
+            if (hot_output.size() > 10) hot_output = hot_output.substr(0, 10);
             snprintf(buf, sizeof(buf),
-                " T:%-6llu  %-14s  Macro:%5.1fms  Micro:%5.1fms  Out:%5.1fms  Total:%6.1fms",
+                " T:%-6llu %-12s In:%4.1f M:%5.1f Mi:%5.1f O:%5.1f Tot:%6.1f HM:%s %.1f HO:%s %.1f",
                 (unsigned long long)dbg.turn,
                 sys.c_str(),
-                dbg.ms_macro, dbg.ms_micro, dbg.ms_output, dbg.ms_total_tick);
+                dbg.ms_input,
+                dbg.ms_macro,
+                dbg.ms_micro,
+                dbg.ms_output,
+                dbg.ms_total_tick,
+                hot_macro.c_str(),
+                dbg.ms_hottest_macro,
+                hot_output.c_str(),
+                dbg.ms_hottest_output);
 
             ncplane_set_fg_rgb(debug_overlay_plane_, 0x00CC44);
             ncplane_set_bg_rgb(debug_overlay_plane_, 0x0A0A1A);

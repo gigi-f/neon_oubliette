@@ -236,7 +236,7 @@ int main(int argc, char** argv) {
     scheduler.initialize_all_systems();
     simulation_coordinator.initialize_all_systems();
 
-    double delta_time = 0.016;
+    double delta_time = 1.0 / 60.0;
 
     // --- World Dimensions (single source of truth) ---
     constexpr int MACRO_COLS       = 20;
@@ -465,8 +465,24 @@ int main(int argc, char** argv) {
 
     // --- Main Simulation Loop ---
     g_startup_phase = "game-loop";
+    using clock = std::chrono::steady_clock;
+    auto last_frame_time = clock::now();
+    constexpr auto kFrameBudget = std::chrono::milliseconds(16); // ~60 FPS cap
+
     while (running) {
+        auto frame_start = clock::now();
+        delta_time = std::chrono::duration<double>(frame_start - last_frame_time).count();
+        if (delta_time <= 0.0 || delta_time > 0.25) {
+            delta_time = 1.0 / 60.0;
+        }
+        last_frame_time = frame_start;
+
         simulation_coordinator.advance_turn(delta_time);
+
+        auto frame_elapsed = clock::now() - frame_start;
+        if (frame_elapsed < kFrameBudget) {
+            std::this_thread::sleep_for(kFrameBudget - frame_elapsed);
+        }
     }
 
     g_nc_context = nullptr; // Don't double-stop in crash handler

@@ -40,6 +40,7 @@ public:
     void update(double delta_time) override;
 
     void handlePathfindingRequestEvent(const PathfindingRequestEvent& event);
+    void handleChunkChangedEvent(const ChunkChangedEvent& event);
 
 private:
     entt::registry& registry;
@@ -57,8 +58,8 @@ private:
     bool isNearPlayer(PositionComponent pos) const;
     std::vector<PositionComponent> generateSimulatedPath(PositionComponent start, PositionComponent goal) const;
 
-    bool isTraversable(PositionComponent pos, entt::entity requester_entity) const;
-    int getMovementCost(PositionComponent pos, entt::entity requester_entity) const;
+    bool isTraversable(PositionComponent pos, entt::entity requester_entity);
+    int getMovementCost(PositionComponent pos, entt::entity requester_entity);
     int getHeuristic(PositionComponent a, PositionComponent b) const;
     std::vector<PositionComponent> reconstructPath(Node* endNode) const;
 };

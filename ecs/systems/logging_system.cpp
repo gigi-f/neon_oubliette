@@ -1,5 +1,6 @@
 #include "logging_system.h"
 
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -16,7 +17,11 @@ LoggingSystem::LoggingSystem(entt::registry& registry, entt::dispatcher& dispatc
 }
 
 void LoggingSystem::update(double delta_time) {
-    (void)delta_time;
+    flush_accumulator_seconds_ += std::max(0.0, delta_time);
+    if (flush_accumulator_seconds_ >= kFlushIntervalSeconds || pending_lines_.size() >= kFlushBatchSize) {
+        flush_accumulator_seconds_ = 0.0;
+        flushPendingLogs(kFlushBatchSize);
+    }
 }
 
 std::string LogSeverityToString(LogSeverity severity) {
@@ -44,10 +49,30 @@ void LoggingSystem::handleLogEvent(const LogEvent& event) {
     ss << std::put_time(&bt, "%Y-%m-%d %H:%M:%S") << " [" << LogSeverityToString(event.severity) << "] "
        << "[" << event.source_system << "] " << event.message;
 
-    // Use a fixed path in /tmp for easier discovery in restricted environments
+    pending_lines_.push_back(ss.str());
+
+    // Backpressure guard: if logging spikes, flush immediately and bound memory.
+    if (pending_lines_.size() >= kHardQueueLimit) {
+        flushPendingLogs(pending_lines_.size());
+    }
+}
+
+void LoggingSystem::flushPendingLogs(std::size_t max_lines) {
+    if (pending_lines_.empty() || max_lines == 0) {
+        return;
+    }
+
+    // Use a fixed path in /tmp for easier discovery in restricted environments.
     std::ofstream log_file("/tmp/neon_oubliette.log", std::ios::app);
-    if (log_file.is_open()) {
-        log_file << ss.str() << std::endl;
+    if (!log_file.is_open()) {
+        return;
+    }
+
+    std::size_t lines_written = 0;
+    while (!pending_lines_.empty() && lines_written < max_lines) {
+        log_file << pending_lines_.front() << '\n';
+        pending_lines_.pop_front();
+        ++lines_written;
     }
 }
 

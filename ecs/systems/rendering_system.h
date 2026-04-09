@@ -7,6 +7,7 @@
 #include "system_scheduler.h"
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <unordered_map>
 
 namespace NeonOubliette::Systems {
@@ -61,6 +62,18 @@ private:
     std::string room_tag_to_string(NeonOubliette::RoomTag tag);
 
     std::unordered_map<std::string, uint32_t> color_cache_;
+
+    bool terrain_spatial_dirty_ = true;
+    bool entity_spatial_dirty_ = true;
+    uint64_t last_spatial_turn_ = 0;
+    std::unordered_map<uint64_t, std::vector<entt::entity>> terrain_spatial_index_;
+    std::unordered_map<uint64_t, std::vector<entt::entity>> entity_spatial_index_;
+
+    static int floor_div(int value, int divisor);
+    static uint64_t make_spatial_key(int layer, int chunk_x, int chunk_y);
+    void rebuild_terrain_spatial_index();
+    void rebuild_entity_spatial_index();
+    void handleChunkChangedEvent(const ChunkChangedEvent& event);
 };
 
 } // namespace NeonOubliette::Systems

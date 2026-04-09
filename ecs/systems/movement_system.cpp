@@ -59,8 +59,11 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
             if (target_y >= config.height) target_y = config.height - 1;
         }
 
+        PositionComponent target_pos(target_x, target_y, target_layer);
+
         // --- Volumetric Collision Detection ---
         bool blocked = false;
+        auto& spatial = get_spatial_query_cache(m_registry);
 
         // [A.8] Interior Nav Grid Check (Static Obstacles)
         entt::entity blocker = entt::null;
@@ -80,65 +83,25 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
         }
         
         if (!blocked) {
-            // We check the destination (target_x, target_y) against all physical volumes
-            auto obs_view = m_registry.view<PositionComponent, ObstacleComponent, SizeComponent>();
-            for (auto obstacle : obs_view) {
-                if (obstacle == event.entity) continue;
-
-                const auto& o_pos = obs_view.get<PositionComponent>(obstacle);
-                const auto& o_size = obs_view.get<SizeComponent>(obstacle);
-
-                // Check if target point is inside the obstacle's rectangle
-                if (target_layer == o_pos.layer_id &&
-                    target_x >= o_pos.x && target_x < o_pos.x + o_size.width &&
-                    target_y >= o_pos.y && target_y < o_pos.y + o_size.height) {
-                    
-                    // [B.1] Check if this is a building and if we are hitting a door
-                    if (m_registry.all_of<BuildingComponent>(obstacle)) {
-                        bool found_door = false;
-                        auto door_view = m_registry.view<PositionComponent, BuildingEntranceComponent>();
-                        for (auto door_ent : door_view) {
-                            const auto& d_pos = door_view.get<PositionComponent>(door_ent);
-                            if (d_pos.x == target_x && d_pos.y == target_y && d_pos.layer_id == target_layer) {
-                                found_door = true;
-                                m_dispatcher.trigger(BuildingEntranceEvent{event.entity, obstacle, door_ent, target_x, target_y, target_layer});
-                                break;
+            auto obs_it = spatial.obstacle_at.find(target_pos);
+            if (obs_it != spatial.obstacle_at.end()) {
+                const entt::entity obstacle = obs_it->second;
+                if (obstacle != event.entity && m_registry.valid(obstacle)) {
+                    // Broken windows are passable crawl points.
+                    if (!spatial.passable_window_tiles.count(target_pos)) {
+                        // [B.1] Building entrances are traversable and trigger a transition event.
+                        if (m_registry.all_of<BuildingComponent>(obstacle)) {
+                            auto door_it = spatial.entrance_entity_at.find(target_pos);
+                            if (door_it != spatial.entrance_entity_at.end()) {
+                                m_dispatcher.trigger(BuildingEntranceEvent{event.entity, obstacle, door_it->second, target_x, target_y, target_layer});
+                                // Door allows entry; layer transition is handled by BuildingEntranceSystem.
+                                return;
                             }
                         }
-                        if (found_door) {
-                            // Door allows entry; we stop processing move here as layer transition is handled by BuildingEntranceSystem
-                            return;
-                        }
-                    }
 
-                    blocked = true;
-                    blocker = obstacle;
-                    break;
-                }
-            }
-        }
-
-        // Check against single-tile obstacles without size component
-        if (!blocked) {
-            auto single_obs = m_registry.view<PositionComponent, ObstacleComponent>(entt::exclude<SizeComponent>);
-            for (auto obstacle : single_obs) {
-                if (obstacle == event.entity) continue;
-                const auto& o_pos = single_obs.get<PositionComponent>(obstacle);
-                if (o_pos.x == target_x && o_pos.y == target_y && o_pos.layer_id == target_layer) {
-                    // [NEW] Broken windows are passable (crawl point)
-                    if (m_registry.all_of<TerrainComponent>(obstacle)) {
-                        if (m_registry.get<TerrainComponent>(obstacle).type == TerrainType::WINDOW) {
-                            if (auto* phys = m_registry.try_get<Layer0PhysicsComponent>(obstacle)) {
-                                if (phys->structural_integrity < 0.5f) {
-                                    // Passable!
-                                    continue;
-                                }
-                            }
-                        }
+                        blocked = true;
+                        blocker = obstacle;
                     }
-                    blocked = true;
-                    blocker = obstacle;
-                    break;
                 }
             }
         }
@@ -199,13 +162,13 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 
                 // [M.2] Collision Check on Portal Destination
                 bool portal_blocked = false;
-                auto portal_obs_view = m_registry.view<PositionComponent, ObstacleComponent>();
-                for (auto p_obs : portal_obs_view) {
-                    if (p_obs == event.entity) continue;
-                    const auto& po_pos = portal_obs_view.get<PositionComponent>(p_obs);
-                    if (po_pos.x == portal.target_x && po_pos.y == portal.target_y && po_pos.layer_id == portal.target_layer) {
+                PositionComponent portal_target(portal.target_x, portal.target_y, portal.target_layer);
+                auto portal_obs_it = spatial.obstacle_at.find(portal_target);
+                if (portal_obs_it != spatial.obstacle_at.end()) {
+                    const entt::entity portal_blocker = portal_obs_it->second;
+                    if (portal_blocker != event.entity && m_registry.valid(portal_blocker) &&
+                        !spatial.passable_window_tiles.count(portal_target)) {
                         portal_blocked = true;
-                        break;
                     }
                 }
                 
@@ -239,6 +202,13 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 }
                 break;
             }
+        }
+
+        // Keep shared spatial cache coherent when a spatial blocker has moved.
+        if (m_registry.all_of<ObstacleComponent>(event.entity) ||
+            m_registry.all_of<TerrainComponent>(event.entity) ||
+            m_registry.all_of<BuildingEntranceComponent>(event.entity)) {
+            invalidate_spatial_query_cache(m_registry);
         }
 
         // [NEW] Carry all occupants with the vehicle

@@ -19,11 +19,13 @@
 #include <unordered_set>
 #include <vector>
 #include <memory>
+#include <limits>
 
 
 
 #include "../command_buffer.h"
 #include "base_types.h"
+#include "simulation_layers.h"
 #include "zoning_components.h"
 #include "transit_components.h"
 #include "religion_components.h"
@@ -1388,6 +1390,7 @@ struct DebugOverlayComponent {
     uint64_t turn = 0;
 
     // Per-phase timing (milliseconds) from the LAST completed simulation tick
+    float ms_input      = 0.0f;
     float ms_sim_layers = 0.0f;
     float ms_macro      = 0.0f;
     float ms_micro      = 0.0f;
@@ -1395,6 +1398,18 @@ struct DebugOverlayComponent {
     float ms_output     = 0.0f;
     float ms_dispatch   = 0.0f;
     float ms_total_tick = 0.0f;
+
+    // Hottest (slowest) system per phase from the latest scheduler run
+    float ms_hottest_input      = 0.0f;
+    float ms_hottest_macro      = 0.0f;
+    float ms_hottest_micro      = 0.0f;
+    float ms_hottest_post_micro = 0.0f;
+    float ms_hottest_output     = 0.0f;
+    std::string hottest_input_system;
+    std::string hottest_macro_system;
+    std::string hottest_micro_system;
+    std::string hottest_post_micro_system;
+    std::string hottest_output_system;
 
     // "Currently executing" label — set BEFORE each phase, cleared after
     std::string current_phase = "idle";
@@ -1410,6 +1425,122 @@ struct DebugOverlayComponent {
     std::string diag_line1;
     std::string diag_line2;
 };
+
+// =====================================================================
+// Shared Spatial Query Cache
+// =====================================================================
+struct SpatialQueryCache {
+    bool dirty = true;
+    uint64_t turn_built = std::numeric_limits<uint64_t>::max();
+    uint64_t build_serial = 0;
+
+    // Position -> all entities at this tile
+    std::unordered_map<PositionComponent, std::vector<entt::entity>> entities_at;
+
+    // Position -> one blocking entity for O(1) obstacle checks
+    std::unordered_map<PositionComponent, entt::entity> obstacle_at;
+
+    // Terrain lookup for O(1) movement cost / tile-type checks
+    std::unordered_map<PositionComponent, TerrainType> terrain_at;
+
+    // Positions that should be treated as passable portal/door entrance points
+    std::unordered_set<PositionComponent> entrance_tiles;
+
+    // Position -> entrance entity at that tile (first encountered)
+    std::unordered_map<PositionComponent, entt::entity> entrance_entity_at;
+
+    // Broken windows remain passable despite obstacle tags
+    std::unordered_set<PositionComponent> passable_window_tiles;
+};
+
+inline uint64_t get_current_sim_turn(const entt::registry& registry) {
+    auto dbg_view = registry.view<DebugOverlayComponent>();
+    if (dbg_view.begin() == dbg_view.end()) return 0;
+    return dbg_view.get<DebugOverlayComponent>(*dbg_view.begin()).turn;
+}
+
+inline void invalidate_spatial_query_cache(entt::registry& registry) {
+    if (auto* cache = registry.ctx().find<SpatialQueryCache>()) {
+        cache->dirty = true;
+    }
+}
+
+inline SpatialQueryCache& get_spatial_query_cache(entt::registry& registry) {
+    auto* cache = registry.ctx().find<SpatialQueryCache>();
+    if (!cache) {
+        registry.ctx().emplace<SpatialQueryCache>();
+        cache = registry.ctx().find<SpatialQueryCache>();
+    }
+
+    const uint64_t turn = get_current_sim_turn(registry);
+    if (!cache->dirty && cache->turn_built == turn) {
+        return *cache;
+    }
+
+    cache->entities_at.clear();
+    cache->obstacle_at.clear();
+    cache->terrain_at.clear();
+    cache->entrance_tiles.clear();
+    cache->entrance_entity_at.clear();
+    cache->passable_window_tiles.clear();
+
+    auto pos_view = registry.view<PositionComponent>();
+    for (auto entity : pos_view) {
+        const auto& pos = pos_view.get<PositionComponent>(entity);
+        cache->entities_at[pos].push_back(entity);
+    }
+
+    auto terrain_view = registry.view<PositionComponent, TerrainComponent>();
+    for (auto entity : terrain_view) {
+        const auto& pos = terrain_view.get<PositionComponent>(entity);
+        const auto type = terrain_view.get<TerrainComponent>(entity).type;
+        cache->terrain_at[pos] = type;
+    }
+
+    auto entrance_view = registry.view<PositionComponent, BuildingEntranceComponent>();
+    for (auto entity : entrance_view) {
+        const auto& pos = entrance_view.get<PositionComponent>(entity);
+        cache->entrance_tiles.insert(pos);
+        cache->entrance_entity_at.emplace(pos, entity);
+    }
+
+    auto sized_obs_view = registry.view<PositionComponent, ObstacleComponent, SizeComponent>();
+    for (auto entity : sized_obs_view) {
+        const auto& base = sized_obs_view.get<PositionComponent>(entity);
+        const auto& size = sized_obs_view.get<SizeComponent>(entity);
+        const int w = std::max(1, size.width);
+        const int h = std::max(1, size.height);
+        for (int dx = 0; dx < w; ++dx) {
+            for (int dy = 0; dy < h; ++dy) {
+                PositionComponent p(base.x + dx, base.y + dy, base.layer_id);
+                cache->obstacle_at.emplace(p, entity);
+            }
+        }
+    }
+
+    auto single_obs_view = registry.view<PositionComponent, ObstacleComponent>(entt::exclude<SizeComponent>);
+    for (auto entity : single_obs_view) {
+        const auto& pos = single_obs_view.get<PositionComponent>(entity);
+
+        if (registry.all_of<TerrainComponent>(entity)) {
+            if (registry.get<TerrainComponent>(entity).type == TerrainType::WINDOW) {
+                if (auto* phys = registry.try_get<Layer0PhysicsComponent>(entity)) {
+                    if (phys->structural_integrity < 0.5f) {
+                        cache->passable_window_tiles.insert(pos);
+                        continue;
+                    }
+                }
+            }
+        }
+
+        cache->obstacle_at.emplace(pos, entity);
+    }
+
+    cache->dirty = false;
+    cache->turn_built = turn;
+    cache->build_serial++;
+    return *cache;
+}
 
 // =====================================================================
 // Legacy Redirection Namespace

@@ -12,6 +12,7 @@ namespace NeonOubliette {
 PathfindingSystem::PathfindingSystem(entt::registry& registry, entt::dispatcher& dispatcher)
     : registry(registry), dispatcher(dispatcher) {
     dispatcher.sink<PathfindingRequestEvent>().connect<&PathfindingSystem::handlePathfindingRequestEvent>(this);
+    dispatcher.sink<ChunkChangedEvent>().connect<&PathfindingSystem::handleChunkChangedEvent>(this);
 }
 
 void PathfindingSystem::update(double delta_time) {
@@ -32,8 +33,15 @@ void PathfindingSystem::handlePathfindingRequestEvent(const PathfindingRequestEv
     pending_requests_.push_back(event);
 }
 
+void PathfindingSystem::handleChunkChangedEvent(const ChunkChangedEvent& event) {
+    (void)event;
+    invalidate_spatial_query_cache(registry);
+}
+
 // Helper to check if a position is traversable (no solid entities)
-bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity requester_entity) const {
+bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity requester_entity) {
+    auto& spatial = get_spatial_query_cache(registry);
+
     // 1. Check World Bounds or Interior Nav Grid (Static Layout)
     if (pos.layer_id == 0) {
         auto config_view = registry.view<WorldConfigComponent>();
@@ -57,63 +65,46 @@ bool PathfindingSystem::isTraversable(PositionComponent pos, entt::entity reques
         }
         // [M.2] Dynamic Layer Traversal: If no FloorComponent, check for Terrain (e.g. Sewer -1, Rail 5)
         if (!found_floor) {
-            auto terrain_view = registry.view<PositionComponent, TerrainComponent>();
-            bool found_terrain = false;
-            for (auto entity : terrain_view) {
-                const auto& t_pos = terrain_view.get<PositionComponent>(entity);
-                if (t_pos.x == pos.x && t_pos.y == pos.y && t_pos.layer_id == pos.layer_id) {
-                    found_terrain = true;
-                    break;
-                }
-            }
-            if (!found_terrain) return false;
+            if (spatial.terrain_at.find(pos) == spatial.terrain_at.end()) return false;
         }
     }
 
-    // 2. Check Volumetric Obstacles (SizeComponent) - e.g. Buildings [B.1]
-    auto size_view = registry.view<PositionComponent, ObstacleComponent, SizeComponent>();
-    for (auto entity : size_view) {
-        if (entity == requester_entity) continue;
-        const auto& o_pos = size_view.get<PositionComponent>(entity);
-        const auto& o_size = size_view.get<SizeComponent>(entity);
-        
-        if (pos.layer_id == o_pos.layer_id &&
-            pos.x >= o_pos.x && pos.x < o_pos.x + o_size.width &&
-            pos.y >= o_pos.y && pos.y < o_pos.y + o_size.height) {
-            
-            // [B.1] Exception: Doors in buildings are traversable for pathfinding
-            if (registry.all_of<BuildingComponent>(entity)) {
-                auto door_view = registry.view<PositionComponent, BuildingEntranceComponent>();
-                for (auto door_ent : door_view) {
-                    const auto& d_pos = door_view.get<PositionComponent>(door_ent);
-                    if (d_pos.x == pos.x && d_pos.y == pos.y && d_pos.layer_id == pos.layer_id) {
-                        return true; 
-                    }
-                }
+    // Let an obstacle entity path out of itself.
+    if (registry.valid(requester_entity) && registry.all_of<PositionComponent, ObstacleComponent>(requester_entity)) {
+        const auto& self_pos = registry.get<PositionComponent>(requester_entity);
+        if (registry.all_of<SizeComponent>(requester_entity)) {
+            const auto& self_size = registry.get<SizeComponent>(requester_entity);
+            if (pos.layer_id == self_pos.layer_id &&
+                pos.x >= self_pos.x && pos.x < self_pos.x + std::max(1, self_size.width) &&
+                pos.y >= self_pos.y && pos.y < self_pos.y + std::max(1, self_size.height)) {
+                return true;
             }
-            return false;
+        } else if (self_pos == pos) {
+            return true;
         }
     }
 
-    // 3. Check Single-Tile Obstacles
-    auto single_view = registry.view<PositionComponent, ObstacleComponent>(entt::exclude<SizeComponent>);
-    for (auto entity : single_view) {
-        if (entity == requester_entity) continue;
-        const auto& p_pos = single_view.get<PositionComponent>(entity);
-        if (p_pos == pos) {
-            // [NEW] Broken windows are passable (matching MovementSystem)
-            if (registry.all_of<TerrainComponent>(entity)) {
-                if (registry.get<TerrainComponent>(entity).type == TerrainType::WINDOW) {
-                    if (auto* phys = registry.try_get<Layer0PhysicsComponent>(entity)) {
-                        if (phys->structural_integrity < 0.5f) return true;
-                    }
-                }
-            }
-            return false;
-        }
+    // Broken windows are passable.
+    if (spatial.passable_window_tiles.count(pos)) {
+        return true;
     }
 
-    return true;
+    auto obs_it = spatial.obstacle_at.find(pos);
+    if (obs_it == spatial.obstacle_at.end()) {
+        return true;
+    }
+
+    const entt::entity blocker = obs_it->second;
+    if (!registry.valid(blocker) || blocker == requester_entity) {
+        return true;
+    }
+
+    // [B.1] Exception: Building entrance positions are traversable for pathfinding.
+    if (registry.all_of<BuildingComponent>(blocker) && spatial.entrance_tiles.count(pos)) {
+        return true;
+    }
+
+    return false;
 }
 
 // Heuristic function (Manhattan distance for grid-based movement)
@@ -122,8 +113,11 @@ int PathfindingSystem::getHeuristic(PositionComponent a, PositionComponent b) co
 }
 
 // Helper to get movement cost at a position
-int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity requester_entity) const {
+int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity requester_entity) {
+    (void)requester_entity;
     int cost = 10; // Default base cost
+
+    auto& spatial = get_spatial_query_cache(registry);
 
     // Use ArterialGrid for O(1) arterial type lookup
     auto* grid = registry.ctx().find<ArterialGrid>();
@@ -144,20 +138,16 @@ int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity reque
         }
     }
 
-    auto terrain_view = registry.view<PositionComponent, TerrainComponent>();
-    for (auto entity : terrain_view) {
-        const auto& t_pos = terrain_view.get<PositionComponent>(entity);
-        if (t_pos.x == pos.x && t_pos.y == pos.y && t_pos.layer_id == pos.layer_id) {
-            const auto& terrain = terrain_view.get<TerrainComponent>(entity);
-            switch (terrain.type) {
-                case TerrainType::SIDEWALK: return 5;
-                case TerrainType::STREET: return 15;
-                case TerrainType::GRASS: return 12;
-                case TerrainType::DIRT: return 10;
-                case TerrainType::SEWER_FLOOR: return 8;
-                case TerrainType::SEWER_WATER: return 15;
-                default: break;
-            }
+    auto terr_it = spatial.terrain_at.find(pos);
+    if (terr_it != spatial.terrain_at.end()) {
+        switch (terr_it->second) {
+            case TerrainType::SIDEWALK: return 5;
+            case TerrainType::STREET: return 15;
+            case TerrainType::GRASS: return 12;
+            case TerrainType::DIRT: return 10;
+            case TerrainType::SEWER_FLOOR: return 8;
+            case TerrainType::SEWER_WATER: return 15;
+            default: break;
         }
     }
 

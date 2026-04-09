@@ -25,12 +25,21 @@ void SimulationCoordinator::advance_turn(double delta_time) {
     };
 
     // 1. Always Process Input Phase (Every Turn)
+    if (auto* dbg = get_debug()) { dbg->current_phase = "Input"; }
+    auto t_input_start = std::chrono::steady_clock::now();
     m_scheduler.run_phase(SystemScheduler::Phase::Input, m_registry, m_dispatcher, delta_time);
+    auto t_input_end = std::chrono::steady_clock::now();
+    if (auto* dbg = get_debug()) {
+        dbg->ms_input = std::chrono::duration<float, std::milli>(t_input_end - t_input_start).count();
+    }
+
+    bool ran_sim_tick = false;
 
     auto view = m_registry.view<SimulationStateComponent>();
     if (view.empty()) {
         // Fallback to standard behavior if no state component exists
         run_simulation_tick(delta_time);
+        ran_sim_tick = true;
     } else {
         auto entity = *view.begin();
         auto& state = view.get<SimulationStateComponent>(entity);
@@ -39,6 +48,7 @@ void SimulationCoordinator::advance_turn(double delta_time) {
             if (!state.is_paused && m_turn_requested) {
                 m_turn_requested = false;
                 run_simulation_tick(delta_time);
+                ran_sim_tick = true;
             }
         } else if (state.mode == SimulationMode::GOD_MODE) {
             if (!state.is_paused) {
@@ -47,18 +57,26 @@ void SimulationCoordinator::advance_turn(double delta_time) {
                 if (state.accumulator >= interval) {
                     run_simulation_tick(delta_time);
                     state.accumulator -= interval;
+                    ran_sim_tick = true;
                 }
             }
         }
     }
 
-    // 5. Always Process Output Phase (Every Turn)
-    if (auto* dbg = get_debug()) { dbg->current_phase = "Output"; }
-    auto t_output_start = std::chrono::steady_clock::now();
-    m_scheduler.run_phase(SystemScheduler::Phase::Output, m_registry, m_dispatcher, delta_time);
-    auto t_output_end = std::chrono::steady_clock::now();
-    if (auto* dbg = get_debug()) {
-        dbg->ms_output = std::chrono::duration<float, std::milli>(t_output_end - t_output_start).count();
+    // 5. Process Output at a fixed cadence, or immediately after simulation tick.
+    m_output_accumulator += static_cast<float>(delta_time);
+    const bool should_render = ran_sim_tick || (m_output_accumulator >= kOutputIntervalSeconds);
+    if (should_render) {
+        if (auto* dbg = get_debug()) { dbg->current_phase = "Output"; }
+        auto t_output_start = std::chrono::steady_clock::now();
+        m_scheduler.run_phase(SystemScheduler::Phase::Output, m_registry, m_dispatcher, delta_time);
+        auto t_output_end = std::chrono::steady_clock::now();
+        if (auto* dbg = get_debug()) {
+            dbg->ms_output = std::chrono::duration<float, std::milli>(t_output_end - t_output_start).count();
+        }
+        m_output_accumulator = 0.0f;
+    } else if (auto* dbg = get_debug()) {
+        dbg->ms_output = 0.0f;
     }
 
     // 6. Update Dispatcher to handle events triggered during the turn

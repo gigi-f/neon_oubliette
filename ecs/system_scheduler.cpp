@@ -2,7 +2,10 @@
 #include "components/components.h"
 
 #include <algorithm>
+#include <chrono>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 
 namespace NeonOubliette {
 
@@ -26,21 +29,77 @@ void SystemScheduler::run_phase(Phase phase, entt::registry& registry, entt::dis
                                 double delta_time) {
     (void)event_dispatcher;
 
-    // Grab the debug overlay component (may be null before player entity is created)
-    auto get_debug = [&]() -> NeonOubliette::DebugOverlayComponent* {
-        auto dv = registry.view<NeonOubliette::DebugOverlayComponent>();
-        if (dv.begin() != dv.end()) return &dv.get<NeonOubliette::DebugOverlayComponent>(*dv.begin());
-        return nullptr;
-    };
+    auto phase_it = systems_.find(phase);
+    if (phase_it == systems_.end()) return;
 
-    if (systems_.find(phase) != systems_.end()) {
-        for (auto& ns : systems_[phase]) {
-            if (!ns.name.empty()) {
-                if (auto* dbg = get_debug()) dbg->current_system = ns.name;
-            }
-            ns.system->update(delta_time);
+    NeonOubliette::DebugOverlayComponent* dbg = nullptr;
+    auto dv = registry.view<NeonOubliette::DebugOverlayComponent>();
+    if (dv.begin() != dv.end()) {
+        dbg = &dv.get<NeonOubliette::DebugOverlayComponent>(*dv.begin());
+    }
+
+    float hottest_ms = 0.0f;
+    std::string hottest_name;
+    auto t_phase_start = std::chrono::steady_clock::now();
+
+    for (auto& ns : phase_it->second) {
+        if (dbg && !ns.name.empty()) {
+            dbg->current_system = ns.name;
         }
-        if (auto* dbg = get_debug()) dbg->current_system.clear();
+
+        auto t_sys_start = std::chrono::steady_clock::now();
+        ns.system->update(delta_time);
+        auto t_sys_end = std::chrono::steady_clock::now();
+
+        float ms = std::chrono::duration<float, std::milli>(t_sys_end - t_sys_start).count();
+        if (ms > hottest_ms) {
+            hottest_ms = ms;
+            hottest_name = ns.name.empty() ? "<unnamed>" : ns.name;
+        }
+    }
+
+    auto t_phase_end = std::chrono::steady_clock::now();
+    float phase_ms = std::chrono::duration<float, std::milli>(t_phase_end - t_phase_start).count();
+
+    if (dbg) {
+        dbg->current_system.clear();
+
+        auto store_hottest = [&](float& slot_ms, std::string& slot_name) {
+            slot_ms = hottest_ms;
+            slot_name = hottest_name;
+        };
+
+        switch (phase) {
+            case Phase::Input:
+                dbg->ms_input = phase_ms;
+                store_hottest(dbg->ms_hottest_input, dbg->hottest_input_system);
+                break;
+            case Phase::Macro:
+                store_hottest(dbg->ms_hottest_macro, dbg->hottest_macro_system);
+                break;
+            case Phase::Micro:
+                store_hottest(dbg->ms_hottest_micro, dbg->hottest_micro_system);
+                break;
+            case Phase::PostMicro:
+                store_hottest(dbg->ms_hottest_post_micro, dbg->hottest_post_micro_system);
+                break;
+            case Phase::Output:
+                store_hottest(dbg->ms_hottest_output, dbg->hottest_output_system);
+                break;
+            default:
+                break;
+        }
+
+        if (!hottest_name.empty()) {
+            std::ostringstream oss;
+            oss << phase_to_string(phase) << " hot: " << hottest_name << " "
+                << std::fixed << std::setprecision(2) << hottest_ms << "ms";
+            if (phase == Phase::Input || phase == Phase::Macro) {
+                dbg->diag_line1 = oss.str();
+            } else if (phase == Phase::Output || phase == Phase::Micro || phase == Phase::PostMicro) {
+                dbg->diag_line2 = oss.str();
+            }
+        }
     }
 }
 

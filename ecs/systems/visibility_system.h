@@ -92,6 +92,9 @@ public:
 
 private:
     static constexpr int OVERWORLD_LONG_VIEW_RANGE_METERS = 2000;
+    // Rendering cannot display kilometers of map at once; cap computed FOV radius
+    // to keep visibility updates proportional to playable on-screen density.
+    static constexpr int MAX_COMPUTED_VIEW_RANGE_TILES = 96;
     static constexpr float MIN_OCCLUDER_HEIGHT_METERS = 2.0f;
 
     bool is_tall_visibility_blocker(entt::entity entity) const {
@@ -121,8 +124,11 @@ private:
     }
 
     void calculate_fov(entt::entity entity, const PositionComponent& pos, VisibilityComponent& vis) {
+        (void)entity;
         int range = vis.view_range;
         if (pos.layer_id == 0) range = std::max(range, OVERWORLD_LONG_VIEW_RANGE_METERS);
+        range = std::min(range, MAX_COMPUTED_VIEW_RANGE_TILES);
+        if (range <= 0) return;
         int layer = pos.layer_id;
 
         // Build blocking set ONCE per FOV calculation (cached across rays)
@@ -153,27 +159,83 @@ private:
             m_blocking_dirty = false;
         }
 
-        // Use 2-degree steps instead of 1-degree (180 rays vs 360 — same visual quality)
-        for (int angle = 0; angle < 360; angle += 2) {
-            float rad = angle * (float)M_PI / 180.0f;
-            float dx = std::cos(rad);
-            float dy = std::sin(rad);
+        vis.visible_tiles.insert(pos);
 
-            float cx = pos.x + 0.5f;
-            float cy = pos.y + 0.5f;
+        static constexpr int multipliers[4][8] = {
+            { 1, 0, 0, -1, -1, 0, 0, 1 },
+            { 0, 1, -1, 0, 0, -1, 1, 0 },
+            { 0, 1, 1, 0, 0, -1, -1, 0 },
+            { 1, 0, 0, 1, -1, 0, 0, -1 }
+        };
 
-            for (int r = 0; r <= range; ++r) {
-                int tx = (int)cx;
-                int ty = (int)cy;
+        for (int oct = 0; oct < 8; ++oct) {
+            cast_light(pos.x,
+                       pos.y,
+                       1,
+                       1.0f,
+                       0.0f,
+                       range,
+                       multipliers[0][oct],
+                       multipliers[1][oct],
+                       multipliers[2][oct],
+                       multipliers[3][oct],
+                       layer,
+                       vis);
+        }
+    }
 
-                PositionComponent tile_pos(tx, ty, layer);
-                vis.visible_tiles.insert(tile_pos);
+    void cast_light(int cx,
+                    int cy,
+                    int row,
+                    float start,
+                    float end,
+                    int radius,
+                    int xx,
+                    int xy,
+                    int yx,
+                    int yy,
+                    int layer,
+                    VisibilityComponent& vis) {
+        if (start < end) return;
 
-                if (m_blocking_set.count(tile_pos)) break;
+        float next_start = start;
+        for (int dist = row; dist <= radius; ++dist) {
+            bool blocked = false;
+            int dy = -dist;
 
-                cx += dx;
-                cy += dy;
+            for (int dx = -dist; dx <= 0; ++dx) {
+                float l_slope = (dx - 0.5f) / (dy + 0.5f);
+                float r_slope = (dx + 0.5f) / (dy - 0.5f);
+
+                if (start < r_slope) continue;
+                if (end > l_slope) break;
+
+                int sax = dx * xx + dy * xy;
+                int say = dx * yx + dy * yy;
+                int ax = cx + sax;
+                int ay = cy + say;
+
+                PositionComponent tile_pos(ax, ay, layer);
+                if ((dx * dx + dy * dy) <= (radius * radius)) {
+                    vis.visible_tiles.insert(tile_pos);
+                }
+
+                const bool tile_blocks = (m_blocking_set.count(tile_pos) > 0);
+                if (blocked) {
+                    if (tile_blocks) {
+                        next_start = r_slope;
+                    } else {
+                        blocked = false;
+                        start = next_start;
+                    }
+                } else if (tile_blocks && dist < radius) {
+                    blocked = true;
+                    cast_light(cx, cy, dist + 1, start, l_slope, radius, xx, xy, yx, yy, layer, vis);
+                    next_start = r_slope;
+                }
             }
+
+            if (blocked) break;
         }
     }
 

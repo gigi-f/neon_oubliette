@@ -7,6 +7,7 @@
 #include "../components/lod_components.h"
 #include "../components/zoning_components.h"
 #include "../components/simulation_layers.h"
+#include <deque>
 #include <map>
 #include <set>
 
@@ -29,6 +30,11 @@ private:
      * @brief Updates the status (Hot/Warm/Cold) of all chunks based on player position.
      */
     void update_chunk_states(int player_x, int player_y);
+
+    /**
+     * @brief Applies a limited number of queued chunk transitions per tick to avoid frame hitches.
+     */
+    void process_pending_transitions();
 
     /**
      * @brief Transitions a chunk to HOT state, instantiating all entities.
@@ -54,6 +60,10 @@ private:
     
     std::map<std::pair<int, int>, entt::entity> m_chunk_map;
     std::set<entt::entity> m_hot_chunks;
+    std::set<entt::entity> m_target_hot_chunks;
+    std::deque<entt::entity> m_pending_materialize;
+    std::deque<entt::entity> m_pending_dematerialize;
+    const int CHUNK_TRANSITIONS_PER_UPDATE = 2;
 
     // Chunk radius settings
     const int HOT_RADIUS = 1;  // 3x3
