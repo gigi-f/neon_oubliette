@@ -4,11 +4,14 @@
 
 ### Debug build with ASAN [bug tracing]: cd /Users/gm1/Code/neon_oubliette/build && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_C_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" 2>&1 | tail -5
 
-### To build: cd /Users/gm1/Code/neon_oubliette/build && cmake --build . -j2
+### To build: cmake --build --preset build-ninja-relwithdebinfo -j2
+## Optional profiling build: cmake --preset ninja-time-trace && cmake --build -j2
 
 ### To run: cd /Users/gm1/Code/neon_oubliette/build/bin && ./neon_oubliette
 
 ### To view logs: cat /Users/gm1/Code/neon_oubliette/game.log
+
+### OLD build: cd /Users/gm1/Code/neon_oubliette/build && cmake --build . -j2
 
 ## System-Centric Survival Simulation
 

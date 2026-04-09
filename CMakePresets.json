@@ -1,0 +1,115 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 15,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "make-relwithdebinfo",
+      "displayName": "Makefiles RelWithDebInfo",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build_make",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "NEON_ENABLE_COMPILER_CACHE": "ON",
+        "NEON_ENABLE_PCH": "ON",
+        "NEON_ENABLE_CLANG_TIME_TRACE": "OFF",
+        "NEON_ENABLE_LTO": "OFF",
+        "NEON_ENABLE_UNITY_BUILD": "OFF",
+        "NEON_ENABLE_FAST_LINKER": "ON"
+      }
+    },
+    {
+      "name": "ninja-relwithdebinfo",
+      "displayName": "Ninja RelWithDebInfo",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build_ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "NEON_ENABLE_COMPILER_CACHE": "ON",
+        "NEON_ENABLE_PCH": "ON",
+        "NEON_ENABLE_CLANG_TIME_TRACE": "OFF",
+        "NEON_ENABLE_LTO": "OFF",
+        "NEON_ENABLE_UNITY_BUILD": "OFF",
+        "NEON_ENABLE_FAST_LINKER": "ON"
+      }
+    },
+    {
+      "name": "ninja-debug",
+      "displayName": "Ninja Debug (fast incremental)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build_ninja_debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "NEON_ENABLE_COMPILER_CACHE": "ON",
+        "NEON_ENABLE_PCH": "ON",
+        "NEON_ENABLE_CLANG_TIME_TRACE": "OFF",
+        "NEON_ENABLE_LTO": "OFF",
+        "NEON_ENABLE_UNITY_BUILD": "OFF",
+        "NEON_ENABLE_FAST_LINKER": "ON"
+      }
+    },
+    {
+      "name": "ninja-release",
+      "displayName": "Ninja Release (ThinLTO + Unity)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build_ninja_release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "NEON_ENABLE_COMPILER_CACHE": "ON",
+        "NEON_ENABLE_PCH": "ON",
+        "NEON_ENABLE_CLANG_TIME_TRACE": "OFF",
+        "NEON_ENABLE_LTO": "ON",
+        "NEON_ENABLE_UNITY_BUILD": "ON",
+        "NEON_ENABLE_FAST_LINKER": "ON"
+      }
+    },
+    {
+      "name": "ninja-time-trace",
+      "displayName": "Ninja RelWithDebInfo + Clang time-trace",
+      "inherits": "ninja-relwithdebinfo",
+      "binaryDir": "${sourceDir}/build_ninja_trace",
+      "cacheVariables": {
+        "NEON_ENABLE_CLANG_TIME_TRACE": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-make-relwithdebinfo",
+      "displayName": "Build Makefiles RelWithDebInfo",
+      "configurePreset": "make-relwithdebinfo",
+      "jobs": 0
+    },
+    {
+      "name": "build-ninja-relwithdebinfo",
+      "displayName": "Build Ninja RelWithDebInfo",
+      "configurePreset": "ninja-relwithdebinfo",
+      "jobs": 0
+    },
+    {
+      "name": "build-ninja-debug",
+      "displayName": "Build Ninja Debug",
+      "configurePreset": "ninja-debug",
+      "jobs": 0
+    },
+    {
+      "name": "build-ninja-release",
+      "displayName": "Build Ninja Release (ThinLTO + Unity)",
+      "configurePreset": "ninja-release",
+      "jobs": 0
+    },
+    {
+      "name": "build-ninja-time-trace",
+      "displayName": "Build Ninja + time-trace",
+      "configurePreset": "ninja-time-trace",
+      "jobs": 0
+    }
+  ]
+}
