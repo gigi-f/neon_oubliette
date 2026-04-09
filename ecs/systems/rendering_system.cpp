@@ -736,9 +736,10 @@ void RenderingSystem::update(double delta_time) {
         int screen_x = x + offset_x;
         int screen_y = y + offset_y;
         if (screen_x >= 0 && screen_x < (int)view_cols && screen_y >= 0 && screen_y < (int)view_rows) {
+            const bool interior_layer = (current_layer > 0);
             // [L.5] Apply Power Grid Failure shifts
             float power_mult = 1.0f;
-            if (current_mode != SimulationMode::GOD_MODE) {
+            if (current_mode != SimulationMode::GOD_MODE && !interior_layer) {
                 int cx = x / cached_chunk_size;
                 int cy = y / cached_chunk_size;
                 uint64_t key = ((uint64_t)(uint32_t)cx << 32) | (uint32_t)cy;
@@ -749,10 +750,12 @@ void RenderingSystem::update(double delta_time) {
             // Apply time-of-day color shifts
             if (current_mode != SimulationMode::GOD_MODE) {
                     float darkness = 1.0f;
-                    if (cached_time_of_day == TimeOfDay::NIGHT) {
-                        darkness = 0.3f;
-                    } else if (cached_time_of_day == TimeOfDay::DAWN || cached_time_of_day == TimeOfDay::DUSK) {
-                        darkness = 0.7f;
+                    if (!interior_layer) {
+                        if (cached_time_of_day == TimeOfDay::NIGHT) {
+                            darkness = 0.3f;
+                        } else if (cached_time_of_day == TimeOfDay::DAWN || cached_time_of_day == TimeOfDay::DUSK) {
+                            darkness = 0.7f;
+                        }
                     }
 
                     // Combined darkness from time and power failure
@@ -763,7 +766,7 @@ void RenderingSystem::update(double delta_time) {
                     uint32_t g = (color >> 8) & 0xFF;
                     uint32_t b = color & 0xFF;
 
-                    if (cached_time_of_day == TimeOfDay::NIGHT) {
+                    if (cached_time_of_day == TimeOfDay::NIGHT && !interior_layer) {
                          // Blue tint for night
                          r = (uint32_t)((float)r * 0.2f * power_mult);
                          g = (uint32_t)((float)g * 0.3f * power_mult);
@@ -1817,26 +1820,47 @@ void RenderingSystem::update(double delta_time) {
         if (dbg_view.begin() != dbg_view.end()) {
             const auto& dbg = dbg_view.get<DebugOverlayComponent>(*dbg_view.begin());
 
-            // Build the status string: Phase | System | Turn | Timings
+            // Build the status string: current marker + last logic system + timings
             char buf[256];
-            const std::string& sys = dbg.current_system.empty() ? dbg.current_phase : dbg.current_system;
+            std::string current_marker = dbg.current_system.empty() ? dbg.current_phase : dbg.current_system;
+            std::string last_logic_marker;
+            if (!dbg.last_logic_system.empty()) {
+                last_logic_marker = dbg.last_logic_phase + ":" + dbg.last_logic_system;
+            } else if (!dbg.last_started_system.empty()) {
+                last_logic_marker = dbg.last_started_phase + ":" + dbg.last_started_system;
+            } else {
+                last_logic_marker = "-";
+            }
+
+            if (current_marker.size() > 12) current_marker = current_marker.substr(0, 12);
+            if (last_logic_marker.size() > 20) last_logic_marker = last_logic_marker.substr(0, 20);
+
+            std::string hot_input = dbg.hottest_input_system.empty() ? "-" : dbg.hottest_input_system;
             std::string hot_macro = dbg.hottest_macro_system.empty() ? "-" : dbg.hottest_macro_system;
-            std::string hot_output = dbg.hottest_output_system.empty() ? "-" : dbg.hottest_output_system;
-            if (hot_macro.size() > 10) hot_macro = hot_macro.substr(0, 10);
-            if (hot_output.size() > 10) hot_output = hot_output.substr(0, 10);
+            std::string hot_micro = dbg.hottest_micro_system.empty() ? "-" : dbg.hottest_micro_system;
+            std::string hot_post_micro = dbg.hottest_post_micro_system.empty() ? "-" : dbg.hottest_post_micro_system;
+            if (hot_input.size() > 8) hot_input = hot_input.substr(0, 8);
+            if (hot_macro.size() > 8) hot_macro = hot_macro.substr(0, 8);
+            if (hot_micro.size() > 8) hot_micro = hot_micro.substr(0, 8);
+            if (hot_post_micro.size() > 8) hot_post_micro = hot_post_micro.substr(0, 8);
             snprintf(buf, sizeof(buf),
-                " T:%-6llu %-12s In:%4.1f M:%5.1f Mi:%5.1f O:%5.1f Tot:%6.1f HM:%s %.1f HO:%s %.1f",
+                " T:%-6llu Cur:%-12s Last:%-20s In:%4.1f M:%5.1f Mi:%5.1f O:%5.1f Tot:%6.1f HIn:%s %.1f HMa:%s %.1f HMi:%s %.1f HPo:%s %.1f",
                 (unsigned long long)dbg.turn,
-                sys.c_str(),
+                current_marker.c_str(),
+                last_logic_marker.c_str(),
                 dbg.ms_input,
                 dbg.ms_macro,
                 dbg.ms_micro,
                 dbg.ms_output,
                 dbg.ms_total_tick,
+                hot_input.c_str(),
+                dbg.ms_hottest_input,
                 hot_macro.c_str(),
                 dbg.ms_hottest_macro,
-                hot_output.c_str(),
-                dbg.ms_hottest_output);
+                hot_micro.c_str(),
+                dbg.ms_hottest_micro,
+                hot_post_micro.c_str(),
+                dbg.ms_hottest_post_micro);
 
             ncplane_set_fg_rgb(debug_overlay_plane_, 0x00CC44);
             ncplane_set_bg_rgb(debug_overlay_plane_, 0x0A0A1A);

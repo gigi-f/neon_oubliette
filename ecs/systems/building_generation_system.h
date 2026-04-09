@@ -320,7 +320,12 @@ private:
             if (i > 0) spawnStairs(sx, sy, layer_id, layer_id - 1, false);
             interior.floor_entities.push_back(floor_ent);
         }
-        interior.is_generated = true; m_dispatcher.enqueue<LogEvent>("Generated Interior", LogSeverity::INFO, "BuildingGen");
+        interior.is_generated = true;
+        m_dispatcher.enqueue<LogEvent>("Generated Interior", LogSeverity::INFO, "BuildingGen");
+
+        // Newly generated terrain/obstacles must invalidate render + visibility
+        // spatial caches immediately (same behavior as materializeInterior).
+        m_dispatcher.enqueue<ChunkChangedEvent>();
     }
 
     void materializeInterior(entt::entity building, BuildingInteriorComponent& interior, int base_layer_id) {
@@ -414,7 +419,7 @@ private:
                 std::string color = (x == 0 || x == width - 1 || y == 0 || y == height - 1) ? "#444444" : "#555555";
                 createTile(x, y, layer_id, TerrainType::WALL, '#', color, true);
             } else {
-                createTile(x, y, layer_id, TerrainType::CONCRETE_FLOOR, '.', "#222222", false);
+                createTile(x, y, layer_id, TerrainType::CONCRETE_FLOOR, '.', "#4A4A4A", false);
             }
         }
         

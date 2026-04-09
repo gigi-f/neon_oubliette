@@ -67,15 +67,32 @@ void ChunkStreamingSystem::update(double delta_time) {
         m_last_player_chunk_y = pos.y / chunk_size;
     }
 
+    const bool in_interior = (pos.layer_id > 0);
     int ref_x = pos.x, ref_y = pos.y;
-    if (pos.layer_id > 0) {
-        auto building_view = m_registry.view<BuildingComponent, PositionComponent>();
-        for (auto b_ent : building_view) {
-            const auto& b_comp = building_view.get<BuildingComponent>(b_ent);
-            int base_layer = 1000 + b_comp.building_id * 10;
-            if (pos.layer_id >= base_layer && pos.layer_id < base_layer + 10) {
-                const auto& b_pos = building_view.get<PositionComponent>(b_ent);
-                ref_x = b_pos.x; ref_y = b_pos.y; break;
+    if (in_interior) {
+        bool have_anchor = false;
+
+        if (auto* interior_state = m_registry.try_get<InteriorStateComponent>(player_entity)) {
+            if (m_registry.valid(interior_state->building_entity) &&
+                m_registry.all_of<PositionComponent>(interior_state->building_entity)) {
+                const auto& b_pos = m_registry.get<PositionComponent>(interior_state->building_entity);
+                ref_x = b_pos.x;
+                ref_y = b_pos.y;
+                have_anchor = true;
+            }
+        }
+
+        if (!have_anchor) {
+            auto building_view = m_registry.view<BuildingComponent, PositionComponent>();
+            for (auto b_ent : building_view) {
+                const auto& b_comp = building_view.get<BuildingComponent>(b_ent);
+                int base_layer = 1000 + b_comp.building_id * 10;
+                if (pos.layer_id >= base_layer && pos.layer_id < base_layer + 10) {
+                    const auto& b_pos = building_view.get<PositionComponent>(b_ent);
+                    ref_x = b_pos.x;
+                    ref_y = b_pos.y;
+                    break;
+                }
             }
         }
     }
@@ -86,7 +103,13 @@ void ChunkStreamingSystem::update(double delta_time) {
         m_last_player_chunk_x = p_chunk_x; m_last_player_chunk_y = p_chunk_y;
     }
 
-    process_pending_transitions();
+    if (!in_interior) {
+        if (m_skip_transition_processing_once) {
+            m_skip_transition_processing_once = false;
+        } else {
+            process_pending_transitions();
+        }
+    }
 
     TimeOfDay current_time = TimeOfDay::DAY;
     auto weather_view = m_registry.view<WeatherComponent>();
@@ -140,11 +163,24 @@ void ChunkStreamingSystem::update_chunk_states(int player_cx, int player_cy) {
         }
     }
 
-    // Queue materialization for chunks entering the hot radius.
+    // Queue materialization for chunks entering the hot radius, nearest first.
+    std::vector<std::pair<int, entt::entity>> materialize_candidates;
+    materialize_candidates.reserve(next_hot_chunks.size());
     for (auto entity : next_hot_chunks) {
-        if (m_hot_chunks.find(entity) == m_hot_chunks.end()) {
-            enqueue_unique(m_pending_materialize, entity);
+        if (m_hot_chunks.find(entity) != m_hot_chunks.end()) {
+            continue;
         }
+        auto* chunk = m_registry.try_get<ChunkComponent>(entity);
+        if (!chunk) {
+            continue;
+        }
+        int dist = std::max(std::abs(chunk->chunk_x - player_cx), std::abs(chunk->chunk_y - player_cy));
+        materialize_candidates.emplace_back(dist, entity);
+    }
+    std::sort(materialize_candidates.begin(), materialize_candidates.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (const auto& candidate : materialize_candidates) {
+        enqueue_unique(m_pending_materialize, candidate.second);
     }
 
     // Update warm markers immediately for systems that care about warm chunks.
@@ -159,11 +195,63 @@ void ChunkStreamingSystem::update_chunk_states(int player_cx, int player_cy) {
     }
 
     m_target_hot_chunks = std::move(next_hot_chunks);
+
+    // Hard guarantee: never let the player stand in an unloaded chunk.
+    auto player_chunk_it = m_chunk_map.find({player_cx, player_cy});
+    if (player_chunk_it != m_chunk_map.end()) {
+        const entt::entity player_chunk_entity = player_chunk_it->second;
+
+        m_pending_dematerialize.erase(
+            std::remove(m_pending_dematerialize.begin(), m_pending_dematerialize.end(), player_chunk_entity),
+            m_pending_dematerialize.end());
+
+        if (auto* player_chunk = m_registry.try_get<ChunkComponent>(player_chunk_entity)) {
+            if (!player_chunk->is_hot) {
+                materialize_chunk(player_chunk_entity, *player_chunk);
+                player_chunk->is_hot = true;
+                player_chunk->is_warm = false;
+                m_hot_chunks.insert(player_chunk_entity);
+                m_skip_transition_processing_once = true;
+
+                m_pending_materialize.erase(
+                    std::remove(m_pending_materialize.begin(), m_pending_materialize.end(), player_chunk_entity),
+                    m_pending_materialize.end());
+
+                m_dispatcher.trigger(ChunkChangedEvent{});
+            }
+        }
+    }
 }
 
 void ChunkStreamingSystem::process_pending_transitions() {
     int budget = CHUNK_TRANSITIONS_PER_UPDATE;
     bool any_transition_applied = false;
+    bool materialize_applied = false;
+
+    while (budget > 0 && !m_pending_materialize.empty()) {
+        const entt::entity entity = m_pending_materialize.front();
+        m_pending_materialize.pop_front();
+
+        if (m_target_hot_chunks.find(entity) == m_target_hot_chunks.end()) {
+            continue;
+        }
+        if (!m_registry.valid(entity)) {
+            continue;
+        }
+
+        auto* chunk = m_registry.try_get<ChunkComponent>(entity);
+        if (!chunk || chunk->is_hot) {
+            continue;
+        }
+
+        materialize_chunk(entity, *chunk);
+        chunk->is_hot = true;
+        chunk->is_warm = false;
+        m_hot_chunks.insert(entity);
+        any_transition_applied = true;
+        materialize_applied = true;
+        --budget;
+    }
 
     while (budget > 0 && !m_pending_dematerialize.empty()) {
         const entt::entity entity = m_pending_dematerialize.front();
@@ -188,31 +276,7 @@ void ChunkStreamingSystem::process_pending_transitions() {
         --budget;
     }
 
-    while (budget > 0 && !m_pending_materialize.empty()) {
-        const entt::entity entity = m_pending_materialize.front();
-        m_pending_materialize.pop_front();
-
-        if (m_target_hot_chunks.find(entity) == m_target_hot_chunks.end()) {
-            continue;
-        }
-        if (!m_registry.valid(entity)) {
-            continue;
-        }
-
-        auto* chunk = m_registry.try_get<ChunkComponent>(entity);
-        if (!chunk || chunk->is_hot) {
-            continue;
-        }
-
-        materialize_chunk(entity, *chunk);
-        chunk->is_hot = true;
-        chunk->is_warm = false;
-        m_hot_chunks.insert(entity);
-        any_transition_applied = true;
-        --budget;
-    }
-
-    if (any_transition_applied) {
+    if (any_transition_applied && materialize_applied) {
         m_dispatcher.trigger(ChunkChangedEvent{});
     }
 }

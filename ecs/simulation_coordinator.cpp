@@ -73,6 +73,11 @@ void SimulationCoordinator::advance_turn(double delta_time) {
         auto t_output_end = std::chrono::steady_clock::now();
         if (auto* dbg = get_debug()) {
             dbg->ms_output = std::chrono::duration<float, std::milli>(t_output_end - t_output_start).count();
+            if (!ran_sim_tick) {
+                // Ignore cadence-only render passes for "hottest output" reporting.
+                dbg->ms_hottest_output = 0.0f;
+                dbg->hottest_output_system.clear();
+            }
         }
         m_output_accumulator = 0.0f;
     } else if (auto* dbg = get_debug()) {

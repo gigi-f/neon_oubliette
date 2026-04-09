@@ -43,8 +43,16 @@ void SystemScheduler::run_phase(Phase phase, entt::registry& registry, entt::dis
     auto t_phase_start = std::chrono::steady_clock::now();
 
     for (auto& ns : phase_it->second) {
-        if (dbg && !ns.name.empty()) {
-            dbg->current_system = ns.name;
+        if (dbg) {
+            const std::string started_name = ns.name.empty() ? "<unnamed>" : ns.name;
+            dbg->current_system = started_name;
+            dbg->last_started_phase = phase_to_string(phase);
+            dbg->last_started_system = started_name;
+
+            if (phase != Phase::Output) {
+                dbg->last_logic_phase = dbg->last_started_phase;
+                dbg->last_logic_system = started_name;
+            }
         }
 
         auto t_sys_start = std::chrono::steady_clock::now();

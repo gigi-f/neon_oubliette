@@ -1417,6 +1417,15 @@ struct DebugOverlayComponent {
     // Most-recently-started system within the current phase
     std::string current_system;
 
+    // Persisted marker of the most recently started scheduler system
+    std::string last_started_phase = "idle";
+    std::string last_started_system;
+
+    // Persisted marker of the most recently started non-output system
+    // so render/UI systems do not hide the last gameplay system run.
+    std::string last_logic_phase = "idle";
+    std::string last_logic_system;
+
     // Entity counts
     size_t num_agents      = 0;
     size_t num_pathfinding = 0;

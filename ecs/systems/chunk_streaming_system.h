@@ -63,6 +63,7 @@ private:
     std::set<entt::entity> m_target_hot_chunks;
     std::deque<entt::entity> m_pending_materialize;
     std::deque<entt::entity> m_pending_dematerialize;
+    bool m_skip_transition_processing_once = false;
     const int CHUNK_TRANSITIONS_PER_UPDATE = 2;
 
     // Chunk radius settings
