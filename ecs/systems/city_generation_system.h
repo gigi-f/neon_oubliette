@@ -66,7 +66,9 @@ private:
             generateColosseumInterior(zone, cell_size, arterials, gen, chunk_ent);
         } else if (zone.type == ZoneType::MIXED_COMMERCIAL) {
             generateMixedCommercialInterior(zone, cell_size, arterials, gen, structure_footprint, chunk_ent);
-        } else if (zone.type != ZoneType::TRANSIT) {
+        } else if (zone.type == ZoneType::TRANSIT) {
+            generateTransitInterior(zone, cell_size, arterials, gen, structure_footprint, chunk_ent);
+        } else {
             for (auto block_ent : zone.block_entities) {
                 const auto& block = m_registry.get<BlockComponent>(block_ent);
                 for (auto l_entity : block.lots) {
@@ -325,6 +327,223 @@ private:
                         spawnVendor(bx + (bw/2), by + (bh/2), 0, "Vendor " + std::to_string(bx));
                         for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
                     } else if (bw >= 1 && bh >= 1) { createKiosk(bx, by, "Kiosk", "#FFFF00"); footprint.insert({bx, by}); }
+                }
+            }
+        }
+    }
+    void generateTransitInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint, entt::entity chunk_ent) {
+        int start_x = zone.macro_x * cell_size;
+        int start_y = zone.macro_y * cell_size;
+        int end_x = start_x + cell_size - 1;
+        int end_y = start_y + cell_size - 1;
+
+        // Find existing elevated rail coverage in this zone.
+        int min_rx = end_x, max_rx = start_x, min_ry = end_y, max_ry = start_y;
+        bool has_rail = false;
+        for (const auto& [pos, type] : arterials) {
+            if (type != ArterialType::RAIL_ELEVATED) continue;
+            if (pos.first < start_x || pos.first > end_x || pos.second < start_y || pos.second > end_y) continue;
+            has_rail = true;
+            min_rx = std::min(min_rx, pos.first);
+            max_rx = std::max(max_rx, pos.first);
+            min_ry = std::min(min_ry, pos.second);
+            max_ry = std::max(max_ry, pos.second);
+        }
+
+        bool horizontal_rail = ((zone.macro_x + zone.macro_y) % 2 == 0);
+        if (has_rail) horizontal_rail = (max_rx - min_rx) >= (max_ry - min_ry);
+
+        // Guarantee a visible rail corridor for TRANSIT zones that didn't receive one.
+        if (!has_rail) {
+            if (horizontal_rail) {
+                int rail_y = std::clamp(start_y + cell_size / 2, start_y + 2, end_y - 2);
+                for (int x = start_x + 1; x <= end_x - 1; ++x) {
+                    arterials[{x, rail_y}] = ArterialType::RAIL_ELEVATED;
+                }
+                min_rx = start_x + 1; max_rx = end_x - 1;
+                min_ry = rail_y; max_ry = rail_y;
+            } else {
+                int rail_x = std::clamp(start_x + cell_size / 2, start_x + 2, end_x - 2);
+                for (int y = start_y + 1; y <= end_y - 1; ++y) {
+                    arterials[{rail_x, y}] = ArterialType::RAIL_ELEVATED;
+                }
+                min_rx = rail_x; max_rx = rail_x;
+                min_ry = start_y + 1; max_ry = end_y - 1;
+            }
+            has_rail = true;
+        }
+
+        int station_cx = std::clamp((min_rx + max_rx) / 2, start_x + 3, end_x - 3);
+        int station_cy = std::clamp((min_ry + max_ry) / 2, start_y + 3, end_y - 3);
+
+        // Surface platform directly beneath the elevated rail alignment.
+        int platform_span = std::clamp(cell_size / 2, 16, std::max(16, cell_size - 6));
+        int platform_half_width = 2;
+        int px1 = station_cx, px2 = station_cx, py1 = station_cy, py2 = station_cy;
+        if (horizontal_rail) {
+            px1 = std::max(start_x + 2, station_cx - platform_span / 2);
+            px2 = std::min(end_x - 2, station_cx + platform_span / 2);
+            py1 = std::max(start_y + 2, station_cy - platform_half_width);
+            py2 = std::min(end_y - 2, station_cy + platform_half_width);
+        } else {
+            px1 = std::max(start_x + 2, station_cx - platform_half_width);
+            px2 = std::min(end_x - 2, station_cx + platform_half_width);
+            py1 = std::max(start_y + 2, station_cy - platform_span / 2);
+            py2 = std::min(end_y - 2, station_cy + platform_span / 2);
+        }
+
+        for (int x = px1; x <= px2; ++x) {
+            for (int y = py1; y <= py2; ++y) {
+                createTile(x, y, 0, TerrainType::CONCRETE_FLOOR, '=', "#6E7F91", MaterialType::CONCRETE);
+                footprint.insert({x, y});
+            }
+        }
+
+        // Safety strip along platform edge for station readability.
+        if (horizontal_rail) {
+            for (int x = px1; x <= px2; ++x) {
+                createTile(x, py1, 0, TerrainType::SIDEWALK, '-', "#FFD34D", MaterialType::CONCRETE);
+                createTile(x, py2, 0, TerrainType::SIDEWALK, '-', "#FFD34D", MaterialType::CONCRETE);
+            }
+        } else {
+            for (int y = py1; y <= py2; ++y) {
+                createTile(px1, y, 0, TerrainType::SIDEWALK, '|', "#FFD34D", MaterialType::CONCRETE);
+                createTile(px2, y, 0, TerrainType::SIDEWALK, '|', "#FFD34D", MaterialType::CONCRETE);
+            }
+        }
+
+        // Station concourse with doors toward street flow.
+        int hall_w = horizontal_rail ? std::clamp(cell_size / 3, 10, 22) : 8;
+        int hall_h = horizontal_rail ? 8 : std::clamp(cell_size / 3, 10, 22);
+        int hall_x = std::clamp(station_cx - hall_w / 2, start_x + 1, end_x - hall_w);
+        int hall_y = std::clamp(station_cy - hall_h / 2, start_y + 1, end_y - hall_h);
+
+        std::vector<DoorInfo> station_doors;
+        uint8_t station_facing = 0;
+        if (horizontal_rail) {
+            station_doors.push_back({hall_x + hall_w / 2, hall_y, true});
+            station_doors.push_back({hall_x + hall_w / 2, hall_y + hall_h - 1, true});
+            station_facing = static_cast<uint8_t>(StreetFacingSide::NORTH) | static_cast<uint8_t>(StreetFacingSide::SOUTH);
+        } else {
+            station_doors.push_back({hall_x, hall_y + hall_h / 2, true});
+            station_doors.push_back({hall_x + hall_w - 1, hall_y + hall_h / 2, true});
+            station_facing = static_cast<uint8_t>(StreetFacingSide::WEST) | static_cast<uint8_t>(StreetFacingSide::EAST);
+        }
+
+        createBuildingShell("L Station Concourse", hall_x, hall_y, hall_w, hall_h, 2, "#6486A8", ZoneType::TRANSIT, station_facing, 0, 0, station_doors, static_cast<uint32_t>(hall_x * 10000 + hall_y), chunk_ent, gen);
+        for (int fx = hall_x; fx < hall_x + hall_w; ++fx) for (int fy = hall_y; fy < hall_y + hall_h; ++fy) footprint.insert({fx, fy});
+        for (const auto& d : station_doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
+
+        // Mark a station node on the rail layer so transit-related systems can discover it.
+        auto station_node = m_registry.create();
+        m_registry.emplace<PositionComponent>(station_node, station_cx, station_cy, 5);
+        m_registry.emplace<RenderableComponent>(station_node, 'S', "#00E5FF", 5);
+        auto& station_meta = m_registry.emplace<InfrastructureNodeComponent>(station_node);
+        station_meta.node_name = "Rail Station Node";
+        m_registry.emplace_or_replace<TransitStationComponent>(station_node, TransitVehicleType::TRAIN);
+        m_registry.emplace<CommerceHubComponent>(station_node, 22.0f, 2.4f);
+
+        // Turnstile + credit scanner clusters near the concourse centerline.
+        int gate_count = std::clamp(platform_span / 7, 3, 7);
+        int gate_spacing = 2;
+        int gate_span = (gate_count - 1) * gate_spacing;
+        int gate_start_x = station_cx - gate_span / 2;
+        int gate_start_y = station_cy - gate_span / 2;
+
+        for (int i = 0; i < gate_count; ++i) {
+            int gx = horizontal_rail ? (gate_start_x + i * gate_spacing) : (hall_x + hall_w / 2);
+            int gy = horizontal_rail ? (hall_y + hall_h / 2) : (gate_start_y + i * gate_spacing);
+
+            if (gx <= start_x || gx >= end_x || gy <= start_y || gy >= end_y) continue;
+
+            auto turnstile = m_registry.create();
+            m_registry.emplace<PositionComponent>(turnstile, gx, gy, 0);
+            m_registry.emplace<RenderableComponent>(turnstile, 'H', "#66CCFF", 0);
+            m_registry.emplace<NameComponent>(turnstile, "Turnstile Gate");
+            m_registry.emplace<ObstacleComponent>(turnstile);
+
+            int sx = gx + (horizontal_rail ? 0 : 1);
+            int sy = gy + (horizontal_rail ? 1 : 0);
+            if (sx > start_x && sx < end_x && sy > start_y && sy < end_y) {
+                auto scanner = m_registry.create();
+                m_registry.emplace<PositionComponent>(scanner, sx, sy, 0);
+                m_registry.emplace<RenderableComponent>(scanner, '$', "#33FF99", 0);
+                m_registry.emplace<NameComponent>(scanner, "Credit Scanner");
+            }
+        }
+
+        static const std::array<std::string, 10> shop_names = {
+            "Platform Bodega", "Commuter Pharmacy", "Blue Line Cafe", "Token Mart", "Rush Hour Deli",
+            "Late Train Noodles", "Metro Books", "Trackside Electronics", "Night Shift Donuts", "South Loop Snacks"
+        };
+        std::uniform_int_distribution<size_t> shop_pick(0, shop_names.size() - 1);
+        std::uniform_real_distribution<> dis(0.0, 1.0);
+
+        // Dense station-adjacent kiosks to reflect passenger throughput.
+        for (int i = 0; i < 14; ++i) {
+            int radius = 2 + (i % 6);
+            int dir = i % 4;
+            int kx = station_cx;
+            int ky = station_cy;
+            if (dir == 0) { kx += radius; ky += (i % 3) - 1; }
+            else if (dir == 1) { kx -= radius; ky += (i % 3) - 1; }
+            else if (dir == 2) { ky += radius; kx += (i % 3) - 1; }
+            else { ky -= radius; kx += (i % 3) - 1; }
+
+            if (kx <= start_x + 1 || kx >= end_x - 1 || ky <= start_y + 1 || ky >= end_y - 1) continue;
+            if (footprint.count({kx, ky}) || arterials.count({kx, ky})) continue;
+
+            createKiosk(kx, ky, shop_names[shop_pick(gen)], "#FF66CC");
+            footprint.insert({kx, ky});
+        }
+
+        // Lot-level development: mostly storefronts with a few utility/support buildings.
+        for (auto block_ent : zone.block_entities) {
+            const auto& block = m_registry.get<BlockComponent>(block_ent);
+            for (auto l_entity : block.lots) {
+                const auto& lot = m_registry.get<LotComponent>(l_entity);
+                int bx = lot.x;
+                int by = lot.y;
+                int bw = lot.width;
+                int bh = lot.height;
+                if (bw < 2 || bh < 2) continue;
+
+                bool overlaps_station = false;
+                for (int fx = bx; fx < bx + bw && !overlaps_station; ++fx) {
+                    for (int fy = by; fy < by + bh; ++fy) {
+                        if (footprint.count({fx, fy})) { overlaps_station = true; break; }
+                    }
+                }
+                if (overlaps_station) continue;
+
+                uint8_t shared_sides = calculateSharedSides(lot, block);
+                auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
+                uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
+                double roll = dis(gen);
+
+                if (roll < 0.62 && bw >= 3 && bh >= 3) {
+                    auto shop_building = createBuildingShell(shop_names[shop_pick(gen)], bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#C44DFF", ZoneType::TRANSIT, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
+                    m_registry.emplace_or_replace<ShopComponent>(shop_building);
+                    auto& shop_container = m_registry.emplace_or_replace<ContainerComponent>(shop_building);
+                    shop_container.is_open = true;
+                    spawnVendor(bx + (bw / 2), by + (bh / 2), 0, "Vendor " + std::to_string(stable_id));
+                    for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) footprint.insert({fx, fy});
+                    for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
+                } else if (roll < 0.80 && bw >= 2 && bh >= 2) {
+                    static const std::array<std::string, 5> utility_names = {
+                        "Signal Control", "Maintenance Shed", "Power Relay", "Track Equipment", "Ops Annex"
+                    };
+                    std::uniform_int_distribution<size_t> util_pick(0, utility_names.size() - 1);
+                    createBuildingShell(utility_names[util_pick(gen)], bx, by, bw, bh, 1, "#8C8C8C", ZoneType::TRANSIT, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
+                    for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) footprint.insert({fx, fy});
+                    for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
+                } else if (roll < 0.92) {
+                    int kx = bx + bw / 2;
+                    int ky = by + bh / 2;
+                    if (!arterials.count({kx, ky}) && !footprint.count({kx, ky})) {
+                        createKiosk(kx, ky, shop_names[shop_pick(gen)], "#FF66CC");
+                        footprint.insert({kx, ky});
+                    }
                 }
             }
         }
