@@ -22,9 +22,34 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
     std::vector<entt::entity> chunks;
     for (auto entity : chunk_view) chunks.push_back(entity);
 
+    // Weight chunks by zone type for POI clustering
+    std::vector<double> weights;
+    weights.reserve(chunks.size());
+    for (auto chunk_ent : chunks) {
+        auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
+        double w = 1.0;
+        for (auto zone_ent : chunk.macro_zones) {
+            if (!m_registry.valid(zone_ent)) continue;
+            if (!m_registry.all_of<MacroZoneComponent>(zone_ent)) continue;
+            auto& zone = m_registry.get<MacroZoneComponent>(zone_ent);
+            switch (zone.type) {
+                case ZoneType::URBAN_CORE:  w += 5.0; break;
+                case ZoneType::COMMERCIAL:  w += 4.0; break;
+                case ZoneType::CORPORATE:   w += 3.0; break;
+                case ZoneType::COLOSSEUM:   w += 3.0; break;
+                case ZoneType::RESIDENTIAL: w += 2.0; break;
+                case ZoneType::INDUSTRIAL:  w += 2.0; break;
+                case ZoneType::SLUM:        w += 2.0; break;
+                case ZoneType::AIRPORT:     w += 2.0; break;
+                default: break;
+            }
+        }
+        weights.push_back(w);
+    }
+
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> disChunk(0, (int)chunks.size() - 1);
+    std::discrete_distribution<> disChunk(weights.begin(), weights.end());
     std::uniform_int_distribution<> disType(0, 10);
     
     int cell_size = config.macro_cell_size;
@@ -83,7 +108,12 @@ void AgentSpawnSystem::spawnAgentsIntoChunks(int total_count) {
             if (!m_registry.valid(zone_ent)) continue;
             const auto& zone = m_registry.get<MacroZoneComponent>(zone_ent);
             for (auto art_ent : zone.arterial_entities) {
-                if (m_registry.all_of<InfrastructureArterialComponent>(art_ent)) {
+                if (m_registry.all_of<InfrastructureSegmentComponent>(art_ent)) {
+                    auto type = m_registry.get<InfrastructureSegmentComponent>(art_ent).type;
+                    if (type == ArterialType::SEWER || type == ArterialType::UNDERGROUND_TUNNEL) {
+                        has_sewer = true; break;
+                    }
+                } else if (m_registry.all_of<InfrastructureArterialComponent>(art_ent)) {
                     auto type = m_registry.get<InfrastructureArterialComponent>(art_ent).type;
                     if (type == ArterialType::SEWER || type == ArterialType::UNDERGROUND_TUNNEL) {
                         has_sewer = true; break;
@@ -328,12 +358,16 @@ void AgentSpawnSystem::spawnAgents(int count, int layer) {
             if (obstacle_set.count(key) == 0) {
                 walkable.emplace_back(pos.x, pos.y);
                 
-                // Extra weight for Urban Core
+                // Extra weight for high-activity zones (POI clustering)
                 int mx = pos.x / macro_size;
                 int my = pos.y / macro_size;
-                if (zone_map[{mx, my}] == ZoneType::URBAN_CORE) {
-                    for(int w=0; w<4; ++w) walkable.emplace_back(pos.x, pos.y);
-                }
+                auto zt = zone_map[{mx, my}];
+                int extra = 0;
+                if (zt == ZoneType::URBAN_CORE) extra = 5;
+                else if (zt == ZoneType::COMMERCIAL) extra = 4;
+                else if (zt == ZoneType::CORPORATE || zt == ZoneType::COLOSSEUM) extra = 3;
+                else if (zt == ZoneType::RESIDENTIAL || zt == ZoneType::INDUSTRIAL || zt == ZoneType::SLUM) extra = 1;
+                for (int w = 0; w < extra; ++w) walkable.emplace_back(pos.x, pos.y);
             }
         }
     }

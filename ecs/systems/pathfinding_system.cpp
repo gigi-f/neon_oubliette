@@ -125,20 +125,20 @@ int PathfindingSystem::getHeuristic(PositionComponent a, PositionComponent b) co
 int PathfindingSystem::getMovementCost(PositionComponent pos, entt::entity requester_entity) const {
     int cost = 10; // Default base cost
 
-    auto arterial_view = registry.view<PositionComponent, InfrastructureArterialComponent>();
-    for (auto entity : arterial_view) {
-        const auto& a_pos = arterial_view.get<PositionComponent>(entity);
-        if (a_pos.x == pos.x && a_pos.y == pos.y && a_pos.layer_id == pos.layer_id) {
-            const auto& art = arterial_view.get<InfrastructureArterialComponent>(entity);
-            switch (art.type) {
+    // Use ArterialGrid for O(1) arterial type lookup
+    auto* grid = registry.ctx().find<ArterialGrid>();
+    if (grid) {
+        ArterialType art_type;
+        if (grid->type_at(pos.x, pos.y, pos.layer_id, art_type)) {
+            switch (art_type) {
                 case ArterialType::SIDEWALK: return 5;
                 case ArterialType::ROAD_ALLEY: return 8;
                 case ArterialType::ROAD_PRIMARY:
-                case ArterialType::ROAD_SECONDARY: return 15; // Prefer sidewalk over road
+                case ArterialType::ROAD_SECONDARY: return 15;
                 case ArterialType::RAIL_ELEVATED: return 50;
                 case ArterialType::WATERWAY_RIVER: return 200;
-                case ArterialType::SEWER: return 12; // Sewer water is slightly slower
-                case ArterialType::UNDERGROUND_TUNNEL: return 8; // Maintenance tunnels are fast
+                case ArterialType::SEWER: return 12;
+                case ArterialType::UNDERGROUND_TUNNEL: return 8;
                 default: break;
             }
         }

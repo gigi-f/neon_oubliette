@@ -1,0 +1,8 @@
+=== NEON OUBLIETTE CRASH REPORT ===
+Signal: 11 (Segmentation fault: 11)
+Last startup phase: infra-junctions
+
+Stack trace (most recent call last):
+#2    Object "neon_oubliette", at 0x10019e15b, in main + 2179
+#1    Object "neon_oubliette", at 0x10019e15b, in main + 2179
+#0    Object "libsystem_platform.dylib", at 0x182c8d7a3, in _sigtramp + 55

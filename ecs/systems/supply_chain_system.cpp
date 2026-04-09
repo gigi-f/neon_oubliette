@@ -63,9 +63,10 @@ void SupplyChainSystem::handleTurnEvent(const TurnEvent& event) {
         auto chunk_view = m_registry.view<ChunkComponent, MacroMarketComponent>();
         for (auto chunk_ent : chunk_view) {
             const auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
-            int cx = chunk.chunk_x * 40;
-            int cy = chunk.chunk_y * 40;
-            if (pos.x >= cx && pos.x < cx + 40 && pos.y >= cy && pos.y < cy + 40) {
+            int cs = get_chunk_size(m_registry);
+            int cx = chunk.chunk_x * cs;
+            int cy = chunk.chunk_y * cs;
+            if (pos.x >= cx && pos.x < cx + cs && pos.y >= cy && pos.y < cy + cs) {
                 const auto& market = chunk_view.get<MacroMarketComponent>(chunk_ent);
                 local_sabotage += market.crime_rate * 0.2f;
                 break;

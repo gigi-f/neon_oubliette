@@ -6,8 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
+
+# Always include debug symbols so backward-cpp can resolve source locations
+string(APPEND CMAKE_CXX_FLAGS " -g")
+string(APPEND CMAKE_C_FLAGS " -g")
 
 # --- Find External Dependencies ---
 

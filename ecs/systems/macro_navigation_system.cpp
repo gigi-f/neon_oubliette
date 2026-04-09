@@ -34,12 +34,8 @@ void MacroNavigationSystem::rebuild_graph() {
         node_pos_map[pos] = entity;
     }
 
-    std::map<PositionComponent, std::vector<entt::entity>> arterial_pos_map;
-    auto arterial_view = m_registry.view<InfrastructureArterialComponent, PositionComponent>();
-    for (auto entity : arterial_view) {
-        const auto& pos = arterial_view.get<PositionComponent>(entity);
-        arterial_pos_map[pos].push_back(entity);
-    }
+    // Use ArterialGrid for spatial lookup instead of per-tile entity map
+    auto* grid = m_registry.ctx().find<ArterialGrid>();
 
     int dx[] = {0, 0, 1, -1};
     int dy[] = {1, -1, 0, 0};
@@ -62,7 +58,8 @@ void MacroNavigationSystem::rebuild_graph() {
             }
         }
 
-        // Horizontal links
+        // Horizontal links — walk tile-by-tile using ArterialGrid for connectivity
+        if (!grid) continue;
         for (int i = 0; i < 4; ++i) {
             PositionComponent cur_pos = pos;
             cur_pos.x += dx[i];
@@ -80,7 +77,8 @@ void MacroNavigationSystem::rebuild_graph() {
                     break;
                 }
 
-                if (!arterial_pos_map.count(cur_pos)) break;
+                ArterialType dummy;
+                if (!grid->type_at(cur_pos.x, cur_pos.y, cur_pos.layer_id, dummy)) break;
 
                 // Move forward along the arterial
                 visited.insert(cur_pos);
@@ -90,7 +88,8 @@ void MacroNavigationSystem::rebuild_graph() {
                     next_pos.x += dx[j];
                     next_pos.y += dy[j];
                     if (visited.count(next_pos)) continue;
-                    if (arterial_pos_map.count(next_pos) || node_pos_map.count(next_pos)) {
+                    bool has_arterial = grid->type_at(next_pos.x, next_pos.y, next_pos.layer_id, dummy);
+                    if (has_arterial || node_pos_map.count(next_pos)) {
                         cur_pos = next_pos;
                         distance += 1.0f;
                         moved = true;

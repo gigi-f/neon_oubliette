@@ -105,6 +105,7 @@ void FactionSystem::update(double delta_time) {
     // 4. Calculate base influence from agents in chunks
     auto chunk_view = m_registry.view<ChunkComponent, FactionInfluenceFieldComponent>();
     auto agent_view = m_registry.view<PositionComponent, Layer4PoliticalComponent>();
+    int cs = get_chunk_size(m_registry);
     
     // Reset/Decay influence
     for (auto chunk_ent : chunk_view) {
@@ -119,16 +120,13 @@ void FactionSystem::update(double delta_time) {
         auto& pos = agent_view.get<PositionComponent>(agent_ent);
         auto& pol = agent_view.get<Layer4PoliticalComponent>(agent_ent);
         
-        // Find chunk for this agent (macro-cell based)
-        // Note: Logic assumes chunk mapping exists or we iterate chunks
-        // Simplified: iterate chunks and check bounds
+        // Find chunk for this agent
         for (auto chunk_ent : chunk_view) {
             auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
-            // Assuming chunk_x/y are in macro-cell units (40x40 tiles)
-            int min_x = chunk.chunk_x * 40;
-            int max_x = (chunk.chunk_x + 1) * 40;
-            int min_y = chunk.chunk_y * 40;
-            int max_y = (chunk.chunk_y + 1) * 40;
+            int min_x = chunk.chunk_x * cs;
+            int max_x = (chunk.chunk_x + 1) * cs;
+            int min_y = chunk.chunk_y * cs;
+            int max_y = (chunk.chunk_y + 1) * cs;
 
             if (pos.x >= min_x && pos.x < max_x && pos.y >= min_y && pos.y < max_y) {
                 auto& inf_field = chunk_view.get<FactionInfluenceFieldComponent>(chunk_ent);
@@ -172,8 +170,8 @@ void FactionSystem::update(double delta_time) {
                                     
                                     // Simple chunk check:
                                     auto& chunk = m_registry.get<ChunkComponent>(chunk_ent);
-                                    if (w_pos.x >= chunk.chunk_x * 40 && w_pos.x < (chunk.chunk_x + 1) * 40 &&
-                                        w_pos.y >= chunk.chunk_y * 40 && w_pos.y < (chunk.chunk_y + 1) * 40) {
+                                    if (w_pos.x >= chunk.chunk_x * cs && w_pos.x < (chunk.chunk_x + 1) * cs &&
+                                        w_pos.y >= chunk.chunk_y * cs && w_pos.y < (chunk.chunk_y + 1) * cs) {
                                         
                                         // 5% chance to raid per L4 tick
                                         if ((rand() % 100) < 5) {
@@ -486,6 +484,7 @@ void FactionSystem::handleBackroomDeal(const BackroomDealEvent& event) {
 void FactionSystem::updateAgentAffinities() {
     auto view = m_registry.view<Layer4PoliticalComponent, Layer2CognitiveComponent, PositionComponent, AgeComponent>();
     auto chunk_view = m_registry.view<ChunkComponent, FactionInfluenceFieldComponent>();
+    int cs = get_chunk_size(m_registry);
 
     for (auto entity : view) {
         auto& pol = view.get<Layer4PoliticalComponent>(entity);
@@ -497,8 +496,8 @@ void FactionSystem::updateAgentAffinities() {
         if (age.stage == LifeStage::CHILD || age.stage == LifeStage::YOUNG_ADULT) {
              for (auto chunk_ent : chunk_view) {
                 auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
-                if (pos.x >= chunk.chunk_x * 40 && pos.x < (chunk.chunk_x + 1) * 40 &&
-                    pos.y >= chunk.chunk_y * 40 && pos.y < (chunk.chunk_y + 1) * 40) {
+                if (pos.x >= chunk.chunk_x * cs && pos.x < (chunk.chunk_x + 1) * cs &&
+                    pos.y >= chunk.chunk_y * cs && pos.y < (chunk.chunk_y + 1) * cs) {
                     auto& inf_field = chunk_view.get<FactionInfluenceFieldComponent>(chunk_ent);
                     for (auto const& [faction_id, amount] : inf_field.influence) {
                         // Drift reputation scores toward local influence

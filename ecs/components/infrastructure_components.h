@@ -4,6 +4,8 @@
 #include <entt/entt.hpp>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <algorithm>
 #include <cereal/types/vector.hpp>
 #include <cereal/types/string.hpp>
 
@@ -120,6 +122,196 @@ struct ArterialGraphComponent {
     void serialize(Archive& ar) {
         ar(cereal::make_nvp("adj_list", adj_list));
     }
+};
+
+/**
+ * @brief Represents an axis-aligned line segment of infrastructure.
+ *        Replaces per-tile InfrastructureArterialComponent entities.
+ *        A single segment covers (x1,y1)→(x2,y2) inclusive.
+ */
+struct InfrastructureSegmentComponent {
+    ArterialType type = ArterialType::ROAD_PRIMARY;
+    int x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+    int layer_id = 0;
+    float flow_capacity = 2.0f;
+    bool is_public = true;
+
+    // Embedded conduit field properties (replaces separate ConduitFieldComponent)
+    float field_radius = 2.0f;
+    float temperature_offset = 0.0f;
+    float economic_multiplier = 1.0f;
+    float crime_modifier = 0.0f;
+
+    bool is_horizontal() const { return y1 == y2; }
+    bool is_vertical() const { return x1 == x2; }
+
+    bool contains(int x, int y) const {
+        if (is_horizontal()) return y == y1 && x >= std::min(x1, x2) && x <= std::max(x1, x2);
+        if (is_vertical()) return x == x1 && y >= std::min(y1, y2) && y <= std::max(y1, y2);
+        return false; // Non-axis-aligned segments not supported for point queries
+    }
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("type", type),
+           cereal::make_nvp("x1", x1), cereal::make_nvp("y1", y1),
+           cereal::make_nvp("x2", x2), cereal::make_nvp("y2", y2),
+           cereal::make_nvp("layer_id", layer_id),
+           cereal::make_nvp("flow_capacity", flow_capacity),
+           cereal::make_nvp("is_public", is_public),
+           cereal::make_nvp("field_radius", field_radius),
+           cereal::make_nvp("temperature_offset", temperature_offset),
+           cereal::make_nvp("economic_multiplier", economic_multiplier),
+           cereal::make_nvp("crime_modifier", crime_modifier));
+    }
+};
+
+/**
+ * @brief Spatial index for fast arterial type lookup at any (x, y, layer) position.
+ *        Built from InfrastructureSegmentComponent entities after world generation.
+ *        Stored as registry context (singleton).
+ */
+struct ArterialGrid {
+    struct HInterval {
+        int x_min, x_max;
+        ArterialType type;
+        float field_radius;
+        float temperature_offset;
+        float economic_multiplier;
+        float crime_modifier;
+    };
+    struct VInterval {
+        int y_min, y_max;
+        ArterialType type;
+        float field_radius;
+        float temperature_offset;
+        float economic_multiplier;
+        float crime_modifier;
+    };
+
+    // layer → y → sorted intervals for horizontal segments
+    std::unordered_map<int, std::unordered_map<int, std::vector<HInterval>>> h_intervals;
+    // layer → x → sorted intervals for vertical segments
+    std::unordered_map<int, std::unordered_map<int, std::vector<VInterval>>> v_intervals;
+
+    void add_segment(const InfrastructureSegmentComponent& seg) {
+        if (seg.is_horizontal()) {
+            int y = seg.y1;
+            int xmin = std::min(seg.x1, seg.x2);
+            int xmax = std::max(seg.x1, seg.x2);
+            h_intervals[seg.layer_id][y].push_back({xmin, xmax, seg.type,
+                seg.field_radius, seg.temperature_offset, seg.economic_multiplier, seg.crime_modifier});
+        } else if (seg.is_vertical()) {
+            int x = seg.x1;
+            int ymin = std::min(seg.y1, seg.y2);
+            int ymax = std::max(seg.y1, seg.y2);
+            v_intervals[seg.layer_id][x].push_back({ymin, ymax, seg.type,
+                seg.field_radius, seg.temperature_offset, seg.economic_multiplier, seg.crime_modifier});
+        }
+    }
+
+    /// Returns true and fills out_type if an arterial exists at (x, y, layer).
+    bool type_at(int x, int y, int layer, ArterialType& out_type) const {
+        // Check horizontal intervals at this y
+        auto h_layer_it = h_intervals.find(layer);
+        if (h_layer_it != h_intervals.end()) {
+            auto h_row_it = h_layer_it->second.find(y);
+            if (h_row_it != h_layer_it->second.end()) {
+                for (const auto& iv : h_row_it->second) {
+                    if (x >= iv.x_min && x <= iv.x_max) { out_type = iv.type; return true; }
+                }
+            }
+        }
+        // Check vertical intervals at this x
+        auto v_layer_it = v_intervals.find(layer);
+        if (v_layer_it != v_intervals.end()) {
+            auto v_col_it = v_layer_it->second.find(x);
+            if (v_col_it != v_layer_it->second.end()) {
+                for (const auto& iv : v_col_it->second) {
+                    if (y >= iv.y_min && y <= iv.y_max) { out_type = iv.type; return true; }
+                }
+            }
+        }
+        return false;
+    }
+
+    /// Collect all arterial types at (x, y, layer) into out_types.
+    void types_at(int x, int y, int layer, std::vector<ArterialType>& out_types) const {
+        auto h_layer_it = h_intervals.find(layer);
+        if (h_layer_it != h_intervals.end()) {
+            auto h_row_it = h_layer_it->second.find(y);
+            if (h_row_it != h_layer_it->second.end()) {
+                for (const auto& iv : h_row_it->second) {
+                    if (x >= iv.x_min && x <= iv.x_max) out_types.push_back(iv.type);
+                }
+            }
+        }
+        auto v_layer_it = v_intervals.find(layer);
+        if (v_layer_it != v_intervals.end()) {
+            auto v_col_it = v_layer_it->second.find(x);
+            if (v_col_it != v_layer_it->second.end()) {
+                for (const auto& iv : v_col_it->second) {
+                    if (y >= iv.y_min && y <= iv.y_max) out_types.push_back(iv.type);
+                }
+            }
+        }
+    }
+
+    /// Check if a specific type exists anywhere in given zone bounds.
+    bool has_type_in_rect(int sx, int sy, int ex, int ey, int layer, ArterialType type) const {
+        auto h_layer_it = h_intervals.find(layer);
+        if (h_layer_it != h_intervals.end()) {
+            for (int y = sy; y <= ey; ++y) {
+                auto row_it = h_layer_it->second.find(y);
+                if (row_it == h_layer_it->second.end()) continue;
+                for (const auto& iv : row_it->second) {
+                    if (iv.type == type && iv.x_max >= sx && iv.x_min <= ex) return true;
+                }
+            }
+        }
+        auto v_layer_it = v_intervals.find(layer);
+        if (v_layer_it != v_intervals.end()) {
+            for (int x = sx; x <= ex; ++x) {
+                auto col_it = v_layer_it->second.find(x);
+                if (col_it == v_layer_it->second.end()) continue;
+                for (const auto& iv : col_it->second) {
+                    if (iv.type == type && iv.y_max >= sy && iv.y_min <= ey) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// Expand all segments overlapping [sx,sy]-[ex,ey] into a position→type map.
+    void expand_to_map(int sx, int sy, int ex, int ey, int layer,
+                       std::map<std::pair<int,int>, ArterialType>& out) const {
+        auto h_layer_it = h_intervals.find(layer);
+        if (h_layer_it != h_intervals.end()) {
+            for (int y = sy; y <= ey; ++y) {
+                auto row_it = h_layer_it->second.find(y);
+                if (row_it == h_layer_it->second.end()) continue;
+                for (const auto& iv : row_it->second) {
+                    int lo = std::max(iv.x_min, sx);
+                    int hi = std::min(iv.x_max, ex);
+                    for (int x = lo; x <= hi; ++x) out[{x, y}] = iv.type;
+                }
+            }
+        }
+        auto v_layer_it = v_intervals.find(layer);
+        if (v_layer_it != v_intervals.end()) {
+            for (int x = sx; x <= ex; ++x) {
+                auto col_it = v_layer_it->second.find(x);
+                if (col_it == v_layer_it->second.end()) continue;
+                for (const auto& iv : col_it->second) {
+                    int lo = std::max(iv.y_min, sy);
+                    int hi = std::min(iv.y_max, ey);
+                    for (int y = lo; y <= hi; ++y) out[{x, y}] = iv.type;
+                }
+            }
+        }
+    }
+
+    void clear() { h_intervals.clear(); v_intervals.clear(); }
 };
 
 } // namespace NeonOubliette

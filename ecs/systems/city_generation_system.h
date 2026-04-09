@@ -12,6 +12,8 @@
 #include <string>
 #include <set>
 #include <map>
+#include <unordered_set>
+#include <unordered_map>
 #include <random>
 #include <queue>
 #include <cmath>
@@ -30,7 +32,14 @@ public:
     };
 
     CityGenerationSystem(entt::registry& registry, entt::dispatcher& dispatcher)
-        : m_registry(registry), m_dispatcher(dispatcher) {}
+        : m_registry(registry), m_dispatcher(dispatcher) {
+        // Pre-populate tile index from any existing terrain entities for O(1) duplicate checks
+        auto view = m_registry.view<PositionComponent, TerrainComponent>();
+        for (auto ent : view) {
+            const auto& p = view.get<PositionComponent>(ent);
+            m_tile_index[tile_key(p.x, p.y, p.layer_id)] = ent;
+        }
+    }
 
     void initialize() override {}
     void update(double delta_time) override { (void)delta_time; }
@@ -461,12 +470,13 @@ private:
     }
 
     public: void createTile(int x, int y, int layer, TerrainType type, char glyph, std::string color, MaterialType material = MaterialType::CONCRETE) {
-        // [MOD] Continuity: Do not overwrite specialized tiles with basic building tiles
-        auto view = m_registry.view<PositionComponent, TerrainComponent>();
-        for (auto ent : view) {
-            const auto& p = view.get<PositionComponent>(ent);
-            if (p.x == x && p.y == y && p.layer_id == layer) {
-                const auto& terr = view.get<TerrainComponent>(ent);
+        // [MOD] O(1) duplicate check via spatial index (was O(N) entity scan causing O(N²) freeze)
+        uint64_t key = tile_key(x, y, layer);
+        auto it = m_tile_index.find(key);
+        if (it != m_tile_index.end()) {
+            auto ent = it->second;
+            if (m_registry.valid(ent) && m_registry.all_of<TerrainComponent>(ent)) {
+                const auto& terr = m_registry.get<TerrainComponent>(ent);
                 // Keep rails on L5 and Sewer tiles on L-1
                 if (layer == 5 && terr.type == TerrainType::RAIL) return;
                 if (layer == -1 && (terr.type == TerrainType::SEWER_FLOOR || terr.type == TerrainType::SEWER_WATER)) return;
@@ -476,6 +486,7 @@ private:
         auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, layer); m_registry.emplace<TerrainComponent>(e, type); m_registry.emplace<RenderableComponent>(e, glyph, color, layer);
         auto& phys = m_registry.emplace<Layer0PhysicsComponent>(e); phys.material = material; 
         if (type == TerrainType::WALL || type == TerrainType::WINDOW) m_registry.emplace<ObstacleComponent>(e);
+        m_tile_index[key] = e;
     }
     void spawnPersonalVehicle(int x, int y, int layer, PersonalVehicleType type) {
         auto v = m_registry.create(); m_registry.emplace<PositionComponent>(v, x, y, layer); m_registry.emplace<NameComponent>(v, "Vehicle"); m_registry.emplace<SizeComponent>(v, 1, 1); m_registry.emplace<TransitOccupantsComponent>(v);
@@ -819,6 +830,17 @@ private:
     }
 
     entt::registry& m_registry; entt::dispatcher& m_dispatcher;
+
+    // Spatial index for O(1) tile-position duplicate checking (replaces O(N) entity scan)
+    std::unordered_map<uint64_t, entt::entity> m_tile_index;
+
+    static uint64_t tile_key(int x, int y, int layer) {
+        // Pack (x, y, layer) into a single uint64. Supports coords up to ~16M and layers -32768..32767.
+        uint64_t ux = static_cast<uint64_t>(static_cast<unsigned int>(x));
+        uint64_t uy = static_cast<uint64_t>(static_cast<unsigned int>(y));
+        uint64_t ul = static_cast<uint64_t>(static_cast<unsigned short>(static_cast<short>(layer)));
+        return (ux << 40) | (uy << 16) | ul;
+    }
 };
 } // namespace NeonOubliette
 #endif

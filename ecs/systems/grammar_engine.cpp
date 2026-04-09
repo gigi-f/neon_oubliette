@@ -51,7 +51,7 @@ std::string GrammarEngine::process_slots(const std::string& template_str, const 
     std::string result = template_str;
     
     // First expand #tags# (recursive grammar)
-    std::regex tag_regex("#([^#]+)#");
+    static const std::regex tag_regex("#([^#]+)#");
     std::smatch tag_match;
     while (std::regex_search(result, tag_match, tag_regex)) {
         std::string tag_name = tag_match[1].str();
@@ -60,7 +60,7 @@ std::string GrammarEngine::process_slots(const std::string& template_str, const 
     }
 
     // Then inject <ecs_slots> (live data)
-    std::regex slot_regex("<([^>]+)>");
+    static const std::regex slot_regex("<([^>]+)>");
     std::smatch slot_match;
     while (std::regex_search(result, slot_match, slot_regex)) {
         std::string slot_name = slot_match[1].str();
@@ -133,8 +133,9 @@ std::string GrammarEngine::get_ecs_value(const std::string& slot, const entt::re
         auto view = registry.view<PositionComponent>();
         if (view.contains(entity)) {
             auto& pos = view.get<PositionComponent>(entity);
-            int cx = pos.x / 40;
-            int cy = pos.y / 40;
+            int cs = get_chunk_size(registry);
+            int cx = pos.x / cs;
+            int cy = pos.y / cs;
             auto chunk_view = registry.view<ChunkComponent, MarketDemandComponent>();
             for (auto chunk_ent : chunk_view) {
                 auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
@@ -156,8 +157,9 @@ std::string GrammarEngine::get_ecs_value(const std::string& slot, const entt::re
         auto view = registry.view<PositionComponent>();
         if (view.contains(entity)) {
             auto& pos = view.get<PositionComponent>(entity);
-            int cx = pos.x / 40;
-            int cy = pos.y / 40;
+            int cs = get_chunk_size(registry);
+            int cx = pos.x / cs;
+            int cy = pos.y / cs;
             auto chunk_view = registry.view<ChunkComponent, MarketDemandComponent>();
             for (auto chunk_ent : chunk_view) {
                 auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);

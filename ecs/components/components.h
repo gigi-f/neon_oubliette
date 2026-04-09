@@ -220,10 +220,18 @@ struct WorldConfigComponent {
     int width = 0;
     int height = 0;
     int macro_cell_size = 20;
+    int chunk_size = 40;        // macro_cell_size * 2 — set during init
     uint32_t world_seed = 12345;
     uint64_t next_macro_id = 1000; // Start high to avoid collision with low-level stubs
-    template <class Archive> void serialize(Archive& ar) { ar(cereal::make_nvp("width", width), cereal::make_nvp("height", height), cereal::make_nvp("macro_cell_size", macro_cell_size), cereal::make_nvp("world_seed", world_seed), cereal::make_nvp("next_macro_id", next_macro_id)); }
+    template <class Archive> void serialize(Archive& ar) { ar(cereal::make_nvp("width", width), cereal::make_nvp("height", height), cereal::make_nvp("macro_cell_size", macro_cell_size), cereal::make_nvp("chunk_size", chunk_size), cereal::make_nvp("world_seed", world_seed), cereal::make_nvp("next_macro_id", next_macro_id)); }
 };
+
+// Helper: get chunk_size from registry (returns chunk_size from WorldConfigComponent, defaults to 240)
+inline int get_chunk_size(const entt::registry& reg) {
+    auto v = reg.view<WorldConfigComponent>();
+    if (v.begin() != v.end()) return v.get<WorldConfigComponent>(*v.begin()).chunk_size;
+    return 240;
+}
 
 struct NameComponent {
     std::string name;

@@ -36,6 +36,20 @@ void ChunkStreamingSystem::initialize() {
 
 void ChunkStreamingSystem::update(double delta_time) {
     (void)delta_time;
+
+    // Lazy-init: if our m_chunk_map is empty but ChunkComponent entities already
+    // exist (e.g. created by a separate startup instance), rebuild the map and
+    // track which chunks are already hot so we don't re-materialize them.
+    bool first_update = m_chunk_map.empty();
+    if (first_update) {
+        auto existing = m_registry.view<ChunkComponent>();
+        for (auto entity : existing) {
+            const auto& ch = existing.get<ChunkComponent>(entity);
+            m_chunk_map[{ch.chunk_x, ch.chunk_y}] = entity;
+            if (ch.is_hot) m_hot_chunks.insert(entity);
+        }
+    }
+
     auto player_view = m_registry.view<PlayerComponent, PositionComponent>();
     if (player_view.begin() == player_view.end()) return;
     auto player_entity = *player_view.begin();
@@ -44,6 +58,14 @@ void ChunkStreamingSystem::update(double delta_time) {
     if (config_view.begin() == config_view.end()) return;
     auto& config = config_view.get<WorldConfigComponent>(*config_view.begin());
     int cell_size = config.macro_cell_size;
+
+    // On first update, sync our last-known player chunk to the current position
+    // so we don't trigger a spurious full chunk transition on the first frame.
+    if (first_update) {
+        int chunk_size = cell_size * 2;
+        m_last_player_chunk_x = pos.x / chunk_size;
+        m_last_player_chunk_y = pos.y / chunk_size;
+    }
 
     int ref_x = pos.x, ref_y = pos.y;
     if (pos.layer_id > 0) {
@@ -93,14 +115,30 @@ void ChunkStreamingSystem::update_chunk_states(int player_cx, int player_cy) {
             }
         }
     }
-    auto chunk_view = m_registry.view<ChunkComponent>();
-    for (auto entity : m_hot_chunks) if (next_hot_chunks.find(entity) == next_hot_chunks.end()) {
-        auto& chunk = chunk_view.get<ChunkComponent>(entity); dematerialize_chunk(entity, chunk); chunk.is_hot = false;
+    // Dematerialize chunks leaving hot radius — access ChunkComponent directly
+    // to avoid stale view references after mass entity destruction.
+    for (auto entity : m_hot_chunks) {
+        if (next_hot_chunks.find(entity) == next_hot_chunks.end()) {
+            if (!m_registry.valid(entity)) continue;
+            auto* chunk = m_registry.try_get<ChunkComponent>(entity);
+            if (!chunk) continue;
+            dematerialize_chunk(entity, *chunk);
+            chunk->is_hot = false;
+        }
     }
-    for (auto entity : next_hot_chunks) if (m_hot_chunks.find(entity) == m_hot_chunks.end()) {
-        auto& chunk = chunk_view.get<ChunkComponent>(entity); materialize_chunk(entity, chunk); chunk.is_hot = true;
+    // Materialize newly hot chunks
+    for (auto entity : next_hot_chunks) {
+        if (m_hot_chunks.find(entity) == m_hot_chunks.end()) {
+            if (!m_registry.valid(entity)) continue;
+            auto* chunk = m_registry.try_get<ChunkComponent>(entity);
+            if (!chunk) continue;
+            materialize_chunk(entity, *chunk);
+            chunk->is_hot = true;
+        }
     }
-    for (auto entity : next_warm_chunks) chunk_view.get<ChunkComponent>(entity).is_warm = true;
+    for (auto entity : next_warm_chunks) {
+        if (auto* chunk = m_registry.try_get<ChunkComponent>(entity)) chunk->is_warm = true;
+    }
     m_hot_chunks = next_hot_chunks;
 }
 
@@ -218,8 +256,9 @@ void ChunkStreamingSystem::dematerialize_chunk(entt::entity chunk_entity, ChunkC
     }
 
     for (auto entity : pos_view) {
+        if (!m_registry.valid(entity)) continue;
         if (m_registry.all_of<PersistentEntityComponent>(entity) || m_registry.all_of<PlayerComponent>(entity)) continue;
-        if (m_registry.all_of<InfrastructureArterialComponent>(entity) || m_registry.all_of<InfrastructureNodeComponent>(entity)) continue;
+        if (m_registry.all_of<InfrastructureArterialComponent>(entity) || m_registry.all_of<InfrastructureNodeComponent>(entity) || m_registry.all_of<InfrastructureSegmentComponent>(entity)) continue;
         if (m_registry.all_of<ChunkComponent>(entity) || m_registry.all_of<MacroZoneComponent>(entity)) continue;
 
         const auto& pos = pos_view.get<PositionComponent>(entity);
@@ -230,12 +269,14 @@ void ChunkStreamingSystem::dematerialize_chunk(entt::entity chunk_entity, ChunkC
         if (in_chunk_overworld || in_chunk_interior) {
             if (m_registry.all_of<AgentComponent>(entity)) {
                 MacroAgentRecord record;
-                record.name = m_registry.get<NameComponent>(entity).name; record.x = pos.x; record.y = pos.y; record.layer_id = pos.layer_id;
-                auto& needs = m_registry.get<NeedsComponent>(entity); 
-                record.hunger = needs.hunger; 
-                record.thirst = needs.thirst; 
-                record.frustration = needs.frustration;
-                record.socialization = needs.socialization;
+                if (auto* nm = m_registry.try_get<NameComponent>(entity)) record.name = nm->name;
+                record.x = pos.x; record.y = pos.y; record.layer_id = pos.layer_id;
+                if (auto* needs = m_registry.try_get<NeedsComponent>(entity)) {
+                    record.hunger = needs->hunger; 
+                    record.thirst = needs->thirst; 
+                    record.frustration = needs->frustration;
+                    record.socialization = needs->socialization;
+                }
                 if (auto* bio = m_registry.try_get<Layer1BiologyComponent>(entity)) { record.consciousness = bio->consciousness_level; record.species = bio->species; }
                 if (auto* hierarchy = m_registry.try_get<SocialHierarchyComponent>(entity)) { record.status = hierarchy->status; record.class_title = hierarchy->class_title; record.is_autonomous = hierarchy->is_autonomous; }
                 if (auto* xeno = m_registry.try_get<XenoComponent>(entity)) { record.is_xeno = true; record.xeno_type = xeno->type; record.xeno_origin = xeno->origin; }
@@ -289,10 +330,11 @@ void ChunkStreamingSystem::dematerialize_chunk(entt::entity chunk_entity, ChunkC
                 } else record.archetype = "Citizen";
                 chunk.stored_agents.push_back(record);
             } else if (in_chunk_interior && !m_registry.all_of<TerrainComponent>(entity)) {
+                auto* render = m_registry.try_get<RenderableComponent>(entity);
+                if (!render) { to_destroy.push_back(entity); continue; }
                 MacroObjectRecord obj;
                 obj.name = m_registry.all_of<NameComponent>(entity) ? m_registry.get<NameComponent>(entity).name : "Object";
-                auto const& render = m_registry.get<RenderableComponent>(entity);
-                obj.glyph = render.glyph; obj.color = render.color; obj.x = pos.x; obj.y = pos.y; obj.layer_id = pos.layer_id;
+                obj.glyph = render->glyph; obj.color = render->color; obj.x = pos.x; obj.y = pos.y; obj.layer_id = pos.layer_id;
                 obj.is_obstacle = m_registry.all_of<ObstacleComponent>(entity);
                 if (auto* item = m_registry.try_get<ItemComponent>(entity)) obj.item_type_id = item->item_type_id;
                 if (auto* val = m_registry.try_get<ItemValueComponent>(entity)) obj.item_value = val->value;
@@ -304,7 +346,7 @@ void ChunkStreamingSystem::dematerialize_chunk(entt::entity chunk_entity, ChunkC
         }
     }
     std::sort(to_destroy.begin(), to_destroy.end()); to_destroy.erase(std::unique(to_destroy.begin(), to_destroy.end()), to_destroy.end());
-    for (auto e : to_destroy) m_registry.destroy(e);
+    for (auto e : to_destroy) { if (m_registry.valid(e)) m_registry.destroy(e); }
 }
 
 void ChunkStreamingSystem::simulate_macro_agents(ChunkComponent& chunk, TimeOfDay current_time) {

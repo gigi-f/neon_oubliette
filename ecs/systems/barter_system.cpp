@@ -496,8 +496,9 @@ float BarterSystem::getBaseItemValue(entt::entity item_entity, entt::entity pers
     float scarcity_mult = 1.0f;
 
     // 1. Chunk-level Scarcity (Specific Item Type)
-    int chunk_x = pos->x / 40;
-    int chunk_y = pos->y / 40;
+    int cs = get_chunk_size(m_registry);
+    int chunk_x = pos->x / cs;
+    int chunk_y = pos->y / cs;
     auto chunk_view = m_registry.view<ChunkComponent, MarketDemandComponent>();
     for (auto chunk_ent : chunk_view) {
         auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);

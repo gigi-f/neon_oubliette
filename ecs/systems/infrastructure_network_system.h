@@ -45,7 +45,14 @@ private:
     void carve_sewers(int width, int height);
     void carve_secondary_roads();
 
-    void create_arterial_segment(int x, int y, ArterialType type, int layer_id = 0);
+    /// Create a single segment entity covering an axis-aligned line.
+    entt::entity create_line_segment(int x1, int y1, int x2, int y2, ArterialType type, int layer_id = 0);
+
+    /// Link a segment to all zones it crosses.
+    void link_segment_to_zones(entt::entity seg_entity, int x1, int y1, int x2, int y2);
+
+    /// Build the ArterialGrid spatial index from all segment entities (call after all generation).
+    void build_arterial_grid();
 
     void subdivide_block_corporate(int start_x, int start_y, int end_x, int end_y);
     void subdivide_block_slum(int start_x, int start_y, int end_x, int end_y);
@@ -54,7 +61,8 @@ private:
     void subdivide_block_park(int start_x, int start_y, int end_x, int end_y);
     void subdivide_block_airport(int start_x, int start_y, int end_x, int end_y);
 
-    void link_arterial_to_zone(entt::entity arterial, int x, int y);
+    /// Link a single point entity (node/junction) to its zone.
+    void link_node_to_zone(entt::entity node, int x, int y);
 
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;

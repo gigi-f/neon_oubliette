@@ -111,10 +111,11 @@ void EconomicSystem::calculateLocalMarketConditions() {
         std::map<uint32_t, int> supply_counts;
 
         auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
-        int min_x = chunk.chunk_x * 40;
-        int max_x = (chunk.chunk_x + 1) * 40;
-        int min_y = chunk.chunk_y * 40;
-        int max_y = (chunk.chunk_y + 1) * 40;
+        int cs = get_chunk_size(m_registry);
+        int min_x = chunk.chunk_x * cs;
+        int max_x = (chunk.chunk_x + 1) * cs;
+        int min_y = chunk.chunk_y * cs;
+        int max_y = (chunk.chunk_y + 1) * cs;
 
         // Aggregate Supply (Items on floor)
         for (auto item_ent : item_view) {

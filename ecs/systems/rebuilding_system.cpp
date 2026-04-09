@@ -31,11 +31,9 @@ void RebuildingSystem::on_rebuild_event(const RebuildEvent& event) {
 
     // 2. Identify arterials in this lot's area for door validation
     std::map<std::pair<int, int>, ArterialType> arterial_map;
-    for (auto e : zone.arterial_entities) {
-        if (!m_registry.all_of<InfrastructureArterialComponent>(e)) continue;
-        const auto& pos = m_registry.get<PositionComponent>(e);
-        const auto& art = m_registry.get<InfrastructureArterialComponent>(e);
-        arterial_map[{pos.x, pos.y}] = art.type;
+    auto* grid = m_registry.ctx().find<ArterialGrid>();
+    if (grid) {
+        grid->expand_to_map(lot.x, lot.y, lot.x + lot.width - 1, lot.y + lot.height - 1, 0, arterial_map);
     }
 
     // 3. Prepare building parameters

@@ -105,6 +105,7 @@ void ReligionSystem::updateDevotion() {
     // [H.2] Devotion decays slightly if not worshipping, and affects mood/faction drift
     auto view = m_registry.view<ReligiosityComponent, PositionComponent, AgeComponent>();
     auto chunk_view = m_registry.view<ChunkComponent, ReligionInfluenceFieldComponent>();
+    int cs = get_chunk_size(m_registry);
 
     for (auto entity : view) {
         auto& religiosity = view.get<ReligiosityComponent>(entity);
@@ -115,8 +116,8 @@ void ReligionSystem::updateDevotion() {
         if (age.stage == LifeStage::CHILD || age.stage == LifeStage::YOUNG_ADULT) {
              for (auto chunk_ent : chunk_view) {
                 auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
-                if (pos.x >= chunk.chunk_x * 40 && pos.x < (chunk.chunk_x + 1) * 40 &&
-                    pos.y >= chunk.chunk_y * 40 && pos.y < (chunk.chunk_y + 1) * 40) {
+                if (pos.x >= chunk.chunk_x * cs && pos.x < (chunk.chunk_x + 1) * cs &&
+                    pos.y >= chunk.chunk_y * cs && pos.y < (chunk.chunk_y + 1) * cs) {
                     auto& inf_field = chunk_view.get<ReligionInfluenceFieldComponent>(chunk_ent);
                     for (auto const& [religion_id, amount] : inf_field.influence) {
                         // Drift devotion toward local influence
@@ -218,6 +219,7 @@ void ReligionSystem::updateInfluence() {
     }
 
     // Accumulate influence from agents
+    int cs = get_chunk_size(m_registry);
     auto agent_view = m_registry.view<ReligiosityComponent, PositionComponent>();
     for (auto agent : agent_view) {
         auto& religiosity = agent_view.get<ReligiosityComponent>(agent);
@@ -230,9 +232,8 @@ void ReligionSystem::updateInfluence() {
             // [J.5] Chunk-level accumulation
             for (auto chunk_ent : chunk_view) {
                 auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);
-                // Chunk size is typically 40x40 (2x2 macro-cells of 20x20)
-                if (pos.x >= chunk.chunk_x * 40 && pos.x < (chunk.chunk_x + 1) * 40 &&
-                    pos.y >= chunk.chunk_y * 40 && pos.y < (chunk.chunk_y + 1) * 40) {
+                if (pos.x >= chunk.chunk_x * cs && pos.x < (chunk.chunk_x + 1) * cs &&
+                    pos.y >= chunk.chunk_y * cs && pos.y < (chunk.chunk_y + 1) * cs) {
                     auto& inf_field = chunk_view.get<ReligionInfluenceFieldComponent>(chunk_ent);
                     inf_field.influence[religiosity.religion_id] += inf_contrib * 0.1f;
                     break;

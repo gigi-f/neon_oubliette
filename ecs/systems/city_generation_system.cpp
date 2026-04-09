@@ -26,11 +26,18 @@ void CityGenerationSystem::generate_chunk_content(entt::entity zone_entity) {
     std::mt19937 zone_gen(zone_seed);
 
     std::map<std::pair<int, int>, ArterialType> arterial_map;
-    for (auto e : zone.arterial_entities) {
-        if (!m_registry.all_of<InfrastructureArterialComponent>(e)) continue;
-        const auto& pos = m_registry.get<PositionComponent>(e);
-        const auto& art = m_registry.get<InfrastructureArterialComponent>(e);
-        arterial_map[{pos.x, pos.y}] = art.type;
+    // Use ArterialGrid spatial index to expand segments into per-tile type map
+    auto* grid = m_registry.ctx().find<ArterialGrid>();
+    if (grid) {
+        int cell_size = config.macro_cell_size;
+        int sx = zone.macro_x * cell_size;
+        int sy = zone.macro_y * cell_size;
+        int ex = sx + cell_size - 1;
+        int ey = sy + cell_size - 1;
+        // Expand layer 0 (surface), layer -1 (sewer), layer 5 (rail)
+        grid->expand_to_map(sx, sy, ex, ey, 0, arterial_map);
+        grid->expand_to_map(sx, sy, ex, ey, -1, arterial_map);
+        grid->expand_to_map(sx, sy, ex, ey, 5, arterial_map);
     }
 
     generateZoneInterior(zone, config.macro_cell_size, arterial_map, zone_gen, zone_entity, chunk_ent);

@@ -59,8 +59,9 @@ void PlayerMovementSystem::handlePlayerLayerChangeEvent(const ECS::PlayerLayerCh
         // [L.5] Power Grid Check for Elevators (Layer Change)
         if (pos.layer_id != 0 || (pos.layer_id == 0 && event.dz > 0)) {
             // Determine chunk
-            int cx = pos.x / 40;
-            int cy = pos.y / 40;
+            int cs = NeonOubliette::get_chunk_size(registry_);
+            int cx = pos.x / cs;
+            int cy = pos.y / cs;
             
             auto grid_view = registry_.view<NeonOubliette::PowerGridComponent, NeonOubliette::ChunkComponent>();
             bool has_power = true;

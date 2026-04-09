@@ -1,6 +1,7 @@
 #include "rendering_system.h"
 #include <iostream>
 #include <string>
+#include <unordered_set>
 #include <fstream>
 #include <cmath>
 #include <random>
@@ -25,6 +26,8 @@ RenderingSystem::RenderingSystem(entt::registry& registry, struct notcurses* nc_
 }
 
 RenderingSystem::~RenderingSystem() {
+    // Guard: if nc_context_ was already stopped, planes are already freed
+    if (!nc_context_) return;
     if (hud_plane_) ncplane_destroy(hud_plane_);
     if (inventory_plane_) ncplane_destroy(inventory_plane_);
     if (barter_plane_) ncplane_destroy(barter_plane_);
@@ -39,6 +42,7 @@ RenderingSystem::~RenderingSystem() {
     if (cursor_plane_) ncplane_destroy(cursor_plane_);
     if (context_menu_plane_) ncplane_destroy(context_menu_plane_);
     if (debug_overlay_plane_) ncplane_destroy(debug_overlay_plane_);
+    nc_context_ = nullptr;
 }
 
 void RenderingSystem::initialize() {
@@ -637,6 +641,27 @@ void RenderingSystem::update(double delta_time) {
         return player_vis->visible_tiles.count(p) > 0;
     };
 
+    // Pre-cache power grid levels per chunk to avoid per-pixel iteration
+    std::unordered_map<uint64_t, float> power_grid_cache;
+    int cached_chunk_size = get_chunk_size(registry_);
+    if (current_mode != SimulationMode::GOD_MODE) {
+        auto grid_view = registry_.view<PowerGridComponent, ChunkComponent>();
+        for (auto g_ent : grid_view) {
+            const auto& chunk = grid_view.get<ChunkComponent>(g_ent);
+            uint64_t key = ((uint64_t)(uint32_t)chunk.chunk_x << 32) | (uint32_t)chunk.chunk_y;
+            power_grid_cache[key] = grid_view.get<PowerGridComponent>(g_ent).power_level;
+        }
+    }
+
+    // Pre-cache weather state
+    TimeOfDay cached_time_of_day = TimeOfDay::DAY;
+    if (current_mode != SimulationMode::GOD_MODE) {
+        auto weather_v = registry_.view<WeatherComponent>();
+        if (weather_v.begin() != weather_v.end()) {
+            cached_time_of_day = weather_v.get<WeatherComponent>(*weather_v.begin()).time_of_day;
+        }
+    }
+
     auto render_at = [&](struct ncplane* target_plane, int x, int y, char glyph, uint32_t color) {
         int screen_x = x + offset_x;
         int screen_y = y + offset_y;
@@ -644,30 +669,19 @@ void RenderingSystem::update(double delta_time) {
             // [L.5] Apply Power Grid Failure shifts
             float power_mult = 1.0f;
             if (current_mode != SimulationMode::GOD_MODE) {
-                // Determine chunk for (x, y)
-                // Assuming 40x40 chunks as per roadmap Phase 3.1
-                int cx = x / 40;
-                int cy = y / 40;
-                
-                auto grid_view = registry_.view<PowerGridComponent, ChunkComponent>();
-                for (auto g_ent : grid_view) {
-                    const auto& chunk = grid_view.get<ChunkComponent>(g_ent);
-                    if (chunk.chunk_x == cx && chunk.chunk_y == cy) {
-                        power_mult = grid_view.get<PowerGridComponent>(g_ent).power_level;
-                        break;
-                    }
-                }
+                int cx = x / cached_chunk_size;
+                int cy = y / cached_chunk_size;
+                uint64_t key = ((uint64_t)(uint32_t)cx << 32) | (uint32_t)cy;
+                auto it = power_grid_cache.find(key);
+                if (it != power_grid_cache.end()) power_mult = it->second;
             }
 
             // Apply time-of-day color shifts
             if (current_mode != SimulationMode::GOD_MODE) {
-                auto weather_v = registry_.view<WeatherComponent>();
-                if (weather_v.begin() != weather_v.end()) {
-                    const auto& weather = weather_v.get<WeatherComponent>(*weather_v.begin());
                     float darkness = 1.0f;
-                    if (weather.time_of_day == TimeOfDay::NIGHT) {
+                    if (cached_time_of_day == TimeOfDay::NIGHT) {
                         darkness = 0.3f;
-                    } else if (weather.time_of_day == TimeOfDay::DAWN || weather.time_of_day == TimeOfDay::DUSK) {
+                    } else if (cached_time_of_day == TimeOfDay::DAWN || cached_time_of_day == TimeOfDay::DUSK) {
                         darkness = 0.7f;
                     }
 
@@ -679,7 +693,7 @@ void RenderingSystem::update(double delta_time) {
                     uint32_t g = (color >> 8) & 0xFF;
                     uint32_t b = color & 0xFF;
 
-                    if (weather.time_of_day == TimeOfDay::NIGHT) {
+                    if (cached_time_of_day == TimeOfDay::NIGHT) {
                          // Blue tint for night
                          r = (uint32_t)((float)r * 0.2f * power_mult);
                          g = (uint32_t)((float)g * 0.3f * power_mult);
@@ -690,7 +704,6 @@ void RenderingSystem::update(double delta_time) {
                          b = (uint32_t)((float)b * final_mult);
                     }
                     color = (r << 16) | (g << 8) | b;
-                }
             }
 
             ncplane_set_fg_rgb(target_plane, color);
@@ -803,28 +816,31 @@ void RenderingSystem::update(double delta_time) {
                 ncchannels_set_bg_alpha(&ring_channels, NCALPHA_TRANSPARENT);
                 ncplane_set_base(range_ring_plane_, "", 0, ring_channels);
                 
+                // Build wall/window position set for ring area (one pass instead of per-tile)
+                std::unordered_set<uint64_t> wall_positions;
+                {
+                    int rx_min = p_pos.x - range, rx_max = p_pos.x + range;
+                    int ry_min = p_pos.y - range, ry_max = p_pos.y + range;
+                    auto terrain_view_ring = registry_.view<PositionComponent, TerrainComponent>();
+                    for (auto t_ent : terrain_view_ring) {
+                        const auto& tp = terrain_view_ring.get<PositionComponent>(t_ent);
+                        if (tp.layer_id != current_layer) continue;
+                        if (tp.x < rx_min || tp.x > rx_max || tp.y < ry_min || tp.y > ry_max) continue;
+                        auto type = terrain_view_ring.get<TerrainComponent>(t_ent).type;
+                        if (type == TerrainType::WALL || type == TerrainType::WINDOW) {
+                            wall_positions.insert(((uint64_t)(uint32_t)tp.x << 32) | (uint32_t)tp.y);
+                        }
+                    }
+                }
+
                 // Draw square border into range_ring_plane_ (occluded by walls [B.4])
                 for (int dx = -range; dx <= range; ++dx) {
                     for (int dy = -range; dy <= range; ++dy) {
                         if (std::abs(dx) == range || std::abs(dy) == range) {
                             int tx = p_pos.x + dx;
                             int ty = p_pos.y + dy;
-                            
-                            // Simple occlusion check: is there a wall/window here?
-                            bool occluded = false;
-                            auto terrain_view_ring = registry_.view<PositionComponent, TerrainComponent>();
-                            for (auto t_ent : terrain_view_ring) {
-                                const auto& tp = terrain_view_ring.get<PositionComponent>(t_ent);
-                                if (tp.x == tx && tp.y == ty && tp.layer_id == current_layer) {
-                                    auto type = terrain_view_ring.get<TerrainComponent>(t_ent).type;
-                                    if (type == TerrainType::WALL || type == TerrainType::WINDOW) {
-                                        occluded = true;
-                                    }
-                                    break;
-                                }
-                            }
-                            
-                            if (!occluded) {
+                            uint64_t key = ((uint64_t)(uint32_t)tx << 32) | (uint32_t)ty;
+                            if (!wall_positions.count(key)) {
                                 render_at(range_ring_plane_, tx, ty, '.', color);
                             }
                         }

@@ -127,8 +127,9 @@ void DialogueSystem::initialize() {
 
     lib.register_atom({"TOPIC_SCARCITY", [](const entt::registry& reg, entt::entity e) {
         if (auto* pos = reg.try_get<PositionComponent>(e)) {
-            int cx = pos->x / 40;
-            int cy = pos->y / 40;
+            int cs = get_chunk_size(reg);
+            int cx = pos->x / cs;
+            int cy = pos->y / cs;
             auto chunk_view = reg.view<ChunkComponent, MarketDemandComponent>();
             for (auto chunk_ent : chunk_view) {
                 auto& chunk = chunk_view.get<ChunkComponent>(chunk_ent);

@@ -104,36 +104,28 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
             // Subdivide block into lots
             subdivide_block_into_lots(block_entity, zone.type);
             
-            // Create streets between blocks (secondary roads)
+            // Create streets between blocks (secondary roads) — one segment per street
             if (ix < num_splits_x - 1) {
-                int street_start_x = bx + block_w;
-                for (int dw = 0; dw < road_w; ++dw) {
-                    int street_x = street_start_x + dw;
-                    for (int y = by; y < by + block_h; ++y) {
-                        auto street = m_registry.create();
-                        m_registry.emplace<PositionComponent>(street, street_x, y, 0);
-                        m_registry.emplace<InfrastructureArterialComponent>(street, ArterialType::ROAD_SECONDARY, 1.0f, true);
-                        auto& field = m_registry.emplace<ConduitFieldComponent>(street);
-                        field.radius = 1.0f;
-                        field.economic_multiplier = 1.05f;
-                        m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
-                    }
-                }
+                int street_center_x = bx + block_w + road_w / 2;
+                auto seg = m_registry.create();
+                auto& sc = m_registry.emplace<InfrastructureSegmentComponent>(seg);
+                sc.type = ArterialType::ROAD_SECONDARY;
+                sc.x1 = street_center_x; sc.y1 = by;
+                sc.x2 = street_center_x; sc.y2 = by + block_h - 1;
+                sc.layer_id = 0;
+                sc.field_radius = 1.0f; sc.economic_multiplier = 1.05f;
+                m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(seg);
             }
             if (iy < num_splits_y - 1) {
-                int street_start_y = by + block_h;
-                for (int dw = 0; dw < road_w; ++dw) {
-                    int street_y = street_start_y + dw;
-                    for (int x = bx; x < bx + block_w; ++x) {
-                        auto street = m_registry.create();
-                        m_registry.emplace<PositionComponent>(street, x, street_y, 0);
-                        m_registry.emplace<InfrastructureArterialComponent>(street, ArterialType::ROAD_SECONDARY, 1.0f, true);
-                        auto& field2 = m_registry.emplace<ConduitFieldComponent>(street);
-                        field2.radius = 1.0f;
-                        field2.economic_multiplier = 1.05f;
-                        m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(street);
-                    }
-                }
+                int street_center_y = by + block_h + road_w / 2;
+                auto seg = m_registry.create();
+                auto& sc = m_registry.emplace<InfrastructureSegmentComponent>(seg);
+                sc.type = ArterialType::ROAD_SECONDARY;
+                sc.x1 = bx; sc.y1 = street_center_y;
+                sc.x2 = bx + block_w - 1; sc.y2 = street_center_y;
+                sc.layer_id = 0;
+                sc.field_radius = 1.0f; sc.economic_multiplier = 1.05f;
+                m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(seg);
             }
         }
     }
@@ -179,21 +171,18 @@ void CityPlannerSystem::subdivide_block_into_lots(entt::entity block_entity, Zon
     int available_h = block.height - (lot_count_y > 1 ? alley_gap : 0);
     int lot_h = available_h / lot_count_y;
 
-    // Create alleys for back-to-back blocks
+    // Create alleys for back-to-back blocks — one segment per alley
     if (back_to_back && lot_count_y > 1) {
-        int alley_y_start = block.y + lot_h;
-        for (int dy = 0; dy < alley_gap; ++dy) {
-            int alley_y = alley_y_start + dy;
-            for (int x = block.x; x < block.x + block.width; ++x) {
-                auto alley = m_registry.create();
-                m_registry.emplace<PositionComponent>(alley, x, alley_y, 0);
-                m_registry.emplace<InfrastructureArterialComponent>(alley, ArterialType::ROAD_ALLEY, 0.5f, true);
-                auto& field = m_registry.emplace<ConduitFieldComponent>(alley);
-                field.radius = 0.5f;
-                field.crime_modifier = 0.2f;
-                m_registry.get<MacroZoneComponent>(block.zone_entity).arterial_entities.push_back(alley);
-            }
-        }
+        int alley_center_y = block.y + lot_h + alley_gap / 2;
+        auto seg = m_registry.create();
+        auto& sc = m_registry.emplace<InfrastructureSegmentComponent>(seg);
+        sc.type = ArterialType::ROAD_ALLEY;
+        sc.x1 = block.x; sc.y1 = alley_center_y;
+        sc.x2 = block.x + block.width - 1; sc.y2 = alley_center_y;
+        sc.layer_id = 0;
+        sc.flow_capacity = 0.5f;
+        sc.field_radius = 0.5f; sc.crime_modifier = 0.2f;
+        m_registry.get<MacroZoneComponent>(block.zone_entity).arterial_entities.push_back(seg);
     }
 
     for (int ix = 0; ix < lot_count_x; ++ix) {

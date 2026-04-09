@@ -83,8 +83,9 @@ void UrbanDecaySystem::update(double delta_time) {
 void UrbanDecaySystem::process_graffiti(entt::entity building_ent, BuildingHealthComponent& health, const BuildingComponent& building_comp, const PositionComponent& b_pos, const SizeComponent& b_size) {
     (void)building_ent; (void)building_comp;
     // 1. Determine local influence
-    int chunk_x_idx = b_pos.x / 40;
-    int chunk_y_idx = b_pos.y / 40;
+    int cs = get_chunk_size(m_registry);
+    int chunk_x_idx = b_pos.x / cs;
+    int chunk_y_idx = b_pos.y / cs;
     
     std::string top_faction = "NEUTRAL";
     float max_influence = 0.0f;
