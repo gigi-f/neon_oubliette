@@ -1,0 +1,11 @@
+id: find-pointer-param
+language: cpp
+rule:
+  pattern: |
+    class $CLASS {
+      $$$
+      $RET $METHOD(TargetClass * $ARG) {
+        $$$
+      }
+      $$$
+    }

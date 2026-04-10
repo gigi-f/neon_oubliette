@@ -78,6 +78,17 @@
       "cacheVariables": {
         "NEON_ENABLE_CLANG_TIME_TRACE": "ON"
       }
+    },
+    {
+      "name": "ninja-iwyu",
+      "displayName": "Ninja RelWithDebInfo + IWYU",
+      "inherits": "ninja-relwithdebinfo",
+      "binaryDir": "${sourceDir}/build_ninja_iwyu",
+      "cacheVariables": {
+        "NEON_ENABLE_IWYU": "ON",
+        "NEON_ENABLE_PCH": "OFF",
+        "NEON_ENABLE_UNITY_BUILD": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -109,6 +120,12 @@
       "name": "build-ninja-time-trace",
       "displayName": "Build Ninja + time-trace",
       "configurePreset": "ninja-time-trace",
+      "jobs": 0
+    },
+    {
+      "name": "build-ninja-iwyu",
+      "displayName": "Build Ninja + IWYU",
+      "configurePreset": "ninja-iwyu",
       "jobs": 0
     }
   ]

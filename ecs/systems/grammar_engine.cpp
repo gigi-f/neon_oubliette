@@ -1,8 +1,12 @@
 #include "grammar_engine.h"
+#include "../../src/util/profiling.h"
 #include <fstream>
 #include <regex>
 #include <iostream>
+#include <nlohmann/json.hpp>
+#include <entt/entt.hpp>
 #include "../components/components.h"
+
 #include "../components/simulation_layers.h"
 #include "../components/lod_components.h"
 
@@ -34,6 +38,7 @@ void GrammarEngine::load_grammar(const std::string& path) {
 }
 
 std::string GrammarEngine::expand(const std::string& tag, const entt::registry& registry, entt::entity entity) {
+    ZoneScoped;
     if (m_rules.find(tag) == m_rules.end()) {
         return tag; // Return tag itself if not found
     }
@@ -372,6 +377,7 @@ std::string GrammarEngine::expand_with_personality(const std::string& tag, const
 }
 
 std::string GrammarEngine::assemble(const std::vector<std::string>& tags, const entt::registry& registry, entt::entity entity) {
+    ZoneScoped;
     if (tags.empty()) return "Wait, I don't have much time. What is it?";
     
     std::string result = "";

@@ -1,6 +1,7 @@
 #include "simulation_coordinator.h"
 #include <iostream>
 #include <chrono>
+#include "util/profiling.h"
 
 namespace NeonOubliette {
 
@@ -17,6 +18,7 @@ SimulationCoordinator::SimulationCoordinator(entt::registry& registry, entt::dis
 }
 
 void SimulationCoordinator::advance_turn(double delta_time) {
+    ZoneScoped;
     // Helper to get/create debug overlay
     auto get_debug = [&]() -> DebugOverlayComponent* {
         auto dv = m_registry.view<DebugOverlayComponent>();
@@ -96,6 +98,7 @@ void SimulationCoordinator::advance_turn(double delta_time) {
 }
 
 void SimulationCoordinator::run_simulation_tick(double delta_time) {
+    ZoneScoped;
     m_turn_counter++;
 
     auto get_debug = [&]() -> DebugOverlayComponent* {
@@ -120,6 +123,7 @@ void SimulationCoordinator::run_simulation_tick(double delta_time) {
         SimulationLayer layer = static_cast<SimulationLayer>(i);
         
         if (should_layer_tick(layer, m_turn_counter)) {
+            ZoneScopedN("SimulationLayer");
             for (auto& system : m_layer_systems[layer]) {
                 system->update(delta_time);
             }

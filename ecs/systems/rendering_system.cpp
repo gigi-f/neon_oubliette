@@ -1,4 +1,5 @@
 #include "rendering_system.h"
+#include "../../src/util/profiling.h"
 #include <iostream>
 #include <string>
 #include <unordered_set>
@@ -308,6 +309,7 @@ void RenderingSystem::handleBroadcastPulseEvent(const BroadcastPulseEvent& event
 }
 
 void RenderingSystem::update(double delta_time) {
+    ZoneScoped;
     if (!nc_context_ || !world_plane_ || !hud_plane_ || !inventory_plane_) {
         return;
     }
@@ -789,8 +791,10 @@ void RenderingSystem::update(double delta_time) {
     int vp_x_max = cam_x + (int)view_cols / 2 + 1;
     int vp_y_min = cam_y - (int)view_rows / 2 - 1;
     int vp_y_max = cam_y + (int)view_rows / 2 + 1;
-
-    // 1. Render Memory (Fog of War) - Only in Standard Mode (viewport-culled)
+    
+    {
+        ZoneScopedN("WorldRendering");
+        // 1. Render Memory (Fog of War) - Only in Standard Mode (viewport-culled)
     if (current_mode == SimulationMode::STANDARD && player_mem) {
         for (const auto& [m_pos, m_tile] : player_mem->remembered_tiles) {
             if (m_pos.layer_id != current_layer) continue;
@@ -1868,6 +1872,7 @@ void RenderingSystem::update(double delta_time) {
         }
     }
 
+    } // End WorldRendering block
     notcurses_render(nc_context_);
 }
 

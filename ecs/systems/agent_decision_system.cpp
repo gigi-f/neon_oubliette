@@ -1,4 +1,5 @@
 #include "agent_decision_system.h"
+#include "../../src/util/profiling.h"
 #include "../components/transit_components.h"
 #include "../components/infrastructure_components.h"
 #include "../components/simulation_layers.h"
@@ -22,6 +23,7 @@ AgentDecisionSystem::AgentDecisionSystem(entt::registry& registry, entt::dispatc
 }
 
 void AgentDecisionSystem::handleTurnEvent(const TurnEvent& event) {
+    ZoneScoped;
     auto agent_view = m_registry.view<AgentComponent, PositionComponent, NeedsComponent, NameComponent>();
 
     std::vector<entt::entity> agents;
@@ -44,6 +46,7 @@ void AgentDecisionSystem::handleTurnEvent(const TurnEvent& event) {
     }
 
     for (size_t i = 0; i < decisions_this_turn; ++i) {
+        ZoneScopedN("AgentDecisionBlock");
         auto entity = agents[(start_index + i) % total_agents];
         auto& pos = agent_view.get<PositionComponent>(entity);
         auto& needs = agent_view.get<NeedsComponent>(entity);
@@ -121,6 +124,7 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                                                        NeedsComponent& agent_needs, InventoryComponent* agent_inventory,
                                                        AgentTaskComponent& agent_task, GoalComponent& agent_goal,
                                                        uint64_t current_tick) {
+    ZoneScoped;
     // Check time of day first
     TimeOfDay current_time = TimeOfDay::DAY;
     auto weather_view = m_registry.view<WeatherComponent>();

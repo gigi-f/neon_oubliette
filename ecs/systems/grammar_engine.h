@@ -5,9 +5,12 @@
 #include <vector>
 #include <map>
 #include <random>
-#include <entt/entt.hpp>
-#include <nlohmann/json.hpp>
-#include "../components/components.h"
+#include <entt/fwd.hpp>
+
+namespace NeonOubliette {
+    enum class PersonalityTag : uint8_t;
+    enum class RelationshipTier : uint8_t;
+}
 
 namespace NeonOubliette::Systems {
 

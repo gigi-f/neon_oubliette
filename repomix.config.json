@@ -1,0 +1,23 @@
+{
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "removeComments": false,
+    "removeEmptyLines": true
+  },
+  "ignore": {
+    "useGitignore": true,
+    "customPatterns": [
+      "**/*.fbx", "**/*.obj", "**/*.png", "**/*.jpg", "**/*.wav", "**/*.ogg", "**/*.mp3", "**/*.asset", "**/*.umap", "**/*.uasset",
+      "Binaries/", "Build/", "DerivedDataCache/", "Intermediate/", "Saved/", "CMakeFiles/", "out/",
+      "ThirdParty/", "External/", "Plugins/**/ThirdParty/",
+      "**/*.pdb", "**/*.dll", "**/*.so", "**/*.dylib", "**/*.lib", "**/*.a",
+      "**/*.log", "**/*.dmp",
+      ".claude/", ".gemini/", ".git/", ".DS_Store"
+    ]
+  },
+  "include": [
+    "**/*.h", "**/*.hpp", "**/*.cpp", "**/*.c", "**/*.inl", 
+    "CMakeLists.txt", "**/*.cmake", "**/*.build.cs", "**/*.target.cs"
+  ]
+}

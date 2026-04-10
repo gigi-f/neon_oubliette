@@ -22,9 +22,39 @@ cat game.log
 
 # ASAN build (bug tracing)
 cd build && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_C_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+
+# Check cache performance
+ccache -s
 ```
 
-Prerequisites: `brew install cmake pkgconf notcurses cereal`
+## AI Agent Tools & Workflow
+
+This repository is optimized for AI-assisted development using `rtk`, `repomix`, `ast-grep`, and `grep-ast`.
+
+### Workflow Commands
+```bash
+# Generate targeted architectural overview (pure logic blueprint)
+repomix --config repomix.config.json
+
+# Structural search (surgical extraction of logic blocks)
+sg scan
+
+# High-level Repo Map (compressed outline of headers/folders)
+gast <path>
+
+# Token-optimized operations (transparently handled by rtk hook)
+rtk read <file>
+rtk grep <pattern>
+```
+
+### Agent Rules
+Refer to `.clauderules` for detailed token optimization and developer hygiene requirements, including:
+- **RTK Enforcement**: All file/search operations MUST use terminal commands to hit the token compression proxy.
+- **Compile & Correct**: Agents MUST verify localized edits with `./build.sh` before presenting diffs.
+- **Level of Detail**: Use `gast` for mapping and selective `rtk read` for implementation logic.
+
+
+Prerequisites: `brew install cmake pkgconf notcurses cereal ccache`
 
 Build outputs go to `build_ninja/`, `build_ninja_debug/`, etc. (matching preset names).
 

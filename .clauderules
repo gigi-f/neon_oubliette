@@ -1,0 +1,34 @@
+# Neon Oubliette - AI Agent Workflow Rules
+
+## Token Optimization (RTK)
+- **CRITICAL**: Do NOT use the built-in `Read`, `Grep`, or `Glob` tools. They bypass the `rtk` token compression proxy.
+- To read files, search code, or list directories, you MUST use explicit terminal commands so the `rtk` hook catches them.
+- Use `rtk read <file>` instead of native file reading tools.
+- Use `rtk grep <pattern>` or shell `rg <pattern>` instead of native search.
+- Use `rtk find` or `rtk ls` instead of native directory traversal.
+- Do NOT monitor `rtk gain` thresholds during tasks. Trust the background proxy.
+
+## Architecture and Navigation
+- **Tool Priority**: 
+    1. Use `gast` (grep-ast) to generate high-level Repo Maps / compressed outlines of folders or large files.
+    2. Use `sg scan` (ast-grep) for surgical structural searches once a pattern is identified.
+    3. Use selective `rtk read` for full implementation files only when actively modifying logic.
+- **Header First**: Always prefer reading `.h` files to understand interfaces and data contracts. Only read `.cpp` files if you need to modify internal implementation details.
+- **Forward Declarations**: Favor forward declarations in headers to minimize context bloat and speed up compile times.
+
+## Developer Loop (Compile & Correct)
+- **Permissions**: You are granted explicit permission to execute `./build.sh` or `cmake --build --preset build-ninja-debug`.
+- **The Loop**: After any localized edit, you MUST run the compiler. 
+    1. Run build command.
+    2. Read compiler error output.
+    3. Self-correct implementation.
+    4. Repeat until clean build.
+- Do NOT present final code to the user until it has successfully compiled.
+
+## Repomix
+- Use `repomix --config repomix.config.json` to generate an architectural overview if you are entering a completely new system or planning a massive refactor.
+- Target the output to `repomix-output.xml`.
+
+## Planning Phase (Mandatory Refresh)
+- BEFORE proposing a multi-file refactor or a complex architectural plan, you MUST run `./refresh_map.sh` to ensure your architectural context matches the current branch state.
+- This ensures you are not making decisions based on stale repo maps after a pull or merge.

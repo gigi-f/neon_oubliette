@@ -1,4 +1,5 @@
 #include "system_scheduler.h"
+#include "util/profiling.h"
 #include "components/components.h"
 
 #include <algorithm>
@@ -32,6 +33,9 @@ void SystemScheduler::run_phase(Phase phase, entt::registry& registry, entt::dis
     auto phase_it = systems_.find(phase);
     if (phase_it == systems_.end()) return;
 
+    ZoneScoped;
+    ZoneName(phase_to_string(phase), strlen(phase_to_string(phase)));
+
     NeonOubliette::DebugOverlayComponent* dbg = nullptr;
     auto dv = registry.view<NeonOubliette::DebugOverlayComponent>();
     if (dv.begin() != dv.end()) {
@@ -56,7 +60,13 @@ void SystemScheduler::run_phase(Phase phase, entt::registry& registry, entt::dis
         }
 
         auto t_sys_start = std::chrono::steady_clock::now();
-        ns.system->update(delta_time);
+        {
+            ZoneScopedN("SystemUpdate");
+            if (!ns.name.empty()) {
+                ZoneName(ns.name.c_str(), ns.name.size());
+            }
+            ns.system->update(delta_time);
+        }
         auto t_sys_end = std::chrono::steady_clock::now();
 
         float ms = std::chrono::duration<float, std::milli>(t_sys_end - t_sys_start).count();

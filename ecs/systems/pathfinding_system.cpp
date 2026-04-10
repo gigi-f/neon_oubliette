@@ -2,6 +2,7 @@
 #include "macro_navigation_system.h"
 #include "../components/infrastructure_components.h"
 #include "../components/simulation_layers.h"
+#include "../../src/util/profiling.h"
 #include <algorithm>
 #include <map>
 #include <queue>
@@ -16,6 +17,7 @@ PathfindingSystem::PathfindingSystem(entt::registry& registry, entt::dispatcher&
 }
 
 void PathfindingSystem::update(double delta_time) {
+    ZoneScoped;
     (void)delta_time;
 
     size_t processed = 0;
@@ -193,6 +195,7 @@ bool PathfindingSystem::isNearPlayer(PositionComponent pos) const {
 // a straight-line walk.  No per-tile traversability checks.
 std::vector<PositionComponent> PathfindingSystem::generateSimulatedPath(
         PositionComponent start, PositionComponent goal) const {
+    ZoneScoped;
     std::vector<PositionComponent> path;
 
     // First, try to use the arterial graph for a high-level route.
@@ -273,6 +276,7 @@ std::vector<PositionComponent> PathfindingSystem::generateSimulatedPath(
 }
 
 void PathfindingSystem::processPathfindingRequest(const PathfindingRequestEvent& event) {
+    ZoneScoped;
     std::vector<PositionComponent> path;
     std::vector<PositionComponent> macro_path;
     bool success = false;

@@ -12,6 +12,11 @@ compile_commands.json
 .idea/
 *.swp
 *.swo
+.ccache/
+build_tracy_on/
+build_tracy_test/
+build_release_test/
+build_tracy/
 
 # Temporary Files
 tmp/
@@ -25,7 +30,6 @@ repomix-snapshot.xml
 
 # Runtime / tool state
 .adk/
-.chromadb/
 .gemini/
 
 # Dependencies (if any local libs are downloaded outside external/)

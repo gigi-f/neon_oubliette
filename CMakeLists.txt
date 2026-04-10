@@ -11,6 +11,9 @@ option(NEON_ENABLE_CLANG_TIME_TRACE "Enable Clang -ftime-trace for build profili
 option(NEON_ENABLE_LTO "Enable Link Time Optimization (ThinLTO for Clang). Recommended for Release builds." OFF)
 option(NEON_ENABLE_UNITY_BUILD "Combine source files into batches to reduce compile overhead (CMake >= 3.16)." OFF)
 option(NEON_ENABLE_FAST_LINKER "Use lld if available for faster link times." ON)
+option(NEON_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
+option(NEON_ENABLE_IWYU "Enable include-what-you-use analysis." OFF)
+
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -24,6 +27,12 @@ if(NEON_ENABLE_COMPILER_CACHE)
         if(NEON_CCACHE_PROGRAM)
             set(CMAKE_C_COMPILER_LAUNCHER "${NEON_CCACHE_PROGRAM}" CACHE STRING "C compiler launcher" FORCE)
             set(CMAKE_CXX_COMPILER_LAUNCHER "${NEON_CCACHE_PROGRAM}" CACHE STRING "CXX compiler launcher" FORCE)
+
+            # Configure ccache for optimal performance with PCH, LTO, and multiple build directories
+            set(ENV{CCACHE_SLOPPINESS} "pch_defines,time_macros,include_file_mtime")
+            set(ENV{CCACHE_BASEDIR} "${CMAKE_SOURCE_DIR}")
+            set(ENV{CCACHE_CONFIGPATH} "${CMAKE_SOURCE_DIR}/ccache.conf")
+
             message(STATUS "Compiler cache enabled via ccache: ${NEON_CCACHE_PROGRAM}")
         elseif(NEON_SCCACHE_PROGRAM)
             set(CMAKE_C_COMPILER_LAUNCHER "${NEON_SCCACHE_PROGRAM}" CACHE STRING "C compiler launcher" FORCE)
@@ -40,6 +49,19 @@ endif()
 if(NEON_ENABLE_CLANG_TIME_TRACE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
     add_compile_options(-ftime-trace)
 endif()
+
+if(NEON_ENABLE_IWYU)
+    find_program(IWYU_PROGRAM include-what-you-use
+        PATHS /opt/homebrew/bin /usr/local/bin
+    )
+    if(IWYU_PROGRAM)
+        set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_PROGRAM};-Xiwyu;--mapping_file=${CMAKE_SOURCE_DIR}/iwyu.imp" CACHE STRING "IWYU" FORCE)
+        message(STATUS "IWYU enabled: ${IWYU_PROGRAM}")
+    else()
+        message(WARNING "IWYU requested but include-what-you-use was not found")
+    endif()
+endif()
+
 
 # Always include debug symbols so backward-cpp can resolve source locations
 string(APPEND CMAKE_CXX_FLAGS " -g")
@@ -76,6 +98,15 @@ FetchContent_Declare(
     GIT_TAG master
 )
 FetchContent_MakeAvailable(backward)
+
+if(NEON_ENABLE_TRACY)
+    FetchContent_Declare(
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+        GIT_TAG v0.13.1
+    )
+    FetchContent_MakeAvailable(tracy)
+endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(NOTCURSES REQUIRED notcurses)
@@ -231,6 +262,11 @@ target_link_libraries(neon_oubliette PRIVATE
     inkcpp_compiler
 )
 
+if(NEON_ENABLE_TRACY)
+    target_link_libraries(neon_oubliette PRIVATE Tracy::TracyClient)
+    target_compile_definitions(neon_oubliette PRIVATE TRACY_ENABLE)
+endif()
+
 # --- Post-Build: Copy Data ---
 add_custom_command(TARGET neon_oubliette POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -272,20 +308,15 @@ if(NEON_ENABLE_LTO)
     endif()
 endif()
 
-# --- Fast Linker (lld) ---
+# --- Fast Linker Configuration ---
 if(NEON_ENABLE_FAST_LINKER)
     if(APPLE)
-        find_program(NEON_LLD_PROGRAM
-            NAMES ld64.lld
-            PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
-        )
-        if(NEON_LLD_PROGRAM)
-            target_link_options(neon_oubliette PRIVATE "-fuse-ld=${NEON_LLD_PROGRAM}")
-            message(STATUS "Fast linker: ld64.lld (${NEON_LLD_PROGRAM})")
-        else()
-            message(STATUS "Fast linker: lld not found. Install with: brew install llvm")
-        endif()
+        # Force Apple's modern ld_prime linker (Xcode 15+)
+        # This is heavily multi-threaded and optimized for Apple Silicon.
+        add_link_options("-Wl,-ld_new")
+        message(STATUS "Fast linker: Apple ld_prime enabled via -Wl,-ld_new")
     else()
+        # Fallback to lld for Linux/Other platforms
         find_program(NEON_LLD_PROGRAM
             NAMES lld-18 lld-17 lld-16 lld
             PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin /usr/local/bin /usr/bin

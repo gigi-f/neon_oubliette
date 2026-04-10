@@ -18,6 +18,7 @@
 #include <cstdlib>
 
 #include <backward.hpp>
+#include "util/profiling.h"
 
 #include "config/ConfigLoader.h"
 #include "ecs/component_registration.h"
@@ -483,6 +484,7 @@ int main(int argc, char** argv) {
         if (frame_elapsed < kFrameBudget) {
             std::this_thread::sleep_for(kFrameBudget - frame_elapsed);
         }
+        FrameMark;
     }
 
     g_nc_context = nullptr; // Don't double-stop in crash handler
