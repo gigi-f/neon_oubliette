@@ -73,9 +73,21 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 const auto& floor = floor_view.get<FloorComponent>(floor_ent);
                 if (floor.layer_id == target_layer) {
                     if (!floor.nav_grid.is_passable(target_x, target_y)) {
-                        blocked = true;
-                        // For NavGrid, we don't assign a specific entity as the blocker 
-                        // so it falls through to the "You walked into a wall" logic.
+                        // Exit portals live on wall-boundary tiles; don't block them.
+                        bool has_exit_portal = false;
+                        auto portal_check = m_registry.view<PositionComponent, PortalComponent>();
+                        for (auto pe : portal_check) {
+                            const auto& pp = portal_check.get<PositionComponent>(pe);
+                            if (pp.x == target_x && pp.y == target_y && pp.layer_id == target_layer) {
+                                has_exit_portal = true;
+                                break;
+                            }
+                        }
+                        if (!has_exit_portal) {
+                            blocked = true;
+                            // For NavGrid, we don't assign a specific entity as the blocker
+                            // so it falls through to the "You walked into a wall" logic.
+                        }
                     }
                     break;
                 }
@@ -167,7 +179,8 @@ void MovementSystem::handleMoveEvent(const MoveEvent& event) {
                 if (portal_obs_it != spatial.obstacle_at.end()) {
                     const entt::entity portal_blocker = portal_obs_it->second;
                     if (portal_blocker != event.entity && m_registry.valid(portal_blocker) &&
-                        !spatial.passable_window_tiles.count(portal_target)) {
+                        !spatial.passable_window_tiles.count(portal_target) &&
+                        !m_registry.all_of<BuildingComponent>(portal_blocker)) {
                         portal_blocked = true;
                     }
                 }
