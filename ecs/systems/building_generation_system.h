@@ -323,9 +323,9 @@ private:
         interior.is_generated = true;
         m_dispatcher.enqueue<LogEvent>("Generated Interior", LogSeverity::INFO, "BuildingGen");
 
-        // Newly generated terrain/obstacles must invalidate render + visibility
-        // spatial caches immediately (same behavior as materializeInterior).
-        m_dispatcher.enqueue<ChunkChangedEvent>();
+        // Trigger synchronously so VisibilitySystem rebuilds its blocking set
+        // in the same frame — avoids the one-frame stale-FOV flicker on entry.
+        m_dispatcher.trigger(ChunkChangedEvent{});
     }
 
     void materializeInterior(entt::entity building, BuildingInteriorComponent& interior, int base_layer_id) {
@@ -370,9 +370,7 @@ private:
         }
         interior.stored_objects.clear();
         m_dispatcher.enqueue<LogEvent>("Materialized Interior from Cache", LogSeverity::INFO, "BuildingGen");
-        
-        // [FIX] Invalidate visibility caches after creating new terrain
-        m_dispatcher.enqueue<ChunkChangedEvent>();
+        m_dispatcher.trigger(ChunkChangedEvent{});
     }
 
     void buildFloorStructure(int width, int height, int layer_id, const std::vector<RoomData>& rooms, const std::vector<PositionComponent>& doors, int floor_idx, const std::vector<ExtDoor>& ext_doors, BuildingInteriorComponent& interior, FloorComponent& floor_comp) {
