@@ -707,10 +707,30 @@ void RenderingSystem::update(double delta_time) {
         player_mem = &player_mem_view.get<MemoryComponent>(*player_mem_view.begin());
     }
 
-    auto is_visible = [&](const PositionComponent& p) {
+    // Viewport bounds for culling
+    int vp_x_min = cam_x - (int)view_cols / 2 - 1;
+    int vp_x_max = cam_x + (int)view_cols / 2 + 1;
+    int vp_y_min = cam_y - (int)view_rows / 2 - 1;
+    int vp_y_max = cam_y + (int)view_rows / 2 + 1;
+    int vp_width = vp_x_max - vp_x_min + 1;
+    int vp_height = vp_y_max - vp_y_min + 1;
+
+    std::vector<bool> viewport_vis;
+    if (current_mode != SimulationMode::GOD_MODE && player_vis) {
+        viewport_vis.assign(vp_width * vp_height, false);
+        for (const auto& pos : player_vis->visible_tiles) {
+            if (pos.layer_id == current_layer && pos.x >= vp_x_min && pos.x <= vp_x_max && pos.y >= vp_y_min && pos.y <= vp_y_max) {
+                viewport_vis[(pos.y - vp_y_min) * vp_width + (pos.x - vp_x_min)] = true;
+            }
+        }
+    }
+
+    auto is_visible = [&](const PositionComponent& p) -> bool {
         if (current_mode == SimulationMode::GOD_MODE) return true; 
         if (!player_vis) return true; 
-        return player_vis->visible_tiles.count(p) > 0;
+        if (p.layer_id != current_layer) return false;
+        if (p.x < vp_x_min || p.x > vp_x_max || p.y < vp_y_min || p.y > vp_y_max) return false;
+        return viewport_vis[(p.y - vp_y_min) * vp_width + (p.x - vp_x_min)];
     };
 
     // Pre-cache power grid levels per chunk to avoid per-pixel iteration
@@ -786,11 +806,7 @@ void RenderingSystem::update(double delta_time) {
         }
     };
 
-    // Viewport bounds for culling
-    int vp_x_min = cam_x - (int)view_cols / 2 - 1;
-    int vp_x_max = cam_x + (int)view_cols / 2 + 1;
-    int vp_y_min = cam_y - (int)view_rows / 2 - 1;
-    int vp_y_max = cam_y + (int)view_rows / 2 + 1;
+    // Viewport bounds moved up for is_visible array pre-calculation
     
     {
         ZoneScopedN("WorldRendering");
@@ -823,17 +839,22 @@ void RenderingSystem::update(double delta_time) {
             if (it == terrain_spatial_index_.end()) continue;
 
             for (auto entity : it->second) {
-                if (!registry_.valid(entity) ||
-                    !registry_.all_of<TerrainComponent, RenderableComponent, PositionComponent>(entity)) {
-                    continue;
-                }
+                if (!registry_.valid(entity)) continue;
 
-                const auto& pos = registry_.get<PositionComponent>(entity);
+                const auto* pos_ptr = registry_.try_get<PositionComponent>(entity);
+                auto* render_ptr = registry_.try_get<RenderableComponent>(entity);
+                if (!pos_ptr || !render_ptr) continue;
+
+                const auto& pos = *pos_ptr;
+                auto& render = *render_ptr;
+
                 if (pos.x < vp_x_min || pos.x > vp_x_max || pos.y < vp_y_min || pos.y > vp_y_max) continue;
                 if (!is_visible(pos)) continue;
 
-                const auto& render = registry_.get<RenderableComponent>(entity);
-                uint32_t color = parse_hex_color(render.color);
+                if (render.parsed_color_cache == 0xFFFFFFFF) {
+                    render.parsed_color_cache = parse_hex_color(render.color);
+                }
+                uint32_t color = render.parsed_color_cache;
                 if (registry_.all_of<Layer0PhysicsComponent>(entity)) {
                     const auto& phys = registry_.get<Layer0PhysicsComponent>(entity);
                     // Terrain keeps authored palette; thermal tinting is reserved for non-terrain entities.
@@ -966,18 +987,25 @@ void RenderingSystem::update(double delta_time) {
             if (it == entity_spatial_index_.end()) continue;
 
             for (auto entity : it->second) {
-                if (!registry_.valid(entity) || !registry_.all_of<RenderableComponent, PositionComponent>(entity)) {
-                    continue;
-                }
+                if (!registry_.valid(entity)) continue;
 
-                const auto& pos = registry_.get<PositionComponent>(entity);
+                const auto* pos_ptr = registry_.try_get<PositionComponent>(entity);
+                auto* render_ptr = registry_.try_get<RenderableComponent>(entity);
+                if (!pos_ptr || !render_ptr) continue;
+
+                const auto& pos = *pos_ptr;
+                auto& render = *render_ptr;
+
                 if (pos.layer_id != current_layer) continue;
                 if (pos.x < vp_x_min || pos.x > vp_x_max || pos.y < vp_y_min || pos.y > vp_y_max) continue;
                 if (!is_visible(pos)) continue;
-                const auto& render = registry_.get<RenderableComponent>(entity);
 
                 char glyph = render.glyph;
-                uint32_t color = parse_hex_color(render.color);
+                
+                if (render.parsed_color_cache == 0xFFFFFFFF) {
+                    render.parsed_color_cache = parse_hex_color(render.color);
+                }
+                uint32_t color = render.parsed_color_cache;
 
                 // [J.1] Age-Based Visual Metaphor
                 if (registry_.all_of<AgeComponent>(entity)) {

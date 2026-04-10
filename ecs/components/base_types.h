@@ -220,6 +220,7 @@ struct SizeComponent {
 
 struct RenderableComponent {
     char glyph = '?'; std::string color = "#FFFFFF"; int layer_id = 0;
+    uint32_t parsed_color_cache = 0xFFFFFFFF; // [MOD] Added for fast rendering lookups
     RenderableComponent() = default;
     RenderableComponent(char g, std::string c, int lid = 0) : glyph(g), color(c), layer_id(lid) {}
     template <class Archive> void serialize(Archive& ar) { ar(cereal::make_nvp("glyph", glyph), cereal::make_nvp("color", color), cereal::make_nvp("layer_id", layer_id)); }

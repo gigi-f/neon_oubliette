@@ -1,8 +1,10 @@
 === NEON OUBLIETTE CRASH REPORT ===
 Signal: 11 (Segmentation fault: 11)
-Last startup phase: infra-junctions
+Last startup phase: game-loop
 
 Stack trace (most recent call last):
-#2    Object "neon_oubliette", at 0x10019e15b, in main + 2179
-#1    Object "neon_oubliette", at 0x10019e15b, in main + 2179
-#0    Object "libsystem_platform.dylib", at 0x182c8d7a3, in _sigtramp + 55
+#4    Object "neon_oubliette", at 0x1029db6a7, in main + 7631
+#3    Object "neon_oubliette", at 0x102a9ea4f, in NeonOubliette::SimulationCoordinator::advance_turn(double) + 1263
+#2    Object "neon_oubliette", at 0x102a540c3, in entt::internal::dispatcher_handler<NeonOubliette::BarterEvent, std::__1::allocator<void>>::publish() + 119
+#1    Object "neon_oubliette", at 0x102b6ef77, in NeonOubliette::BarterSystem::handleBarterEvent(NeonOubliette::BarterEvent const&) + 163
+#0    Object "libsystem_platform.dylib", at 0x18f4057a3, in _sigtramp + 55

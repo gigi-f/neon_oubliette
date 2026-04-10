@@ -82,10 +82,16 @@ void BarterSystem::handleCloseBarterEvent(const CloseBarterEvent& event) {
 }
 
 void BarterSystem::handleBarterEvent(const BarterEvent& event) {
+    if (!m_registry.valid(event.initiator_entity) || !m_registry.valid(event.target_entity)) {
+        return;
+    }
+
     switch (event.state) {
         case BarterState::REQUEST: {
-            auto& target_name = m_registry.get<NameComponent>(event.target_entity).name;
-            auto& initiator_name = m_registry.get<NameComponent>(event.initiator_entity).name;
+            auto* tn = m_registry.try_get<NameComponent>(event.target_entity);
+            auto* in = m_registry.try_get<NameComponent>(event.initiator_entity);
+            std::string target_name = tn ? tn->name : "Stranger";
+            std::string initiator_name = in ? in->name : "Stranger";
 
             // Target evaluates: How much do I want what they're giving me?
             float offered_utility_to_target = calculateUtilityValue(event.target_entity, event.offered_items, event.offered_info);
@@ -254,8 +260,9 @@ void BarterSystem::handleBarterEvent(const BarterEvent& event) {
             break;
         }
         case BarterState::ACCEPT: {
-            auto& initiator_inv = m_registry.get<InventoryComponent>(event.initiator_entity);
-            auto& target_inv = m_registry.get<InventoryComponent>(event.target_entity);
+            auto* initiator_inv = m_registry.try_get<InventoryComponent>(event.initiator_entity);
+            auto* target_inv = m_registry.try_get<InventoryComponent>(event.target_entity);
+            if (!initiator_inv || !target_inv) return;
 
             auto* initiator_econ = m_registry.try_get<Layer3EconomicComponent>(event.initiator_entity);
             auto* target_econ = m_registry.try_get<Layer3EconomicComponent>(event.target_entity);
@@ -274,8 +281,8 @@ void BarterSystem::handleBarterEvent(const BarterEvent& event) {
 
             // Handle Items
             for (auto item : event.offered_items) {
-                initiator_inv.contained_items.erase(std::remove(initiator_inv.contained_items.begin(), initiator_inv.contained_items.end(), item), initiator_inv.contained_items.end());
-                target_inv.contained_items.push_back(item);
+                initiator_inv->contained_items.erase(std::remove(initiator_inv->contained_items.begin(), initiator_inv->contained_items.end(), item), initiator_inv->contained_items.end());
+                target_inv->contained_items.push_back(item);
                 if (m_registry.all_of<ContainedByComponent>(item)) {
                     m_registry.get<ContainedByComponent>(item).container = event.target_entity;
                 }
@@ -285,8 +292,8 @@ void BarterSystem::handleBarterEvent(const BarterEvent& event) {
             }
 
             for (auto item : event.requested_items) {
-                target_inv.contained_items.erase(std::remove(target_inv.contained_items.begin(), target_inv.contained_items.end(), item), target_inv.contained_items.end());
-                initiator_inv.contained_items.push_back(item);
+                target_inv->contained_items.erase(std::remove(target_inv->contained_items.begin(), target_inv->contained_items.end(), item), target_inv->contained_items.end());
+                initiator_inv->contained_items.push_back(item);
                 if (m_registry.all_of<ContainedByComponent>(item)) {
                     m_registry.get<ContainedByComponent>(item).container = event.initiator_entity;
                 }
@@ -317,8 +324,6 @@ void BarterSystem::handleBarterEvent(const BarterEvent& event) {
             for (auto item : event.requested_items) total_value += getBaseItemValue(item, event.target_entity);
             
             if (total_value >= 1000.0f) {
-                auto& name_a = m_registry.get<NameComponent>(event.initiator_entity).name;
-                auto& name_b = m_registry.get<NameComponent>(event.target_entity).name;
                 m_dispatcher.enqueue(MilestoneEvent{"MAJOR_TRADE_DEAL", "A high-value trade deal finalized.", "", "", event.initiator_entity, 3.5f});
             }
 
