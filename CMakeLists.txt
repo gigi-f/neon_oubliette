@@ -143,6 +143,8 @@ set(PROJECT_SOURCES
     ecs/systems/agent_action_system.cpp
     ecs/systems/agent_decision_system.cpp
     ecs/systems/agent_spawn_system.cpp
+    ecs/systems/ambient_spawn_system.cpp
+    ecs/systems/intersection_system.cpp
     ecs/systems/pathfinding_system.cpp
     ecs/systems/movement_system.cpp
     ecs/systems/interaction_system.cpp

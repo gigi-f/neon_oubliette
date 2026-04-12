@@ -58,7 +58,9 @@ enum class AgentTaskType : uint32_t {
     // [O.1] Raw Material Extraction
     EXTRACT_RESOURCE,
     // [O.2] Factory Production
-    PRODUCE_GOODS
+    PRODUCE_GOODS,
+    // [NEW] Transit overhaul behaviors
+    HURRY_TO_TRANSIT
 };
 
 enum class ActivityType : uint32_t {
@@ -1106,6 +1108,29 @@ struct VehicleComponent {
     entt::entity source_node_id = entt::null;
     template <class Archive> void serialize(Archive&) {}
 };
+
+/**
+ * @brief [NEW CLASS] Multi-car segment for articulated vehicles (trains, buses).
+ */
+struct ArticulatedSegmentComponent {
+    entt::entity parent_vehicle = entt::null;
+    size_t segment_index = 0;
+    std::vector<PositionComponent> position_history;
+
+    template <class Archive> void serialize(Archive& ar) {
+        ar(cereal::make_nvp("parent_vehicle", parent_vehicle), 
+           cereal::make_nvp("segment_index", segment_index),
+           cereal::make_nvp("position_history", position_history));
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Tag for ambient non-persistent entities (filler traffic).
+ */
+struct AmbientTagComponent {
+    template <class Archive> void serialize(Archive&) {}
+};
+
 struct ElevatorControlComponent { template <class Archive> void serialize(Archive&) {} };
 struct InteractionQueue { template <class Archive> void serialize(Archive&) {} };
 enum class RelationshipTier : uint8_t {

@@ -270,6 +270,19 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                             agent_goal.target_y = s_pos.y;
                             agent_goal.target_layer = s_pos.layer_id;
                             m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, {s_pos.x, s_pos.y, s_pos.layer_id}, m_nextPathRequestId++});
+
+                            // [NEW] Check if should HURRY
+                            auto transit_view = m_registry.view<TransitVehicleComponent, PositionComponent>();
+                            for (auto vehicle : transit_view) {
+                                const auto& v_pos = transit_view.get<PositionComponent>(vehicle);
+                                if (v_pos.layer_id == s_pos.layer_id) {
+                                    float dist_v_s = (float)std::abs(v_pos.x - s_pos.x) + (float)std::abs(v_pos.y - s_pos.y);
+                                    if (dist_v_s < 10) { // Train is coming!
+                                        agent_task.task_type = AgentTaskType::HURRY_TO_TRANSIT;
+                                        break;
+                                    }
+                                }
+                            }
                             return;
                         }
                     }
@@ -334,6 +347,19 @@ void AgentDecisionSystem::evaluateAgentNeedsAndSetTask(entt::entity agent_entity
                             agent_goal.target_y = s_pos.y;
                             agent_goal.target_layer = s_pos.layer_id;
                             m_dispatcher.enqueue<PathfindingRequestEvent>({agent_entity, agent_pos, {s_pos.x, s_pos.y, s_pos.layer_id}, m_nextPathRequestId++});
+
+                            // [NEW] Check if should HURRY
+                            auto transit_view = m_registry.view<TransitVehicleComponent, PositionComponent>();
+                            for (auto vehicle : transit_view) {
+                                const auto& v_pos = transit_view.get<PositionComponent>(vehicle);
+                                if (v_pos.layer_id == s_pos.layer_id) {
+                                    float dist_v_s = (float)std::abs(v_pos.x - s_pos.x) + (float)std::abs(v_pos.y - s_pos.y);
+                                    if (dist_v_s < 10) { // Train is coming!
+                                        agent_task.task_type = AgentTaskType::HURRY_TO_TRANSIT;
+                                        break;
+                                    }
+                                }
+                            }
                             return;
                         }
                     }

@@ -3,6 +3,7 @@
 #include "systems/agent_action_system.h"
 #include "systems/agent_decision_system.h"
 #include "systems/agent_spawn_system.h"
+#include "systems/ambient_spawn_system.h"
 #include "systems/consumption_system.h"
 #include "systems/container_system.h"
 #include "systems/crafting_system.h"
@@ -31,6 +32,8 @@
 #include "systems/zoning_solver_system.h"
 #include "systems/infrastructure_network_system.h"
 #include "systems/transit_system.h"
+#include "systems/traffic_flow_system.h"
+#include "systems/intersection_system.h"
 #include "systems/chunk_streaming_system.h"
 
 // Multi-scalar Simulation Systems
@@ -91,6 +94,8 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
                          std::make_unique<GuardResponseSystem>(registry, event_dispatcher), "GuardResponse");
     scheduler.add_system(SystemScheduler::Phase::Macro,
                          std::make_unique<AgentSpawnSystem>(registry, event_dispatcher), "AgentSpawn");
+    scheduler.add_system(SystemScheduler::Phase::Macro,
+                         std::make_unique<Systems::AmbientSpawnSystem>(registry, event_dispatcher), "AmbientSpawn");
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<MovementSystem>(registry, event_dispatcher), "Movement");
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<VerticalSystem>(registry, event_dispatcher), "Vertical");
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<BuildingGenerationSystem>(registry, event_dispatcher), "BuildingGen");
@@ -130,6 +135,8 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
     scheduler.add_system(SystemScheduler::Phase::Macro, std::move(city_gen), "CityGen");
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ZoningSolverSystem>(registry, event_dispatcher), "ZoningSolver");
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<InfrastructureNetworkSystem>(registry, event_dispatcher), "InfraNetwork");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::IntersectionSystem>(registry, event_dispatcher), "Intersection");
+    scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<Systems::TrafficFlowSystem>(registry, event_dispatcher), "TrafficFlow");
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<TransitSystem>(registry, event_dispatcher), "Transit");
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<ChunkStreamingSystem>(registry, event_dispatcher), "ChunkStream");
 

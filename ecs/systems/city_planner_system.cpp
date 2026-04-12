@@ -69,25 +69,28 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
 
     switch (zone.type) {
         case ZoneType::URBAN_CORE:
-            num_splits_x = 4; num_splits_y = 4;
+            num_splits_x = 2; num_splits_y = 2; // Reduced from 4x4 for "Super-blocks"
             break;
         case ZoneType::CORPORATE:
         case ZoneType::COMMERCIAL:
-            num_splits_x = 2; num_splits_y = 2;
+            num_splits_x = 2; num_splits_y = 1;
             break;
         case ZoneType::RESIDENTIAL:
-            num_splits_x = 4; num_splits_y = 2;
+            num_splits_x = 2; num_splits_y = 2;
             break;
         case ZoneType::INDUSTRIAL:
             num_splits_x = 1; num_splits_y = 1;
             break;
         case ZoneType::SLUM:
-            num_splits_x = 5; num_splits_y = 3;
+            num_splits_x = 3; num_splits_y = 2;
             break;
         default:
             num_splits_x = 1; num_splits_y = 1;
             break;
     }
+
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    float pedestrian_path_chance = 0.3f;
 
     int road_w = ROAD_WIDTH_SECONDARY;
     int block_w = (cell_size - (num_splits_x - 1) * road_w) / num_splits_x;
@@ -104,28 +107,47 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
             // Subdivide block into lots
             subdivide_block_into_lots(block_entity, zone.type);
             
-            // Create streets between blocks (secondary roads) — one segment per street
+            // Create streets between blocks (secondary roads or pedestrian paths)
             if (ix < num_splits_x - 1) {
+                bool is_pedestrian = dist(m_gen) < pedestrian_path_chance;
                 int street_center_x = bx + block_w + road_w / 2;
                 auto seg = m_registry.create();
                 auto& sc = m_registry.emplace<InfrastructureSegmentComponent>(seg);
-                sc.type = ArterialType::ROAD_SECONDARY;
+                sc.type = is_pedestrian ? ArterialType::PEDESTRIAN_PATH : ArterialType::ROAD_SECONDARY;
                 sc.x1 = street_center_x; sc.y1 = by;
                 sc.x2 = street_center_x; sc.y2 = by + block_h - 1;
                 sc.layer_id = 0;
-                sc.field_radius = 1.0f; sc.economic_multiplier = 1.05f;
+                sc.flow_capacity = is_pedestrian ? 0.2f : 1.0f;
+                sc.field_radius = is_pedestrian ? 0.5f : 1.0f; 
+                sc.economic_multiplier = 1.05f;
                 m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(seg);
+
+                // Add Traffic Light at intersections if it's a road
+                if (!is_pedestrian && (iy == 0 || iy == num_splits_y - 1)) {
+                    auto light = m_registry.create();
+                    m_registry.emplace<TrafficLightComponent>(light);
+                    m_registry.emplace<PositionComponent>(light, street_center_x, by, 0);
+                }
             }
             if (iy < num_splits_y - 1) {
+                bool is_pedestrian = dist(m_gen) < pedestrian_path_chance;
                 int street_center_y = by + block_h + road_w / 2;
                 auto seg = m_registry.create();
                 auto& sc = m_registry.emplace<InfrastructureSegmentComponent>(seg);
-                sc.type = ArterialType::ROAD_SECONDARY;
+                sc.type = is_pedestrian ? ArterialType::PEDESTRIAN_PATH : ArterialType::ROAD_SECONDARY;
                 sc.x1 = bx; sc.y1 = street_center_y;
                 sc.x2 = bx + block_w - 1; sc.y2 = street_center_y;
                 sc.layer_id = 0;
-                sc.field_radius = 1.0f; sc.economic_multiplier = 1.05f;
+                sc.flow_capacity = is_pedestrian ? 0.2f : 1.0f;
+                sc.field_radius = is_pedestrian ? 0.5f : 1.0f;
+                sc.economic_multiplier = 1.05f;
                 m_registry.get<MacroZoneComponent>(zone_entity).arterial_entities.push_back(seg);
+
+                if (!is_pedestrian && (ix == 0 || ix == num_splits_x - 1)) {
+                    auto light = m_registry.create();
+                    m_registry.emplace<TrafficLightComponent>(light);
+                    m_registry.emplace<PositionComponent>(light, bx, street_center_y, 0);
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-# Requirements
+## MODIFIED Requirements
 
 ### Requirement: Multi-tile Vehicle Sizes
 The system SHALL support multi-tile vehicle dimensions and articulated vehicle types:
@@ -8,17 +8,6 @@ The system SHALL support multi-tile vehicle dimensions and articulated vehicle t
 - **Articulated Buses** SHALL consist of two segments linked via a flexible joint.
 Vehicles SHALL be spawned as multi-tile obstacles on road tiles and track tiles, with articulated segments following the lead segment's path.
 
-#### Scenario: Car Obstacle Spawning
-- **WHEN** a car is spawned on a road
-- **THEN** it occupies 6 tiles as an obstacle.
-
 #### Scenario: Multi-car Train Spawning
 - **WHEN** an L-train is spawned on a rail line
 - **THEN** it SHALL consist of at least three 12-tile long articulated cars that follow the leader's exact track sequence.
-
-### Requirement: Road Width Standards
-Primary and secondary roads SHALL be at least 6 tiles wide to accommodate 2 lanes of 3-tile wide vehicles.
-
-#### Scenario: Primary Road Width
-- **WHEN** a `ROAD_PRIMARY` segment is generated
-- **THEN** its width (ArterialType width or `ROAD_WIDTH_PRIMARY`) is at least 6 tiles.

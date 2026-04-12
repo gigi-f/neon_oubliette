@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cereal/types/vector.hpp>
 #include <cereal/types/string.hpp>
+#include "base_types.h"
 
 namespace NeonOubliette {
 
@@ -22,7 +23,8 @@ enum class ArterialType : uint8_t {
     WATERWAY_RIVER,
     ELECTRIC_GRID,
     SEWER,
-    UNDERGROUND_TUNNEL
+    UNDERGROUND_TUNNEL,
+    PEDESTRIAN_PATH
 };
 
 /**
@@ -121,6 +123,44 @@ struct ArterialGraphComponent {
     template <class Archive>
     void serialize(Archive& ar) {
         ar(cereal::make_nvp("adj_list", adj_list));
+    }
+};
+
+enum class TrafficLightState : uint8_t {
+    RED,
+    YELLOW,
+    GREEN
+};
+
+/**
+ * @brief [NEW CLASS] Manages intersection signal cycles.
+ */
+struct TrafficLightComponent {
+    TrafficLightState state = TrafficLightState::RED;
+    uint32_t timer = 0;
+    uint32_t cycle_duration = 200; // Default cycle length
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("state", state),
+           cereal::make_nvp("timer", timer),
+           cereal::make_nvp("cycle_duration", cycle_duration));
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Defines a high-resolution path for vehicles within a road segment.
+ */
+struct LaneComponent {
+    std::vector<PositionComponent> waypoints;
+    bool is_occupied = false;
+    entt::entity occupying_vehicle = entt::null;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(cereal::make_nvp("waypoints", waypoints),
+           cereal::make_nvp("is_occupied", is_occupied),
+           cereal::make_nvp("occupying_vehicle", occupying_vehicle));
     }
 };
 

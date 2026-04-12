@@ -90,6 +90,10 @@ void CityGenerationSystem::generate_chunk_content(entt::entity zone_entity) {
                 t_type = TerrainType::SEWER_FLOOR; glyph = '.'; color = "#443322";
                 material = MaterialType::CONCRETE; t_layer = -1;
                 break;
+            case ArterialType::PEDESTRIAN_PATH:
+                t_type = TerrainType::SIDEWALK; glyph = '+'; color = "#554433";
+                material = MaterialType::CONCRETE;
+                break;
             default: break;
         }
 

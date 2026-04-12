@@ -67,6 +67,7 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
             case AgentTaskType::REPAIR: // [K.2]
             case AgentTaskType::SQUAT:  // [K.2]
             case AgentTaskType::MOVE_TO_TARGET:
+            case AgentTaskType::HURRY_TO_TRANSIT:
             case AgentTaskType::FOLLOW_LEADER: {
                 if (task.task_type == AgentTaskType::FOLLOW_LEADER && m_registry.all_of<FollowComponent>(entity)) {
                     auto& follow = m_registry.get<FollowComponent>(entity);
@@ -107,6 +108,10 @@ void AgentActionSystem::handleTurnEvent(const TurnEvent& event) {
                         m_registry.remove<AgentTaskComponent>(entity);
                     } else {
                         m_dispatcher.trigger<MoveEvent>({entity, dx, dy, position.layer_id});
+                        // [NEW] Double move for hurry
+                        if (task.task_type == AgentTaskType::HURRY_TO_TRANSIT) {
+                            m_dispatcher.trigger<MoveEvent>({entity, dx, dy, position.layer_id});
+                        }
                     }
                 } else {
                     m_registry.remove<AgentTaskComponent>(entity);

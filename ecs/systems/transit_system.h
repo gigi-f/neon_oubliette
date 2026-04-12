@@ -27,6 +27,7 @@ public:
 
 private:
     void update_vehicle_movement(entt::entity vehicle, TransitVehicleComponent& transit, PositionComponent& pos, double dt);
+    void update_articulated_segments(entt::entity vehicle, PositionComponent& pos);
     void handle_station_stop(entt::entity vehicle, TransitVehicleComponent& transit, entt::entity station);
     void process_boarding(entt::entity vehicle, entt::entity station);
     void process_unboarding(entt::entity vehicle, entt::entity station);

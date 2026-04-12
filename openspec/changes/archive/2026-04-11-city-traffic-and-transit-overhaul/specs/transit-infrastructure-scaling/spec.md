@@ -1,4 +1,4 @@
-# Requirements
+## MODIFIED Requirements
 
 ### Requirement: Scale Separation for Transit
 The `TransitSystem` and `CityGenerationSystem` SHALL differentiate between "Enterable" structures, "Infrastructure", and "Pedestrian Flow Zones" when scaling zones:

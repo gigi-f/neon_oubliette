@@ -31,6 +31,7 @@ void TransitSystem::update(double delta_time) {
             }
         } else {
             update_vehicle_movement(vehicle, transit, pos, delta_time);
+            update_articulated_segments(vehicle, pos);
         }
 
         // --- Synchronize Occupant Positions ---
@@ -90,6 +91,17 @@ void TransitSystem::setup_transit_network() {
         tv.current_route = route_ent;
         tv.next_stop_index = 1 % rail_nodes.size();
         m_registry.emplace<TransitOccupantsComponent>(train);
+
+        // Spawn Articulated segments (e.g., 3 more cars)
+        for (int i = 0; i < 3; ++i) {
+            auto segment = m_registry.create();
+            m_registry.emplace<NameComponent>(segment, "Train Car #" + std::to_string(i + 1));
+            m_registry.emplace<PositionComponent>(segment, start_pos.x, start_pos.y, start_pos.layer_id);
+            m_registry.emplace<RenderableComponent>(segment, 't', "#00CCDD", 2);
+            auto& as = m_registry.emplace<ArticulatedSegmentComponent>(segment);
+            as.parent_vehicle = train;
+            as.segment_index = i + 1;
+        }
     }
 
     // Assign stations to bus route
@@ -129,6 +141,16 @@ void TransitSystem::update_vehicle_movement(entt::entity vehicle, TransitVehicle
     entt::entity target_station = route.stops[transit.next_stop_index];
     const auto& target_pos = m_registry.get<PositionComponent>(target_station);
 
+    // Save current position to history for articulated segments BEFORE moving
+    auto articulated_view = m_registry.view<ArticulatedSegmentComponent>();
+    for (auto seg_ent : articulated_view) {
+        auto& as = articulated_view.get<ArticulatedSegmentComponent>(seg_ent);
+        if (as.parent_vehicle == vehicle) {
+            as.position_history.insert(as.position_history.begin(), pos);
+            if (as.position_history.size() > 50) as.position_history.pop_back();
+        }
+    }
+
     // Simple Grid-based movement: move towards target node tile by tile
     int dx = (target_pos.x > pos.x) ? 1 : (target_pos.x < pos.x ? -1 : 0);
     int dy = (target_pos.y > pos.y) ? 1 : (target_pos.y < pos.y ? -1 : 0);
@@ -143,6 +165,25 @@ void TransitSystem::update_vehicle_movement(entt::entity vehicle, TransitVehicle
     }
 }
 
+void TransitSystem::update_articulated_segments(entt::entity vehicle, PositionComponent& pos) {
+    auto view = m_registry.view<ArticulatedSegmentComponent, PositionComponent>();
+    for (auto entity : view) {
+        auto& as = view.get<ArticulatedSegmentComponent>(entity);
+        if (as.parent_vehicle == vehicle) {
+            // Replay parent's path with an offset based on segment index
+            // Use 1-tile offset for visual compactness in the terminal
+            size_t history_index = as.segment_index; 
+            if (as.position_history.size() > history_index) {
+                auto& seg_pos = view.get<PositionComponent>(entity);
+                const auto& historical_pos = as.position_history[history_index];
+                seg_pos.x = historical_pos.x;
+                seg_pos.y = historical_pos.y;
+                seg_pos.layer_id = historical_pos.layer_id;
+            }
+        }
+    }
+}
+
 void TransitSystem::handle_station_stop(entt::entity vehicle, TransitVehicleComponent& transit, entt::entity station) {
     transit.is_stopped = true;
     process_unboarding(vehicle, station);
@@ -154,7 +195,7 @@ void TransitSystem::process_boarding(entt::entity vehicle, entt::entity station)
     const auto& transit = m_registry.get<TransitVehicleComponent>(vehicle);
     const auto& station_pos = m_registry.get<PositionComponent>(station);
 
-    // Find entities at the same tile waiting for transit
+    // Find entities nearby (clustering) waiting for transit
     auto waiting_view = m_registry.view<PositionComponent, AgentTaskComponent>();
     for (auto candidate : waiting_view) {
         if (occupants.size() >= (size_t)transit.capacity) break;
@@ -162,7 +203,9 @@ void TransitSystem::process_boarding(entt::entity vehicle, entt::entity station)
         const auto& c_pos = waiting_view.get<PositionComponent>(candidate);
         auto& task = waiting_view.get<AgentTaskComponent>(candidate);
 
-        if (c_pos.x == station_pos.x && c_pos.y == station_pos.y && c_pos.layer_id == station_pos.layer_id) {
+        // Within 3 tiles of station is valid for boarding
+        float dist = std::abs(c_pos.x - station_pos.x) + std::abs(c_pos.y - station_pos.y);
+        if (dist <= 3 && c_pos.layer_id == station_pos.layer_id) {
             // Check if player or agent waiting for transit
             bool is_player = m_registry.all_of<PlayerComponent>(candidate);
             bool is_waiting = (task.task_type == AgentTaskType::WAIT_FOR_TRANSIT);
@@ -172,9 +215,6 @@ void TransitSystem::process_boarding(entt::entity vehicle, entt::entity station)
                 occupants.push_back(candidate);
                 m_registry.emplace_or_replace<RidingComponent>(candidate, vehicle);
                 task.task_type = AgentTaskType::RIDE_TRANSIT;
-                
-                // If it's the player, we should hide them or attach them to vehicle movement
-                // For now, RidingSystem (implied) will handle updating riding positions
             }
         }
     }
