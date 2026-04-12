@@ -38,8 +38,6 @@
 #include "ecs/systems/infrastructure_network_system.h"
 #include "ecs/systems/macro_navigation_system.h"
 #include "ecs/systems/chunk_streaming_system.h"
-#include "renderer/SDLRenderer.h"
-#include "ecs/systems/sdl_rendering_system.h"
 #include "ecs/systems/visibility_system.h"
 
 // ────────────────────────────────────────────────────────
@@ -230,24 +228,7 @@ int main(int argc, char** argv) {
 
     { // Scope block: scheduler/systems destroyed before notcurses_stop
     NeonOubliette::SystemScheduler scheduler(macro_registry, event_dispatcher);
-    
-    bool use_sdl2 = (getenv("NEON_USE_SDL2") != nullptr);
-    std::shared_ptr<NeonOubliette::IRenderer> sdl_renderer = nullptr;
-    
-    if (use_sdl2) {
-        sdl_renderer = std::make_shared<NeonOubliette::SDLRenderer>();
-        if (sdl_renderer->initialize(120, 40, headless)) {
-            // Replace the terminal Rendering system with the SDL2 system dynamically
-            // (register_all_systems adds Notcurses, we will clear it from Phase output if we had dynamic removal, 
-            // but we can just prepend it or intercept it. For now, since register_all_systems hardcodes the Notcurses renderer,
-            // we will let it register, but SDL output will overlap it visually because it spawns a separate window.)
-            scheduler.add_system(NeonOubliette::SystemScheduler::Phase::Output, 
-                std::make_unique<NeonOubliette::Systems::SDLRenderingSystem>(macro_registry, sdl_renderer, event_dispatcher), 
-                "SDLRendering");
-        }
-    }
     NeonOubliette::register_all_systems(scheduler, nc_context, macro_registry, event_dispatcher);
-
     
     NeonOubliette::SimulationCoordinator simulation_coordinator(macro_registry, event_dispatcher, scheduler);
     NeonOubliette::register_simulation_systems(simulation_coordinator, macro_registry, event_dispatcher);

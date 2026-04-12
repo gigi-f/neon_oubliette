@@ -110,15 +110,6 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(NOTCURSES REQUIRED notcurses)
-pkg_check_modules(SDL2 REQUIRED sdl2)
-
-find_path(SDL2_IMAGE_INCLUDE_DIRS SDL_image.h PATH_SUFFIXES SDL2)
-find_library(SDL2_IMAGE_LIBRARIES SDL2_image)
-find_path(SDL2_TTF_INCLUDE_DIRS SDL_ttf.h PATH_SUFFIXES SDL2)
-find_library(SDL2_TTF_LIBRARIES SDL2_ttf)
-
-
-link_directories(${SDL2_LIBRARY_DIRS})
 
 find_path(CEREAL_INCLUDE_DIR
     NAMES cereal/cereal.hpp
@@ -180,8 +171,6 @@ set(PROJECT_SOURCES
     ecs/systems/infrastructure_network_system.cpp
     ecs/systems/chunk_streaming_system.cpp
     ecs/systems/macro_navigation_system.cpp
-    src/renderer/SDLRenderer.cpp
-    ecs/systems/sdl_rendering_system.cpp
     ecs/systems/transit_system.cpp
     ecs/systems/social_interaction_system.cpp
     ecs/systems/information_system.cpp
@@ -259,9 +248,6 @@ target_include_directories(neon_oubliette PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/ecs
     ${NOTCURSES_INCLUDE_DIRS}
-    ${SDL2_INCLUDE_DIRS}
-    ${SDL2_IMAGE_INCLUDE_DIRS}
-    ${SDL2_TTF_INCLUDE_DIRS}
 )
 
 # --- Link Directories ---
@@ -272,9 +258,6 @@ target_link_directories(neon_oubliette PRIVATE
 # --- Link Libraries ---
 target_link_libraries(neon_oubliette PRIVATE
     ${NOTCURSES_LIBRARIES}
-    ${SDL2_LIBRARIES}
-    ${SDL2_IMAGE_LIBRARIES}
-    ${SDL2_TTF_LIBRARIES}
     inkcpp
     inkcpp_compiler
 )

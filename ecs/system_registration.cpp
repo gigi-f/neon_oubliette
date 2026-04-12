@@ -17,7 +17,6 @@
 #include "systems/pathfinding_system.h"
 #include "systems/macro_navigation_system.h"
 #include "systems/rendering_system.h"
-#include "systems/sdl_rendering_system.h"
 #include "systems/serialization_system.h"
 #include "systems/turn_manager_system.h"
 #include "systems/vertical_system.h"
@@ -77,7 +76,7 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
                           entt::dispatcher& event_dispatcher) {
     // --- Input Phase ---
     scheduler.add_system(SystemScheduler::Phase::Input,
-                         std::make_unique<Systems::InputSystem>(registry, event_dispatcher), "Input");
+                         std::make_unique<Systems::InputSystem>(registry, nc_context, event_dispatcher), "Input");
 
     // --- Macro Phase ---
     scheduler.add_system(SystemScheduler::Phase::Macro,
@@ -139,9 +138,6 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
     scheduler.add_system(SystemScheduler::Phase::Macro, std::make_unique<RebuildingSystem>(registry, event_dispatcher, city_gen_ref), "Rebuilding");
 
     // --- Output Phase ---
-    // If an SDL context is active (handled by a macro or conditional logic further down the chain, 
-    // or passed via a generic config). For this refactoring, we keep the original notcurses path for now 
-    // via this function, and register SDL in main.cpp dynamically to avoid destroying the interface.
     scheduler.add_system(SystemScheduler::Phase::Output,
                          std::make_unique<Systems::RenderingSystem>(registry, nc_context, event_dispatcher), "Rendering");
 }

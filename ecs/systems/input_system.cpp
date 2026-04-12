@@ -6,21 +6,16 @@
 namespace NeonOubliette {
 namespace Systems {
 
-InputSystem::InputSystem(entt::registry& registry, entt::dispatcher& dispatcher)
-    : m_registry(registry), m_dispatcher(dispatcher) {
-    m_dispatcher.sink<EngineInputEvent>().connect<&InputSystem::handle_input_event>(*this);
-}
-
-void InputSystem::handle_input_event(const EngineInputEvent& event) {
-    if (event.is_press) {
-        pending_inputs_.push_back(event);
-    }
+InputSystem::InputSystem(entt::registry& registry, struct notcurses* nc_context, entt::dispatcher& dispatcher)
+    : m_registry(registry), m_ncContext(nc_context), m_dispatcher(dispatcher) {
 }
 
 void InputSystem::initialize() {
 }
 
 void InputSystem::update(double delta_time) {
+    ncinput input;
+    struct timespec ts = {0, 0};
     uint32_t key_id;
 
     // Get Simulation State
@@ -45,22 +40,26 @@ void InputSystem::update(double delta_time) {
         active_dialogue = &dialogue_view.get<DialogueStateComponent>(*dialogue_view.begin());
     }
 
-    for (const auto& ev : pending_inputs_) {
-        key_id = ev.key_id;
+    while ((key_id = notcurses_get(m_ncContext, &ts, &input)) > 0) {
+        // --- Handle Mouse [D.1 / D.3] ---
+        // (Mouse controls removed)
+
+
+        if (input.evtype != NCTYPE_PRESS && input.evtype != NCTYPE_UNKNOWN) continue;
 
         // Context Menu Navigation
         if (active_menu && active_menu->open) {
             // ... (existing menu logic)
-            if (key_id == Key_Up) {
+            if (key_id == NCKEY_UP) {
                 active_menu->selected_index = std::max(0, active_menu->selected_index - 1);
                 continue;
-            } else if (key_id == Key_Down) {
+            } else if (key_id == NCKEY_DOWN) {
                 active_menu->selected_index = std::min((int)active_menu->options.size() - 1, active_menu->selected_index + 1);
                 continue;
-            } else if (key_id == Key_Enter || key_id == '\r' || key_id == '\n') {
+            } else if (key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
                 m_dispatcher.trigger(ContextMenuSelectEvent{active_menu->selected_index});
                 continue;
-            } else if (key_id == Key_Esc) {
+            } else if (key_id == NCKEY_ESC) {
                 m_dispatcher.trigger<CloseContextMenuEvent>();
                 continue;
             }
@@ -74,7 +73,7 @@ void InputSystem::update(double delta_time) {
                 m_dispatcher.trigger(DialogueChoiceEvent{static_cast<int>(key_id - 'a')});
                 m_dispatcher.trigger<AdvanceTurnRequestEvent>();
                 continue;
-            } else if (key_id == Key_Esc) {
+            } else if (key_id == NCKEY_ESC) {
                 m_dispatcher.trigger<CloseDialogueWindowEvent>();
                 continue;
             }
@@ -87,17 +86,17 @@ void InputSystem::update(double delta_time) {
         if (barter_view.begin() != barter_view.end()) {
             auto& ui = barter_view.get<BarterUIComponent>(*barter_view.begin());
             if (ui.is_open) {
-                if (key_id == Key_Esc) {
+                if (key_id == NCKEY_ESC) {
                     m_dispatcher.trigger<CloseBarterEvent>();
                     continue;
-                } else if (key_id == Key_Tab || key_id == '\t') {
+                } else if (key_id == NCKEY_TAB || key_id == '\t') {
                     ui.focusing_npc_inventory = !ui.focusing_npc_inventory;
                     ui.selected_inventory_index = 0;
                     continue;
-                } else if (key_id == Key_Up) {
+                } else if (key_id == NCKEY_UP) {
                     ui.selected_inventory_index = std::max(0, ui.selected_inventory_index - 1);
                     continue;
-                } else if (key_id == Key_Down) {
+                } else if (key_id == NCKEY_DOWN) {
                     auto p_view = m_registry.view<PlayerComponent>();
                     entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
                     entt::entity target = ui.focusing_npc_inventory ? ui.target_agent : p_ent;
@@ -107,7 +106,7 @@ void InputSystem::update(double delta_time) {
                             ui.selected_inventory_index = std::min((int)inv.contained_items.size() - 1, ui.selected_inventory_index + 1);
                     }
                     continue;
-                } else if (key_id == Key_Enter || key_id == '\r' || key_id == '\n') {
+                } else if (key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
                     auto p_view = m_registry.view<PlayerComponent>();
                     entt::entity p_ent = (p_view.begin() != p_view.end()) ? *p_view.begin() : entt::null;
                     entt::entity target_ent = ui.focusing_npc_inventory ? ui.target_agent : p_ent;
@@ -188,7 +187,7 @@ void InputSystem::update(double delta_time) {
         }
 
         // --- Cycle Interaction Mode [E.1] ---
-        if (key_id == Key_Tab || key_id == '\t') {
+        if (key_id == NCKEY_TAB || key_id == '\t') {
             auto player_view = m_registry.view<PlayerComponent>();
             for (auto entity : player_view) {
                 if (!m_registry.all_of<PlayerInteractionComponent>(entity)) {
@@ -235,10 +234,10 @@ void InputSystem::update(double delta_time) {
                     m_registry.destroy(follow_view.begin(), follow_view.end());
                 };
 
-                if (key_id == 'w' || key_id == 'W' || key_id == Key_Up) { cursor.y--; break_follow(); }
-                else if (key_id == 's' || key_id == 'S' || key_id == Key_Down) { cursor.y++; break_follow(); }
-                else if (key_id == 'a' || key_id == 'A' || key_id == Key_Left) { cursor.x--; break_follow(); }
-                else if (key_id == 'd' || key_id == 'D' || key_id == Key_Right) { cursor.x++; break_follow(); }
+                if (key_id == 'w' || key_id == 'W' || key_id == NCKEY_UP) { cursor.y--; break_follow(); }
+                else if (key_id == 's' || key_id == 'S' || key_id == NCKEY_DOWN) { cursor.y++; break_follow(); }
+                else if (key_id == 'a' || key_id == 'A' || key_id == NCKEY_LEFT) { cursor.x--; break_follow(); }
+                else if (key_id == 'd' || key_id == 'D' || key_id == NCKEY_RIGHT) { cursor.x++; break_follow(); }
                 
                 // Vertical Navigation in God Mode
                 else if (key_id == '>') {
@@ -278,7 +277,7 @@ void InputSystem::update(double delta_time) {
                     m_dispatcher.trigger<ToggleCrisisDashboardEvent>();
                     continue;
                 }
-                else if (key_id == Key_Esc) {
+                else if (key_id == NCKEY_ESC) {
                     auto state_view = m_registry.view<SimulationStateComponent>();
                     if (state_view.begin() != state_view.end()) {
                         auto& state = state_view.get<SimulationStateComponent>(*state_view.begin());
@@ -351,10 +350,10 @@ void InputSystem::update(double delta_time) {
         if (m_registry.all_of<HUDComponent>(player_entity)) {
             auto& hud = m_registry.get<HUDComponent>(player_entity);
             if (hud.inventory_open) {
-                if (key_id == Key_Up) {
+                if (key_id == NCKEY_UP) {
                     hud.selected_inventory_index = std::max(0, hud.selected_inventory_index - 1);
                     continue;
-                } else if (key_id == Key_Down) {
+                } else if (key_id == NCKEY_DOWN) {
                     if (m_registry.all_of<InventoryComponent>(player_entity)) {
                         auto& inv = m_registry.get<InventoryComponent>(player_entity);
                         if (!inv.contained_items.empty()) {
@@ -362,7 +361,7 @@ void InputSystem::update(double delta_time) {
                         }
                     }
                     continue;
-                } else if (key_id == Key_Enter || key_id == '\r' || key_id == '\n') {
+                } else if (key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
                     if (m_registry.all_of<InventoryComponent>(player_entity)) {
                         auto& inv = m_registry.get<InventoryComponent>(player_entity);
                         if (!inv.contained_items.empty() && hud.selected_inventory_index < (int)inv.contained_items.size()) {
@@ -395,7 +394,7 @@ void InputSystem::update(double delta_time) {
                 } else if (key_id == 'b' || key_id == 'B') {
                     m_dispatcher.trigger(InventoryToggleEvent{player_entity});
                     continue;
-                } else if (key_id == Key_Esc) {
+                } else if (key_id == NCKEY_ESC) {
                     m_dispatcher.trigger(InventoryToggleEvent{player_entity});
                     continue;
                 }
@@ -443,28 +442,28 @@ void InputSystem::update(double delta_time) {
         } 
         
         // --- Keyboard Cursor Movement [D.1] ---
-        else if (key_id == Key_Up) {
+        else if (key_id == NCKEY_UP) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
                 if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
                 sc.y--; sc.mouse_driven = false;
             }
-        } else if (key_id == Key_Down) {
+        } else if (key_id == NCKEY_DOWN) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
                 if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
                 sc.y++; sc.mouse_driven = false;
             }
-        } else if (key_id == Key_Left) {
+        } else if (key_id == NCKEY_LEFT) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
                 if (!sc.active) { sc.x = pos.x; sc.y = pos.y; sc.layer_id = pos.layer_id; sc.active = true; }
                 sc.x--; sc.mouse_driven = false;
             }
-        } else if (key_id == Key_Right) {
+        } else if (key_id == NCKEY_RIGHT) {
             auto cv = m_registry.view<StandardCursorComponent>();
             if (cv.begin() != cv.end()) {
                 auto& sc = cv.get<StandardCursorComponent>(*cv.begin());
@@ -474,7 +473,7 @@ void InputSystem::update(double delta_time) {
         }
         
         // Interaction
-        else if (key_id == 'e' || key_id == 'E' || key_id == ' ' || key_id == Key_Enter || key_id == '\r' || key_id == '\n') {
+        else if (key_id == 'e' || key_id == 'E' || key_id == ' ' || key_id == NCKEY_ENTER || key_id == '\r' || key_id == '\n') {
             int tx = pos.x; int ty = pos.y; int tl = pos.layer_id;
             auto cursor_view = m_registry.view<StandardCursorComponent>();
             if (cursor_view.begin() != cursor_view.end()) {
@@ -525,7 +524,7 @@ void InputSystem::update(double delta_time) {
             m_dispatcher.trigger(ToggleControlsHelpEvent{player_entity});
         } else if (key_id == 'b' || key_id == 'B') {
             m_dispatcher.trigger(InventoryToggleEvent{player_entity});
-        } else if (key_id == Key_Esc) {
+        } else if (key_id == NCKEY_ESC) {
             m_dispatcher.trigger<CloseInspectionWindowEvent>();
             m_dispatcher.trigger<CloseDialogueWindowEvent>();
         }
@@ -557,10 +556,11 @@ void InputSystem::update(double delta_time) {
             if (key_id == 'I') mode = InspectionMode::BIOLOGICAL_AUDIT;
             else if (key_id == 'c') mode = InspectionMode::COGNITIVE_PROFILE;
             else if (key_id == 'f') mode = InspectionMode::FINANCIAL_FORENSICS;
+            else if (key_id == 't') mode = InspectionMode::STRUCTURAL_ANALYSIS;
+            
             m_dispatcher.trigger(InspectEvent{player_entity, tl, tx, ty, mode});
         }
     }
-    pending_inputs_.clear();
 }
 
 } // namespace Systems
