@@ -145,40 +145,40 @@ void register_all_systems(SystemScheduler& scheduler, struct notcurses* nc_conte
 void register_simulation_systems(SimulationCoordinator& coordinator, entt::registry& registry,
                                  entt::dispatcher& event_dispatcher) {
     // Register systems for each simulation layer (L0-L4)
-    coordinator.add_simulation_system(std::make_unique<PhysicsSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<InfrastructureSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<EnvironmentalSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<HazardSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<InfrastructureInfluenceSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<Systems::PowerGridSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<PhysicsSystem>(registry, event_dispatcher), "Physics");
+    coordinator.add_simulation_system(std::make_unique<InfrastructureSystem>(registry, event_dispatcher), "Infrastructure");
+    coordinator.add_simulation_system(std::make_unique<EnvironmentalSystem>(registry, event_dispatcher), "Environmental");
+    coordinator.add_simulation_system(std::make_unique<HazardSystem>(registry, event_dispatcher), "Hazard");
+    coordinator.add_simulation_system(std::make_unique<InfrastructureInfluenceSystem>(registry, event_dispatcher), "InfraInfluence");
+    coordinator.add_simulation_system(std::make_unique<Systems::PowerGridSystem>(registry, event_dispatcher), "PowerGrid");
     
-    coordinator.add_simulation_system(std::make_unique<BiologySystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<EcosystemSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<BiologySystem>(registry, event_dispatcher), "Biology");
+    coordinator.add_simulation_system(std::make_unique<EcosystemSystem>(registry, event_dispatcher), "Ecosystem");
     
-    coordinator.add_simulation_system(std::make_unique<CognitiveSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<XenoSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<SocialInteractionSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<ConversationSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<Systems::InformationSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<CognitiveSystem>(registry, event_dispatcher), "Cognitive");
+    coordinator.add_simulation_system(std::make_unique<XenoSystem>(registry, event_dispatcher), "Xeno");
+    coordinator.add_simulation_system(std::make_unique<SocialInteractionSystem>(registry, event_dispatcher), "SocialInteraction");
+    coordinator.add_simulation_system(std::make_unique<ConversationSystem>(registry, event_dispatcher), "Conversation");
+    coordinator.add_simulation_system(std::make_unique<Systems::InformationSystem>(registry, event_dispatcher), "Information");
     
-    coordinator.add_simulation_system(std::make_unique<EconomicSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<SupplyChainSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<ProductionSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<DrugManufacturingSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<StockMarketSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<EconomicMarketSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<ResourceDistributionSystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<EconomicSystem>(registry, event_dispatcher), "Economic");
+    coordinator.add_simulation_system(std::make_unique<SupplyChainSystem>(registry, event_dispatcher), "SupplyChain");
+    coordinator.add_simulation_system(std::make_unique<ProductionSystem>(registry, event_dispatcher), "Production");
+    coordinator.add_simulation_system(std::make_unique<DrugManufacturingSystem>(registry, event_dispatcher), "DrugManufacturing");
+    coordinator.add_simulation_system(std::make_unique<StockMarketSystem>(registry, event_dispatcher), "StockMarket");
+    coordinator.add_simulation_system(std::make_unique<EconomicMarketSystem>(registry, event_dispatcher), "EconomicMarket");
+    coordinator.add_simulation_system(std::make_unique<ResourceDistributionSystem>(registry, event_dispatcher), "ResourceDistribution");
     
-    coordinator.add_simulation_system(std::make_unique<FactionSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<ReligionSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<PoliticalSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<PoliticalOpinionSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<Systems::BroadcastTowerSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<Systems::UndergroundMediaSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<MilestoneSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<WantedLevelSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<InheritanceSystem>(registry, event_dispatcher));
-    coordinator.add_simulation_system(std::make_unique<UrbanDecaySystem>(registry, event_dispatcher));
+    coordinator.add_simulation_system(std::make_unique<FactionSystem>(registry, event_dispatcher), "Faction");
+    coordinator.add_simulation_system(std::make_unique<ReligionSystem>(registry, event_dispatcher), "Religion");
+    coordinator.add_simulation_system(std::make_unique<PoliticalSystem>(registry, event_dispatcher), "Political");
+    coordinator.add_simulation_system(std::make_unique<PoliticalOpinionSystem>(registry, event_dispatcher), "PoliticalOpinion");
+    coordinator.add_simulation_system(std::make_unique<Systems::BroadcastTowerSystem>(registry, event_dispatcher), "BroadcastTower");
+    coordinator.add_simulation_system(std::make_unique<Systems::UndergroundMediaSystem>(registry, event_dispatcher), "UndergroundMedia");
+    coordinator.add_simulation_system(std::make_unique<MilestoneSystem>(registry, event_dispatcher), "Milestone");
+    coordinator.add_simulation_system(std::make_unique<WantedLevelSystem>(registry, event_dispatcher), "WantedLevel");
+    coordinator.add_simulation_system(std::make_unique<InheritanceSystem>(registry, event_dispatcher), "Inheritance");
+    coordinator.add_simulation_system(std::make_unique<UrbanDecaySystem>(registry, event_dispatcher), "UrbanDecay");
 }
 
 } // namespace NeonOubliette

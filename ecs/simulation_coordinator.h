@@ -31,7 +31,7 @@ class SimulationCoordinator {
 public:
     SimulationCoordinator(entt::registry& registry, entt::dispatcher& dispatcher, SystemScheduler& scheduler);
 
-    void add_simulation_system(std::unique_ptr<ISimulationSystem> system);
+    void add_simulation_system(std::unique_ptr<ISimulationSystem> system, std::string name = "");
 
     /**
      * @brief Initializes all registered simulation systems.
@@ -69,7 +69,12 @@ private:
     entt::registry& m_registry;
     entt::dispatcher& m_dispatcher;
     SystemScheduler& m_scheduler;
-    std::map<SimulationLayer, std::vector<std::unique_ptr<ISimulationSystem>>> m_layer_systems;
+
+    struct NamedSimulationSystem {
+        std::string name;
+        std::unique_ptr<ISimulationSystem> system;
+    };
+    std::map<SimulationLayer, std::vector<NamedSimulationSystem>> m_layer_systems;
 };
 
 } // namespace NeonOubliette

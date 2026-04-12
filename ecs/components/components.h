@@ -221,8 +221,8 @@ struct SpeechProfileComponent {
 struct WorldConfigComponent {
     int width = 0;
     int height = 0;
-    int macro_cell_size = 20;
-    int chunk_size = 40;        // macro_cell_size * 2 — set during init
+    int macro_cell_size = 40;
+    int chunk_size = 80;        // macro_cell_size * 2 — set during init
     uint32_t world_seed = 12345;
     uint64_t next_macro_id = 1000; // Start high to avoid collision with low-level stubs
     template <class Archive> void serialize(Archive& ar) { ar(cereal::make_nvp("width", width), cereal::make_nvp("height", height), cereal::make_nvp("macro_cell_size", macro_cell_size), cereal::make_nvp("chunk_size", chunk_size), cereal::make_nvp("world_seed", world_seed), cereal::make_nvp("next_macro_id", next_macro_id)); }
@@ -322,7 +322,7 @@ struct TerrainComponent {
 
 struct BuildingComponent {
     int height = 1; ZoneType zone_type = ZoneType::VOID; int occupant_count = 0;
-    uint32_t building_id = 0; // [NEW] Stable ID for layer generation and caching
+    uint64_t building_id = 0; // [NEW] Stable ID for layer generation and caching
     CommandBuffer command_buffer;
     template <class Archive> void serialize(Archive& ar) { 
         ar(CEREAL_NVP(height), CEREAL_NVP(zone_type), CEREAL_NVP(occupant_count), CEREAL_NVP(building_id)); 
@@ -1086,6 +1086,17 @@ struct PersonalVehicleComponent {
     float speed_multiplier = 1.0f;
     template <class Archive> void serialize(Archive& ar) {
         ar(cereal::make_nvp("type", type), cereal::make_nvp("driver", driver), cereal::make_nvp("capacity", capacity), cereal::make_nvp("speed_multiplier", speed_multiplier));
+    }
+};
+
+/**
+ * @brief [NEW CLASS] Multi-tile dimensions for vehicles.
+ */
+struct VehicleSizeComponent {
+    int length = 1;
+    int width = 1;
+    template <class Archive> void serialize(Archive& ar) {
+        ar(cereal::make_nvp("length", length), cereal::make_nvp("width", width));
     }
 };
 

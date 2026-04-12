@@ -1,6 +1,7 @@
 #include "system_scheduler.h"
 #include "util/profiling.h"
 #include "components/components.h"
+#include "../feature_flags.h"
 
 #include <algorithm>
 #include <chrono>
@@ -21,7 +22,9 @@ void SystemScheduler::add_system(Phase phase, std::unique_ptr<ISystem> system, s
 void SystemScheduler::initialize_all_systems() {
     for (auto& [phase, phase_systems] : systems_) {
         for (auto& ns : phase_systems) {
-            ns.system->initialize();
+            if (g_feature_flags.is_system_enabled(ns.name)) {
+                ns.system->initialize();
+            }
         }
     }
 }
@@ -47,6 +50,10 @@ void SystemScheduler::run_phase(Phase phase, entt::registry& registry, entt::dis
     auto t_phase_start = std::chrono::steady_clock::now();
 
     for (auto& ns : phase_it->second) {
+        if (!g_feature_flags.is_system_enabled(ns.name)) {
+            continue;
+        }
+
         if (dbg) {
             const std::string started_name = ns.name.empty() ? "<unnamed>" : ns.name;
             dbg->current_system = started_name;

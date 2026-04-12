@@ -21,7 +21,8 @@ cd build_ninja/bin && ./neon_oubliette
 cat game.log
 
 # ASAN build (bug tracing)
-cd build && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_C_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+mkdir -p build_asan && cd build_asan && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_C_FLAGS="-g -fsanitize=address -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+cmake --build . -j$(sysctl -n hw.ncpu)
 
 # Check cache performance
 ccache -s
@@ -54,13 +55,13 @@ Refer to `.clauderules` for detailed token optimization and developer hygiene re
 - **Level of Detail**: Use `gast` for mapping and selective `rtk read` for implementation logic.
 
 
-Prerequisites: `brew install cmake pkgconf notcurses cereal ccache`
+Prerequisites: `brew install cmake pkgconf sdl2 sdl2_image sdl2_ttf cereal ccache`
 
 Build outputs go to `build_ninja/`, `build_ninja_debug/`, etc. (matching preset names).
 
 ## Architecture
 
-Neon Oubliette is a terminal-based procedurally generated mega-city simulation. C++20, EnTT ECS, Notcurses for rendering.
+Neon Oubliette is a windowed SDL2 procedurally generated mega-city simulation. C++20, EnTT ECS, SDL2 for rendering.
 
 ### Simulation Layers
 
@@ -95,7 +96,7 @@ Input → Macro → Micro → PostMicro → Output
 
 ### Notable Systems
 
-- `ecs/systems/rendering_system.cpp` — Notcurses ncplane layering (terrain, entities, HUD, dialogue, inventory)
+- `ecs/systems/sdl_rendering_system.cpp` — SDL2-based rendering logic
 - `ecs/systems/city_generation_system.cpp` — procedural city layout, zoning, connectivity graph
 - `ecs/systems/agent_decision_system.cpp` — NPC BDI AI (~43KB)
 - `ecs/systems/dialogue_system.cpp` — Ink/inkcpp scripted narrative (~65KB)
@@ -118,7 +119,7 @@ Detailed design documents live in `architecture/` and `design/`. Key reads:
 ### Dependencies
 
 - **EnTT** (v3.12.2) — ECS registry + event dispatcher
-- **Notcurses** (v3.0.9) — terminal rendering
+- **SDL2** — windowed graphical rendering
 - **nlohmann/json** — JSON parsing
 - **Cereal** — binary serialization
 - **inkcpp** — Ink narrative scripting

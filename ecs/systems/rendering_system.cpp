@@ -525,7 +525,7 @@ void RenderingSystem::update(double delta_time) {
                         
                         const auto& b_comp = b_view.get<BuildingComponent>(b_ent);
                         ncplane_set_fg_rgb(hud_plane_, 0x00FF00);
-                        ncplane_printf_yx(hud_plane_, 4, 0, "BUILDING: ID %u | ZONE: %d | HEIGHT: %d", 
+                        ncplane_printf_yx(hud_plane_, 4, 0, "BUILDING: ID %llu | ZONE: %d | HEIGHT: %d", 
                                           b_comp.building_id, (int)b_comp.zone_type, b_comp.height);
                         
                         if (registry_.all_of<BuildingInteriorComponent>(b_ent)) {
@@ -1240,12 +1240,13 @@ void RenderingSystem::update(double delta_time) {
             const auto& interior = registry_.get<BuildingInteriorComponent>(state.focused_building);
             const auto& b_comp = registry_.get<BuildingComponent>(state.focused_building);
             ncplane_set_fg_rgb(interior_overlay_plane_, 0x00FFFF);
-            ncplane_printf_yx(interior_overlay_plane_, 1, 2, "Building: %u | Floor: %d/%d | Rooms: %zu", 
+            ncplane_printf_yx(interior_overlay_plane_, 1, 2, "Building: %llu | Floor: %d/%d | Rooms: %zu", 
                               b_comp.building_id, state.focus_floor, b_comp.height - 1, interior.rooms.size());
             ncplane_putstr_yx(interior_overlay_plane_, 1, 35, "</>:Nav  ESC:Exit");
 
             // Render rooms and entities of the focused floor into the overlay
-            int base_layer = 1000 + b_comp.building_id * 10;
+            uint64_t bid = b_comp.building_id;
+            int base_layer = 1000 + ((int)(bid >> 32) * 2000 + (int)(bid & 0xFFFFFFFF)) * 10;
             int target_layer = base_layer + state.focus_floor;
             
             auto int_ent_view = registry_.view<PositionComponent, RenderableComponent>();

@@ -86,7 +86,8 @@ public:
         auto const& b_comp = m_registry.get<BuildingComponent>(event.building);
         
         // Stable layer ID based on building's assigned unique ID
-        int base_layer_id = 1000 + b_comp.building_id * 10;
+        uint64_t bid = b_comp.building_id;
+        int base_layer_id = 1000 + ((int)(bid >> 32) * 2000 + (int)(bid & 0xFFFFFFFF)) * 10;
 
         if (!interior.is_generated || interior.floor_entities.empty()) {
             generateInterior(event.building, interior, base_layer_id);
@@ -466,7 +467,9 @@ private:
             const auto& ri = rooms[i];
             
             // [B.5] Check for windows in this room
-            if (layer_id == 1000 + m_registry.get<BuildingComponent>(building).building_id * 10) { // Ground floor
+            uint64_t bid = m_registry.get<BuildingComponent>(building).building_id;
+            int ground_layer = 1000 + ((int)(bid >> 32) * 2000 + (int)(bid & 0xFFFFFFFF)) * 10;
+            if (layer_id == ground_layer) { // Ground floor
                 // Simplification: room has window if it touches the floor boundary
                 // In generateInterior, interior_width = b_size->width + 6
                 int width = b_size ? b_size->width + 6 : 15;

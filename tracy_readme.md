@@ -22,9 +22,6 @@ The engine will wait for a Tracy connection or buffer data locally.
 
 ## 3. Connect the Tracy GUI
 
-1. Download or build the Tracy Profiler GUI (available at [github.com/wolfpld/tracy](https://github.com/wolfpld/tracy)).
-2. Launch the `tracy` (or `Tracy.exe`) application.
-3. Click **Connect** (the engine should appear in the list if running on the same machine).
+run tracy in terminal
 
-> [!TIP]
-> Use the **Statistics** window in Tracy to identify which ECS systems are consuming the most frame time.
+to convert the save: tracy-csvexport <filename>

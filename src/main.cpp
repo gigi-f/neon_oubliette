@@ -19,6 +19,7 @@
 
 #include <backward.hpp>
 #include "util/profiling.h"
+#include "feature_flags.h"
 
 #include "config/ConfigLoader.h"
 #include "ecs/component_registration.h"
@@ -140,7 +141,16 @@ int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
+    // Load feature flags
+    NeonOubliette::g_feature_flags.load_from_file("data/configs/feature_flags.json");
+
     bool headless = (getenv("NEON_HEADLESS") != nullptr);
+    if (headless) {
+        NeonOubliette::g_feature_flags.rendering = false;
+    }
+    
+    // Sync headless with feature flag
+    headless = !NeonOubliette::g_feature_flags.rendering;
 
     // Install crash handler FIRST, before anything else
     install_crash_handler();
@@ -242,9 +252,9 @@ int main(int argc, char** argv) {
     // --- World Dimensions (single source of truth) ---
     constexpr int MACRO_COLS       = 20;
     constexpr int MACRO_ROWS       = 20;
-    constexpr int MACRO_CELL_SIZE  = 120; // 120m city block
-    constexpr int WORLD_WIDTH      = MACRO_COLS * MACRO_CELL_SIZE;  // 2400
-    constexpr int WORLD_HEIGHT     = MACRO_ROWS * MACRO_CELL_SIZE;  // 2400
+    constexpr int MACRO_CELL_SIZE  = 40; // 40m city block
+    constexpr int WORLD_WIDTH      = MACRO_COLS * MACRO_CELL_SIZE;  // 800
+    constexpr int WORLD_HEIGHT     = MACRO_ROWS * MACRO_CELL_SIZE;  // 800
 
     // --- World Config ---
     g_startup_phase = "world-config";
@@ -289,11 +299,13 @@ int main(int argc, char** argv) {
     probe_registry(macro_registry, "resolve-junctions");
 
     // --- Phase 3.3: Hierarchical Pathfinding Graph ---
-    show_loading("Building navigation graph...");
-    g_startup_phase = "nav-graph";
-    NeonOubliette::MacroNavigationSystem macro_nav(macro_registry, event_dispatcher);
-    macro_nav.rebuild_graph();
-    probe_registry(macro_registry, "nav-graph");
+    if (NeonOubliette::g_feature_flags.is_system_enabled("MacroNav")) {
+        show_loading("Building navigation graph...");
+        g_startup_phase = "nav-graph";
+        NeonOubliette::MacroNavigationSystem macro_nav(macro_registry, event_dispatcher);
+        macro_nav.rebuild_graph();
+        probe_registry(macro_registry, "nav-graph");
+    }
 
     // --- Entity Creation (Player) ---
     g_startup_phase = "player-entity";
@@ -356,11 +368,13 @@ int main(int argc, char** argv) {
 
     // --- Seed macro population into chunks BEFORE materialization ---
     // This ensures agents stored in hot chunks get instantiated during materialize_chunk().
-    show_loading("Spawning population...");
-    g_startup_phase = "agent-spawn";
-    NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
-    agent_spawn.spawnAgentsIntoChunks(100000); // World-wide dormant population
-    probe_registry(macro_registry, "post-spawn-chunks");
+    if (NeonOubliette::g_feature_flags.is_system_enabled("AgentSpawn")) {
+        show_loading("Spawning population...");
+        g_startup_phase = "agent-spawn";
+        NeonOubliette::AgentSpawnSystem agent_spawn(macro_registry, event_dispatcher);
+        agent_spawn.spawnAgentsIntoChunks(100000); // World-wide dormant population
+        probe_registry(macro_registry, "post-spawn-chunks");
+    }
 
     // Manual first update to populate initial area around player
     // (also instantiates macro agents stored in hot chunks)

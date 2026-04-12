@@ -23,6 +23,7 @@ struct LotComponent {
     StreetFacingSide facing = StreetFacingSide::NONE;
     StreetFacingSide alley_facing = StreetFacingSide::NONE;
     entt::entity parent_block = entt::null;
+    uint64_t building_id = 0; // [NEW] Stable ID for consistency
 
     template <class Archive>
     void serialize(Archive& ar) {
@@ -35,7 +36,8 @@ struct LotComponent {
            cereal::make_nvp("building_entity", building_entity),
            cereal::make_nvp("facing", facing),
            cereal::make_nvp("alley_facing", alley_facing),
-           cereal::make_nvp("parent_block", parent_block));
+           cereal::make_nvp("parent_block", parent_block),
+           cereal::make_nvp("building_id", building_id));
     }
 };
 

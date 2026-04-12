@@ -1,0 +1,57 @@
+{
+    "npcs": false,
+    "city_generation": true,
+    "economy": false,
+    "politics": false,
+    "environment": false,
+    "rendering": true,
+    "player_actions": true,
+
+    "npc": {
+        "spawning": true,
+        "movement": true,
+        "pathfinding": true,
+        "dialogue": true,
+        "social_interaction": true,
+        "faction_behavior": true,
+        "crime": true,
+        "cognitive": true
+    },
+
+    "city": {
+        "buildings": true,
+        "infrastructure": true,
+        "transit": true,
+        "zoning": true,
+        "chunk_streaming": true,
+        "demolition": true,
+        "power_grid": true,
+        "urban_decay": true
+    },
+
+    "econ": {
+        "markets": true,
+        "supply_chain": true,
+        "drug_manufacturing": true,
+        "stock_market": true,
+        "barter": true,
+        "production": true,
+        "resource_distribution": true
+    },
+
+    "pol": {
+        "factions": true,
+        "religion": true,
+        "political_opinions": true,
+        "guard_response": true,
+        "crisis": true,
+        "media": true
+    },
+
+    "env": {
+        "physics": true,
+        "biology": true,
+        "ecosystem": true,
+        "hazards": true
+    }
+}

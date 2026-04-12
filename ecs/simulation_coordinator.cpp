@@ -2,6 +2,7 @@
 #include <iostream>
 #include <chrono>
 #include "util/profiling.h"
+#include "../feature_flags.h"
 
 namespace NeonOubliette {
 
@@ -124,8 +125,10 @@ void SimulationCoordinator::run_simulation_tick(double delta_time) {
         
         if (should_layer_tick(layer, m_turn_counter)) {
             ZoneScopedN("SimulationLayer");
-            for (auto& system : m_layer_systems[layer]) {
-                system->update(delta_time);
+            for (auto& ns : m_layer_systems[layer]) {
+                if (g_feature_flags.is_system_enabled(ns.name)) {
+                    ns.system->update(delta_time);
+                }
             }
         }
     }
@@ -221,14 +224,16 @@ void SimulationCoordinator::on_adjust_speed(const AdjustGodModeSpeedEvent& event
     m_dispatcher.trigger(HUDNotificationEvent{msg, 1.0f, "#00FFFF"});
 }
 
-void SimulationCoordinator::add_simulation_system(std::unique_ptr<ISimulationSystem> system) {
-    m_layer_systems[system->simulation_layer()].push_back(std::move(system));
+void SimulationCoordinator::add_simulation_system(std::unique_ptr<ISimulationSystem> system, std::string name) {
+    m_layer_systems[system->simulation_layer()].push_back({std::move(name), std::move(system)});
 }
 
 void SimulationCoordinator::initialize_all_systems() {
     for (auto& [layer, systems] : m_layer_systems) {
-        for (auto& system : systems) {
-            system->initialize();
+        for (auto& ns : systems) {
+            if (g_feature_flags.is_system_enabled(ns.name)) {
+                ns.system->initialize();
+            }
         }
     }
 }

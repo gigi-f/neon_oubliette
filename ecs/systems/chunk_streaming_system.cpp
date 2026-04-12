@@ -86,7 +86,8 @@ void ChunkStreamingSystem::update(double delta_time) {
             auto building_view = m_registry.view<BuildingComponent, PositionComponent>();
             for (auto b_ent : building_view) {
                 const auto& b_comp = building_view.get<BuildingComponent>(b_ent);
-                int base_layer = 1000 + b_comp.building_id * 10;
+                uint64_t bid = b_comp.building_id;
+                int base_layer = 1000 + ((int)(bid >> 32) * 2000 + (int)(bid & 0xFFFFFFFF)) * 10;
                 if (pos.layer_id >= base_layer && pos.layer_id < base_layer + 10) {
                     const auto& b_pos = building_view.get<PositionComponent>(b_ent);
                     ref_x = b_pos.x;
@@ -466,7 +467,8 @@ void ChunkStreamingSystem::dematerialize_chunk(entt::entity chunk_entity, ChunkC
         const auto& b_pos = building_view.get<PositionComponent>(b_ent);
         if (b_pos.x >= min_x && b_pos.x < max_x && b_pos.y >= min_y && b_pos.y < max_y && b_pos.layer_id == 0) {
             const auto& b_comp = building_view.get<BuildingComponent>(b_ent);
-            int base_layer = 1000 + b_comp.building_id * 10;
+            uint64_t bid = b_comp.building_id;
+            int base_layer = 1000 + ((int)(bid >> 32) * 2000 + (int)(bid & 0xFFFFFFFF)) * 10;
             interior_ranges.push_back({base_layer, base_layer + 9});
             for(int i=0; i<10; ++i) layer_to_building_coords[base_layer + i] = {b_pos.x, b_pos.y};
             

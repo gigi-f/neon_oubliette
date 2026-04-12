@@ -1,5 +1,4 @@
 #!/bin/bash
-mkdir -p /Users/gm1/Code/neon_oubliette/build
-cd /Users/gm1/Code/neon_oubliette/build
-cmake ..
-make -j$(sysctl -n hw.ncpu)
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+cmake --build --preset build-ninja-relwithdebinfo
+./build_ninja/bin/neon_oubliette

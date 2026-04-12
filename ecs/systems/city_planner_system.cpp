@@ -69,20 +69,20 @@ void CityPlannerSystem::subdivide_zone_into_blocks(entt::entity zone_entity) {
 
     switch (zone.type) {
         case ZoneType::URBAN_CORE:
-            num_splits_x = 2; num_splits_y = 2;
+            num_splits_x = 4; num_splits_y = 4;
             break;
         case ZoneType::CORPORATE:
         case ZoneType::COMMERCIAL:
             num_splits_x = 2; num_splits_y = 2;
             break;
         case ZoneType::RESIDENTIAL:
-            num_splits_x = 2; num_splits_y = 1;
+            num_splits_x = 4; num_splits_y = 2;
             break;
         case ZoneType::INDUSTRIAL:
             num_splits_x = 1; num_splits_y = 1;
             break;
         case ZoneType::SLUM:
-            num_splits_x = 3; num_splits_y = 2;
+            num_splits_x = 5; num_splits_y = 3;
             break;
         default:
             num_splits_x = 1; num_splits_y = 1;
@@ -140,20 +140,22 @@ void CityPlannerSystem::subdivide_block_into_lots(entt::entity block_entity, Zon
 
     switch (zone_type) {
         case ZoneType::URBAN_CORE:
-            lot_count_x = 1; lot_count_y = 1; // Skyscraper lots
+            lot_count_x = 2; lot_count_y = 2; // High-density skyscrapers
+            back_to_back = true;
             break;
         case ZoneType::CORPORATE:
-            lot_count_x = 1; lot_count_y = 1; // Large monolithic lots
+            lot_count_x = 2; lot_count_y = 2; // Mid-density corporate
+            back_to_back = true;
             break;
         case ZoneType::COMMERCIAL:
             lot_count_x = 2; lot_count_y = 1;
             break;
         case ZoneType::RESIDENTIAL:
-            lot_count_x = 4; lot_count_y = 2; // Row houses / Apartments
+            lot_count_x = 6; lot_count_y = 3; // Dense row houses
             back_to_back = true;
             break;
         case ZoneType::SLUM:
-            lot_count_x = 6; lot_count_y = 2; // Dense packing
+            lot_count_x = 8; lot_count_y = 3; // Maximum packing
             back_to_back = true;
             break;
         default:

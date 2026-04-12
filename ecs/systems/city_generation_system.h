@@ -94,7 +94,7 @@ private:
                                 if (rel) {
                                     uint8_t shared_sides = calculateSharedSides(lot, block);
                                     auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
-                                    uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
+                                    uint64_t stable_id = static_cast<uint64_t>(bx) << 32 | static_cast<uint32_t>(by);
                                     const_cast<LotComponent&>(lot).building_entity = createReligiousBuildingShell(rel, bx, by, bw, bh, doors, stable_id, chunk_ent);
                                     placed_religious = true;
                                     for (int fx = bx; fx < bx + bw; ++fx) {
@@ -109,18 +109,31 @@ private:
 
                             if (!placed_religious) {
                                 switch(zone.type) {
-                                    case ZoneType::CORPORATE: b_name = "Highrise"; b_color = "#4488FF"; floors = 10; break;
-                                    case ZoneType::SLUM: b_name = "Shanty"; b_color = "#CC7733"; floors = 1; break;
-                                    case ZoneType::INDUSTRIAL: b_name = "Plant"; b_color = "#DD4422"; floors = 2; break;
+                                    case ZoneType::CORPORATE: 
+                                        b_name = "Highrise"; b_color = "#4488FF"; 
+                                        floors = 15 + (int)(dis(gen) * 35); 
+                                        break;
+                                    case ZoneType::SLUM: 
+                                        b_name = "Shanty"; b_color = "#CC7733"; 
+                                        floors = 1 + (int)(dis(gen) * 3); 
+                                        break;
+                                    case ZoneType::INDUSTRIAL: 
+                                        b_name = "Plant"; b_color = "#DD4422"; 
+                                        floors = 1 + (int)(dis(gen) * 4); 
+                                        break;
                                     case ZoneType::RESIDENTIAL: 
-                                        b_name = "Apartments"; b_color = "#33AA55"; floors = std::max(1, 8 - (int)dist_to_core);
+                                        b_name = "Apartments"; b_color = "#33AA55"; 
+                                        if (dist_to_core < 3.0f) floors = 5 + (int)(dis(gen) * 15);
+                                        else if (dist_to_core < 5.0f) floors = 3 + (int)(dis(gen) * 5);
+                                        else floors = 1 + (int)(dis(gen) * 3);
+                                        
                                         if (floors <= 2) b_name = "Row-house";
                                         break;
                                     default: break;
                                 }
                                 uint8_t shared_sides = calculateSharedSides(lot, block);
                                 auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
-                                uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
+                                uint64_t stable_id = static_cast<uint64_t>(bx) << 32 | static_cast<uint32_t>(by);
                                 const_cast<LotComponent&>(lot).building_entity = createBuildingShell(b_name, bx, by, bw, bh, floors, b_color, zone.type, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
                                 for (int fx = bx; fx < bx + bw; ++fx) {
                                     for (int fy = by; fy < by + bh; ++fy) {
@@ -240,9 +253,9 @@ private:
                     int bw = std::max(4, lot.width - 1), bh = std::max(4, lot.height - 1);
                     int bx = lot.x + (lot.width - bw) / 2, by = lot.y + (lot.height - bh) / 2;
                     std::string name = faces_arterial ? "Plaza Tower" : "Core Spires";
-                    int floors = 20 + (int)(dis(gen) * 80); std::string color = (floors > 60) ? "#FFFFFF" : (floors > 40) ? "#CCCCFF" : "#8888FF";
+                    int floors = 30 + (int)(dis(gen) * 120); std::string color = (floors > 100) ? "#FFFFFF" : (floors > 60) ? "#CCCCFF" : "#8888FF";
                     uint8_t shared_sides = calculateSharedSides(lot, block); auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
-                    uint32_t stable_id = bx * 10000 + by;
+                    uint64_t stable_id = static_cast<uint64_t>(bx) << 32 | static_cast<uint32_t>(by);
                     const_cast<LotComponent&>(lot).building_entity = createSkyscraperShell(name, bx, by, bw, bh, floors, color, ZoneType::URBAN_CORE, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
                     for (int fx = bx; fx < bx + bw; ++fx) for (int fy = by; fy < by + bh; ++fy) structure_footprint.insert({fx, fy});
                     for (const auto& d : doors) if (d.primary) generateAccessPath(d.x, d.y, arterials);
@@ -260,9 +273,9 @@ private:
         }
         int tw = 12, th = 10, tx = start_x + (cell_size - tw) / 2, ty = start_y + (cell_size - th) / 2;
         std::vector<DoorInfo> t_doors = {{tx + tw/2, ty + th - 1, true}};
-        createBuildingShell("Terminal", tx, ty, tw, th, 3, "#FFFF55", ZoneType::AIRPORT, 0, 0, 0, t_doors, tx * 10000 + ty, chunk_ent, gen);
+        createBuildingShell("Terminal", tx, ty, tw, th, 3, "#FFFF55", ZoneType::AIRPORT, 0, 0, 0, t_doors, static_cast<uint64_t>(tx) << 32 | static_cast<uint32_t>(ty), chunk_ent, gen);
         generateAccessPath(tx + (tw/2), ty + th - 1, arterials);
-        createBuildingShell("Control Tower", start_x + 2, start_y + 2, 4, 4, 10, "#AAAAFF", ZoneType::AIRPORT, 0, 0, 0, {{start_x + 4, start_y + 5, true}}, (start_x+2)*10000+(start_y+2), chunk_ent, gen);
+        createBuildingShell("Control Tower", start_x + 2, start_y + 2, 4, 4, 10, "#AAAAFF", ZoneType::AIRPORT, 0, 0, 0, {{start_x + 4, start_y + 5, true}}, static_cast<uint64_t>(start_x + 2) << 32 | static_cast<uint32_t>(start_y + 2), chunk_ent, gen);
     }
     void generateParkInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint) {
         int start_x = zone.macro_x * cell_size, start_y = zone.macro_y * cell_size;
@@ -305,7 +318,7 @@ private:
             else if (dist < arena_radius + 6) createTile(x, y, 0, TerrainType::ARENA_SEATING, '=', "#555555", MaterialType::CONCRETE);
             else createTile(x, y, 0, TerrainType::CONCRETE_FLOOR, '.', "#222222", MaterialType::CONCRETE);
         }
-        createBuildingShell("Colosseum Grand Entrance", center_x - 4, start_y + 2, 8, 6, 2, "#FFCC00", ZoneType::COLOSSEUM, 0, 0, 0, {{center_x, start_y + 7, true}}, (center_x-4)*10000+(start_y+2), chunk_ent, gen);
+        createBuildingShell("Colosseum Grand Entrance", center_x - 4, start_y + 2, 8, 6, 2, "#FFCC00", ZoneType::COLOSSEUM, 0, 0, 0, {{center_x, start_y + 7, true}}, static_cast<uint64_t>(center_x - 4) << 32 | static_cast<uint32_t>(start_y + 2), chunk_ent, gen);
         generateAccessPath(center_x, start_y + 7, arterials);
     }
     void generateMixedCommercialInterior(const MacroZoneComponent& zone, int cell_size, std::map<std::pair<int, int>, ArterialType>& arterials, std::mt19937& gen, std::set<std::pair<int, int>>& footprint, entt::entity chunk_ent) {
@@ -317,7 +330,7 @@ private:
                     int bw = lot.width, bh = lot.height, bx = lot.x, by = lot.y;
                     if (bw >= 3 && bh >= 3) {
                         uint8_t shared_sides = calculateSharedSides(lot, block); auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
-                        uint32_t stable_id = bx * 10000 + by;
+                        uint64_t stable_id = static_cast<uint64_t>(bx) << 32 | static_cast<uint32_t>(by);
                         auto shop_building = createBuildingShell("Shop", bx, by, bw, bh, 1 + (int)(dis(gen) * 2), "#FF00FF", ZoneType::MIXED_COMMERCIAL, (uint8_t)lot.facing, (uint8_t)lot.alley_facing, shared_sides, doors, stable_id, chunk_ent, gen);
                         const_cast<LotComponent&>(lot).building_entity = shop_building;
                         m_registry.emplace_or_replace<ShopComponent>(shop_building);
@@ -518,7 +531,7 @@ private:
 
                 uint8_t shared_sides = calculateSharedSides(lot, block);
                 auto doors = calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterials);
-                uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
+                uint64_t stable_id = static_cast<uint64_t>(bx) << 32 | static_cast<uint32_t>(by);
                 double roll = dis(gen);
 
                 if (roll < 0.62 && bw >= 3 && bh >= 3) {
@@ -565,7 +578,7 @@ private:
     void createKiosk(int x, int y, std::string name, std::string color) {
         auto e = m_registry.create(); m_registry.emplace<PositionComponent>(e, x, y, 0); m_registry.emplace<NameComponent>(e, name);
         m_registry.emplace<RenderableComponent>(e, 'K', color, 0); m_registry.emplace<ObstacleComponent>(e);
-        m_registry.emplace<BuildingComponent>(e, 1, ZoneType::MIXED_COMMERCIAL, 0, static_cast<uint32_t>(x * 10000 + y));
+        m_registry.emplace<BuildingComponent>(e, 1, ZoneType::MIXED_COMMERCIAL, 0, static_cast<uint64_t>(x) << 32 | static_cast<uint32_t>(y));
         m_registry.emplace<ShopComponent>(e);
         auto& container = m_registry.emplace<ContainerComponent>(e);
         container.is_open = true;
@@ -712,7 +725,7 @@ private:
         }
     }
 
-    public: entt::entity createSkyscraperShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent, std::mt19937& gen) {
+    public: entt::entity createSkyscraperShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint64_t stable_id, entt::entity chunk_ent, std::mt19937& gen) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
         m_registry.emplace<BuildingComponent>(building, floors, ztype, 0, stable_id); m_registry.emplace<SizeComponent>(building, w, h); m_registry.emplace<PropertyComponent>(building);
         m_registry.emplace<ObstacleComponent>(building); // [B.1] Add ObstacleComponent to the entire footprint
@@ -757,7 +770,9 @@ private:
                     bool place_window = false;
                     if (!is_shared && is_street) {
                         // Skyscrapers (Urban Core / Corporate) have floor-to-ceiling windows
-                        if (cur_x % 3 != 0 || cur_y % 3 != 0) place_window = true;
+                        // Denser windows for small buildings (4x4) to maintain visual impact
+                        if (w <= 6 || h <= 6) place_window = true;
+                        else if (cur_x % 3 != 0 || cur_y % 3 != 0) place_window = true;
                     }
 
                     if (place_window) createTile(cur_x, cur_y, 0, TerrainType::WINDOW, '0', "#00FFFF", MaterialType::GLASS);
@@ -794,7 +809,7 @@ private:
                     if (dis(gen) < 0.25) { // 25% chance
                         int tw = 20, th = 20, tx = pos.x - 10, ty = pos.y - 10;
                         std::vector<DoorInfo> h_doors = {{pos.x, ty + th - 1, true}, {pos.x, ty, true}, {tx, pos.y, true}, {tx + tw - 1, pos.y, true}};
-                        createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, (uint8_t)StreetFacingSide::ALL, 0, 0, h_doors, tx * 10000 + ty, chunk_ent, gen);
+                        createSkyscraperShell("Urban Transit Hub", tx, ty, tw, th, 15, "#00FFFF", ZoneType::TRANSIT, (uint8_t)StreetFacingSide::ALL, 0, 0, h_doors, static_cast<uint64_t>(tx) << 32 | static_cast<uint32_t>(ty), chunk_ent, gen);
                         auto hub = m_registry.create(); m_registry.emplace<PositionComponent>(hub, pos.x, pos.y, 0); m_registry.emplace<CommerceHubComponent>(hub, 40.0f, 1.8f);
                         for (int fx = tx; fx < tx + tw; ++fx) for (int fy = ty; fy < ty + th; ++fy) footprint.insert({fx, fy});
                     }
@@ -862,15 +877,21 @@ private:
         m_tile_index[key] = e;
     }
     void spawnPersonalVehicle(int x, int y, int layer, PersonalVehicleType type) {
-        auto v = m_registry.create(); m_registry.emplace<PositionComponent>(v, x, y, layer); m_registry.emplace<NameComponent>(v, "Vehicle"); m_registry.emplace<SizeComponent>(v, 1, 1); m_registry.emplace<TransitOccupantsComponent>(v);
+        auto v = m_registry.create(); m_registry.emplace<PositionComponent>(v, x, y, layer); m_registry.emplace<NameComponent>(v, "Vehicle"); 
+        m_registry.emplace<TransitOccupantsComponent>(v);
         char glyph = 'V'; std::string color = "#FFFF00"; int capacity = 1; float speed = 1.0f;
+        int vw = 1, vh = 1;
         switch(type) {
-            case PersonalVehicleType::SCOOTER: glyph = ','; color = "#AAAAAA"; capacity = 1; speed = 1.5f; break;
-            case PersonalVehicleType::BIKE: glyph = 'i'; color = "#55AAFF"; capacity = 1; speed = 1.2f; break;
-            case PersonalVehicleType::CAR: glyph = 'A'; color = "#FF5555"; capacity = 4; speed = 2.0f; break;
-            case PersonalVehicleType::SCI_FI: glyph = 'X'; color = "#FF55FF"; capacity = 2; speed = 3.0f; break;
+            case PersonalVehicleType::SCOOTER: glyph = ','; color = "#AAAAAA"; capacity = 1; speed = 1.5f; vw = 1; vh = 1; break;
+            case PersonalVehicleType::BIKE: glyph = 'i'; color = "#55AAFF"; capacity = 1; speed = 1.2f; vw = 1; vh = 1; break;
+            case PersonalVehicleType::CAR: glyph = 'A'; color = "#FF5555"; capacity = 4; speed = 2.0f; vw = 3; vh = 6; break;
+            case PersonalVehicleType::SCI_FI: glyph = 'X'; color = "#FF55FF"; capacity = 2; speed = 3.0f; vw = 2; vh = 4; break;
         }
-        m_registry.emplace<RenderableComponent>(v, glyph, color, layer); m_registry.emplace<PersonalVehicleComponent>(v, type, entt::null, capacity, speed); m_registry.emplace<ObstacleComponent>(v);
+        m_registry.emplace<RenderableComponent>(v, glyph, color, layer); 
+        m_registry.emplace<PersonalVehicleComponent>(v, type, entt::null, capacity, speed);
+        m_registry.emplace<VehicleSizeComponent>(v, vh, vw); // length, width
+        m_registry.emplace<SizeComponent>(v, vw, vh); // for spatial cache
+        m_registry.emplace<ObstacleComponent>(v);
     }
 
     void spawnUndergroundMedia(const MacroZoneComponent& zone, std::mt19937& gen) {
@@ -961,7 +982,7 @@ private:
         }
         return shared_sides;
     }
-    public: entt::entity createBuildingShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint32_t stable_id, entt::entity chunk_ent, std::mt19937& gen) {
+    public: entt::entity createBuildingShell(std::string name, int x, int y, int w, int h, int floors, std::string color, ZoneType ztype, uint8_t facing_sides, uint8_t alley_sides, uint8_t shared_sides, const std::vector<DoorInfo>& doors, uint64_t stable_id, entt::entity chunk_ent, std::mt19937& gen) {
         auto building = m_registry.create(); m_registry.emplace<NameComponent>(building, name); m_registry.emplace<PositionComponent>(building, x, y, 0);
         m_registry.emplace<BuildingComponent>(building, floors, ztype, 0, stable_id); m_registry.emplace<SizeComponent>(building, w, h);
         m_registry.emplace<ObstacleComponent>(building); // [B.1] Add ObstacleComponent to the entire footprint

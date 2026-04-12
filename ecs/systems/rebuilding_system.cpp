@@ -59,7 +59,7 @@ void RebuildingSystem::on_rebuild_event(const RebuildEvent& event) {
 
     uint8_t shared_sides = m_gen_system.calculateSharedSides(lot, block);
     auto doors = m_gen_system.calculateDoorPositions(lot, bx, by, bw, bh, shared_sides, arterial_map);
-    uint32_t stable_id = static_cast<uint32_t>(bx * 10000 + by);
+    uint64_t stable_id = static_cast<uint64_t>(bx) << 32 | static_cast<uint32_t>(by);
 
     // Find parent chunk for interior caching
     entt::entity chunk_ent = entt::null;

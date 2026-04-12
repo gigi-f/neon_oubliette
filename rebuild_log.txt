@@ -1,0 +1,1227 @@
+[1/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/functions.cpp.o
+[2/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/functional.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/functional.cpp:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/functional.cpp:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/functional.cpp:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+8 warnings generated.
+[3/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/stack.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.cpp:8:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+5 warnings generated.
+[4/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/output.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:8:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:123:27: warning: unused parameter 'output' [-Wunused-parameter]
+  123 | inline void write_char(T& output, char c)
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:123:40: warning: unused parameter 'c' [-Wunused-parameter]
+  123 | inline void write_char(T& output, char c)
+      |                                        ^
+7 warnings generated.
+[5/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/runner_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:18:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+12 warnings generated.
+[6/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/snapshot_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+12 warnings generated.
+[7/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/choice.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/choice.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/choice.cpp:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+5 warnings generated.
+[8/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/story_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:18:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+12 warnings generated.
+[9/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/globals_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+12 warnings generated.
+[10/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/story_ptr.cpp.o
+[11/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/system.cpp.o
+[12/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/string_table.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.cpp:7:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+1 warning generated.
+[13/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/value.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.cpp:7:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.cpp:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+6 warnings generated.
+[14/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/list_table.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.cpp:13:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_utils.h:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+5 warnings generated.
+[15/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/numeric_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/numeric_operations.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/numeric_operations.cpp:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+7 warnings generated.
+[16/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/list_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+1 warning generated.
+[17/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/list_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_operations.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_operations.cpp:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+7 warnings generated.
+[18/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/container_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+12 warnings generated.
+[19/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/string_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:15:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:16:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:34:16: warning: private field '_val' is not used [-Wunused-private-field]
+   34 |                 const value& _val;
+      |                              ^
+9 warnings generated.
+[20/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/header.cpp.o
+[21/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp.dir/collections/restorable.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/restorable.cpp:8:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+4 warnings generated.
+[22/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/binary_stream.cpp.o
+[23/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/emitter.cpp.o
+[24/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/reporter.cpp.o
+[25/128] Building CXX object CMakeFiles/neon_oubliette.dir/cmake_pch.hxx.pch
+[26/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/list_data.cpp.o
+[27/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/binary_emitter.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/binary_emitter.cpp:7:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/binary_emitter.h:56:24: warning: private field '_results' is not used [-Wunused-private-field]
+   56 |                 compilation_results* _results;
+      |                                      ^
+1 warning generated.
+[28/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/command.cpp.o
+[29/128] Building CXX object CMakeFiles/neon_oubliette.dir/src/main.cpp.o
+[30/128] Linking CXX static library _deps/inkcpp-build/inkcpp/libinkcpp.a
+[31/128] Building CXX object CMakeFiles/neon_oubliette.dir/src/config/ConfigLoader.cpp.o
+[32/128] Building CXX object CMakeFiles/neon_oubliette.dir/external/json-schema-validator/json-validator.cpp.o
+[33/128] Building CXX object CMakeFiles/neon_oubliette.dir/src/config/schema_validator.cpp.o
+[34/128] Building CXX object CMakeFiles/neon_oubliette.dir/external/json-schema-validator/json-uri.cpp.o
+[35/128] Building CXX object CMakeFiles/neon_oubliette.dir/external/json-schema-validator/smtp-address-validator.cpp.o
+[36/128] Building CXX object CMakeFiles/neon_oubliette.dir/external/json-schema-validator/json-schema-draft7.json.cpp.o
+[37/128] Building CXX object CMakeFiles/neon_oubliette.dir/external/json-schema-validator/json-patch.cpp.o
+[38/128] Building CXX object CMakeFiles/neon_oubliette.dir/external/json-schema-validator/string-format-check.cpp.o
+[39/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/system_scheduler.cpp.o
+[40/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/component_registration.cpp.o
+[41/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/input_system.cpp.o
+[42/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/simulation_coordinator.cpp.o
+[43/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/system_registration.cpp.o
+[44/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/json_compiler.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/json_compiler.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/json_compiler.h:8:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/json.hpp:24314:35: warning: identifier '_json' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24314 | inline nlohmann::json operator "" _json(const char* s, std::size_t n)
+       |                       ~~~~~~~~~~~~^~~~~
+       |                       operator""_json
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/json.hpp:24322:49: warning: identifier '_json_pointer' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24322 | inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std::size_t n)
+       |                                     ~~~~~~~~~~~~^~~~~~~~~~~~~
+       |                                     operator""_json_pointer
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/json.hpp:24386:58: warning: identifier '_json' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24386 |     using nlohmann::literals::json_literals::operator "" _json; // NOLINT(misc-unused-using-decls,google-global-names-in-headers)
+       |                                              ~~~~~~~~~~~~^~~~~
+       |                                              operator""_json
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/json.hpp:24387:58: warning: identifier '_json_pointer' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24387 |     using nlohmann::literals::json_literals::operator "" _json_pointer; //NOLINT(misc-unused-using-decls,google-global-names-in-headers)
+       |                                              ~~~~~~~~~~~~^~~~~~~~~~~~~
+       |                                              operator""_json_pointer
+4 warnings generated.
+[45/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/agent_action_system.cpp.o
+[46/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/agent_decision_system.cpp.o
+[47/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/agent_spawn_system.cpp.o
+[48/128] Building CXX object _deps/inkcpp-build/inkcpp_compiler/CMakeFiles/inkcpp_compiler_o.dir/compiler.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/compiler.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/include/compiler.h:14:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/include/../json.hpp:24314:35: warning: identifier '_json' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24314 | inline nlohmann::json operator "" _json(const char* s, std::size_t n)
+       |                       ~~~~~~~~~~~~^~~~~
+       |                       operator""_json
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/include/../json.hpp:24322:49: warning: identifier '_json_pointer' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24322 | inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std::size_t n)
+       |                                     ~~~~~~~~~~~~^~~~~~~~~~~~~
+       |                                     operator""_json_pointer
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/include/../json.hpp:24386:58: warning: identifier '_json' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24386 |     using nlohmann::literals::json_literals::operator "" _json; // NOLINT(misc-unused-using-decls,google-global-names-in-headers)
+       |                                              ~~~~~~~~~~~~^~~~~
+       |                                              operator""_json
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp_compiler/include/../json.hpp:24387:58: warning: identifier '_json_pointer' preceded by whitespace in a literal operator declaration is deprecated [-Wdeprecated-literal-operator]
+ 24387 |     using nlohmann::literals::json_literals::operator "" _json_pointer; //NOLINT(misc-unused-using-decls,google-global-names-in-headers)
+       |                                              ~~~~~~~~~~~~^~~~~~~~~~~~~
+       |                                              operator""_json_pointer
+4 warnings generated.
+[49/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/movement_system.cpp.o
+[50/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/pathfinding_system.cpp.o
+[51/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/interaction_system.cpp.o
+[52/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/god_mode_system.cpp.o
+[53/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/dialogue_system.cpp.o
+[54/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/inspection_system.cpp.o
+[55/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/grammar_engine.cpp.o
+[56/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/crafting_system.cpp.o
+[57/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/consumption_system.cpp.o
+[58/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/item_usage_system.cpp.o
+[59/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/turn_manager_system.cpp.o
+[60/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/serialization_system.cpp.o
+[61/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/container_system.cpp.o
+[62/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/logging_system.cpp.o
+[63/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/player_movement_system.cpp.o
+[64/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/player_current_layer_system.cpp.o
+[65/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/rendering_system.cpp.o
+[66/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/traffic_flow_system.cpp.o
+[67/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/activity_system.cpp.o
+[68/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/barter_system.cpp.o
+[69/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/religion_system.cpp.o
+[70/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/faction_system.cpp.o
+[71/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/economic_system.cpp.o
+[72/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/zoning_solver_system.cpp.o
+[73/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/stock_market_system.cpp.o
+[74/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/city_planner_system.cpp.o
+[75/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/macro_navigation_system.cpp.o
+[76/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/infrastructure_network_system.cpp.o
+[77/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/chunk_streaming_system.cpp.o
+[78/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/transit_system.cpp.o
+[79/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/information_system.cpp.o
+[80/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/social_interaction_system.cpp.o
+[81/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/xeno_system.cpp.o
+[82/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/sound_system.cpp.o
+[83/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/crisis_dashboard_system.cpp.o
+[84/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/conversation_system.cpp.o
+[85/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/crisis_system.cpp.o
+[86/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/milestone_system.cpp.o
+[87/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/drug_manufacturing_system.cpp.o
+[88/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/wanted_level_system.cpp.o
+[89/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/guard_response_system.cpp.o
+[90/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/inheritance_system.cpp.o
+[91/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/urban_decay_system.cpp.o
+[92/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/city_generation_system.cpp.o
+[93/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/power_grid_system.cpp.o
+[94/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/broadcast_tower_system.cpp.o
+[95/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/underground_media_system.cpp.o
+[96/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/production_system.cpp.o
+[97/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/demolition_system.cpp.o
+[98/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/rebuilding_system.cpp.o
+[99/128] Building CXX object CMakeFiles/neon_oubliette.dir/ecs/systems/supply_chain_system.cpp.o
+[100/128] Linking CXX static library _deps/inkcpp-build/inkcpp_compiler/libinkcpp_compiler.a
+[101/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/functions.cpp.o
+[102/128] Linking CXX executable bin/neon_oubliette
+[103/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/choice.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/choice.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/choice.cpp:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+5 warnings generated.
+[104/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/functional.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/functional.cpp:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/functional.cpp:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/functional.cpp:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+8 warnings generated.
+[105/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/story_ptr.cpp.o
+[106/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/output.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:8:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:123:27: warning: unused parameter 'output' [-Wunused-parameter]
+  123 | inline void write_char(T& output, char c)
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/output.cpp:123:40: warning: unused parameter 'c' [-Wunused-parameter]
+  123 | inline void write_char(T& output, char c)
+      |                                        ^
+7 warnings generated.
+[107/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/system.cpp.o
+[108/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/stack.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.cpp:8:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+5 warnings generated.
+[109/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/story_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:18:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/story_impl.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+12 warnings generated.
+[110/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/string_table.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.cpp:7:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+1 warning generated.
+[111/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/list_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+1 warning generated.
+[112/128] Building CXX object _deps/backward-build/CMakeFiles/backward.dir/backward.cpp.o
+[113/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/globals_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+12 warnings generated.
+[114/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/value.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.cpp:7:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.cpp:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+6 warnings generated.
+[115/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/snapshot_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+12 warnings generated.
+[116/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/header.cpp.o
+[117/128] Building CXX object _deps/backward-build/CMakeFiles/backward_object.dir/backward.cpp.o
+[118/128] Linking CXX static library _deps/backward-build/libbackward.a
+[119/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/numeric_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/numeric_operations.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/numeric_operations.cpp:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+7 warnings generated.
+[120/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/container_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:13:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/container_operations.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+12 warnings generated.
+[121/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/list_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_operations.cpp:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_operations.cpp:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+7 warnings generated.
+[122/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/string_operations.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:15:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:16:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_operations.cpp:34:16: warning: private field '_val' is not used [-Wunused-private-field]
+   34 |                 const value& _val;
+      |                              ^
+9 warnings generated.
+[123/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/list_table.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.cpp:13:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_utils.h:11:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+5 warnings generated.
+[124/128] Building CXX object _deps/inkcpp-build/inkcpp_cl/CMakeFiles/inkcpp_cl.dir/inkcpp_cl.cpp.o
+[125/128] Building CXX object _deps/inkcpp-build/inkcpp_cl/CMakeFiles/inkcpp_cl.dir/test.cpp.o
+[126/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/runner_impl.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:18:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/string_table.h:20:10: warning: virtual method '~string_table' is inside a 'final' class and can never be overridden [-Wunnecessary-virtual-specifier]
+   20 |         virtual ~string_table();
+      |                 ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:27:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/executioner.h:32:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:63:21: warning: unused parameter 't' [-Wunused-parameter]
+   63 |         operation(const T& t)
+      |                            ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:36: warning: unused parameter 'stack' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/operations.h:72:50: warning: unused parameter 'vs' [-Wunused-parameter]
+   72 |         void operator()(basic_eval_stack& stack, value* vs) { inkFail("operation not implemented!"); }
+      |                                                         ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:11:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/globals_impl.h:12:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:31:30: warning: unused parameter 'name' [-Wunused-parameter]
+   31 |         optional<T> get(const char* name) const
+      |                                     ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:23: warning: unused parameter 'name' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                              ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/globals.h:44:38: warning: unused parameter 'val' [-Wunused-parameter]
+   44 |         bool set(const char* name, const T& val)
+      |                                             ^
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.cpp:7:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/runner_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/value.h:16:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_table.h:12:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/snapshot_impl.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/snapshot.h:9:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/types.h:9:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/include/list.h:119:13: warning: definition of implicit copy constructor for 'iterator' is deprecated because it has a user-declared copy assignment operator [-Wdeprecated-copy]
+  119 |                 iterator& operator=(const iterator&) = delete;
+      |                           ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/list_impl.h:34:59: note: in implicit copy constructor for 'ink::runtime::list_interface::iterator' first required here
+   34 |         list_interface::iterator begin() const override { return ++new_iterator(nullptr, 0); }
+      |                                                                  ^
+12 warnings generated.
+[127/128] Linking CXX executable _deps/inkcpp-build/inkcpp_cl/inkcpp_cl
+[128/128] Building CXX object _deps/inkcpp-build/inkcpp/CMakeFiles/inkcpp_o.dir/collections/restorable.cpp.o
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/restorable.cpp:8:
+In file included from /Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../stack.h:10:
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:201:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  201 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:209:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  209 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:214:3: warning: anonymous types declared in an anonymous union are an extension [-Wnested-anon-types]
+  214 |                 struct {
+      |                 ^
+/Users/gm1/Code/neon_oubliette/build_ninja/_deps/inkcpp-src/inkcpp/collections/../value.h:148:31: warning: unused parameter 'args' [-Wunused-parameter]
+  148 |         constexpr value& set(Args... args)
+      |                                      ^
+4 warnings generated.

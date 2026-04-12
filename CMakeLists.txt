@@ -125,6 +125,7 @@ endif()
 
 # --- Source Files ---
 set(PROJECT_SOURCES
+    feature_flags.cpp
     src/main.cpp
     src/config/ConfigLoader.cpp
     src/config/schema_validator.cpp
